@@ -11,6 +11,20 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+!.env.production
+Backend_Data/
+*customer*export*
+*products_export*
+*orders_export*
+*Orders_export*
+!src/**
+*.csv
+*.tsv
+*.pem
+*.key
 
 # Editor directories and files
 .vscode/*

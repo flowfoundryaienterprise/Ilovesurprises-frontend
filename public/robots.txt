@@ -1,0 +1,27 @@
+# https://ilovesurprises.com robots.txt
+User-agent: *
+Allow: /
+Allow: /shop
+Allow: /categories
+Allow: /product/
+Allow: /affiliate
+Allow: /about
+Allow: /contact
+Allow: /rewards
+
+# Disallow private, admin, checkout, and account areas
+Disallow: /admin
+Disallow: /admin/
+Disallow: /account
+Disallow: /account/
+Disallow: /checkout
+Disallow: /checkout/
+Disallow: /shipping
+Disallow: /payment
+Disallow: /buy-now
+Disallow: /order-confirmation/
+Disallow: /thank-you
+Disallow: /order-success
+
+# XML Sitemap
+Sitemap: https://ilovesurprises.com/sitemap.xml
