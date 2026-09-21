@@ -10,7 +10,7 @@ export interface Category {
   accentColor?: string;
 }
 
-export type SurpriseType = 'jewelry' | 'cash' | 'trinket' | 'charm' | 'mystery';
+export type SurpriseType = 'jewelry' | 'cash' | 'trinket' | 'charm' | 'mystery' | 'both';
 
 export interface Collection {
   id: string;

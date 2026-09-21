@@ -320,7 +320,7 @@ export const productService = {
     if (params.surpriseTypes && params.surpriseTypes.length > 0) {
       filtered = filtered.filter((p) => params.surpriseTypes!.includes(p.surpriseType));
     } else if (params.surpriseType && params.surpriseType !== 'all') {
-      filtered = filtered.filter((p) => p.surpriseType === params.surpriseType || (p.surpriseType as string) === 'both');
+      filtered = filtered.filter((p) => p.surpriseType === params.surpriseType || p.surpriseType === 'both');
     }
 
     // Filter by price range
