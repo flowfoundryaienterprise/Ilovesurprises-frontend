@@ -473,6 +473,36 @@ export function App() {
     });
   };
 
+  // Centralized 401 Unauthorized Session Expiration Handler
+  useEffect(() => {
+    const handleUnauthorizedSession = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      setUser(null);
+
+      // If user was viewing protected account or checkout view, redirect to home and open login modal
+      if (currentView === 'account' || currentView === 'checkout') {
+        setCurrentView('home');
+        if (window.history.pushState) {
+          window.history.pushState({ view: 'home' }, '', '/');
+        }
+        setIsAuthOpen(true);
+      }
+
+      showToast(
+        detail?.message || 'Your session has expired. Please sign in again.',
+        {
+          title: 'Session Expired',
+          type: 'info',
+        }
+      );
+    };
+
+    window.addEventListener('ilovesurprises_unauthorized', handleUnauthorizedSession);
+    return () => {
+      window.removeEventListener('ilovesurprises_unauthorized', handleUnauthorizedSession);
+    };
+  }, [currentView]);
+
   // Admin Route Protection & Session Verification
   useEffect(() => {
     let isMounted = true;

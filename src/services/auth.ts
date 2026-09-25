@@ -143,14 +143,21 @@ export const authService = {
   },
 
   /**
-   * Updates user password locally
+   * Updates user password (supports reset token with backend API)
    */
-  async resetPassword(newPassword: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  async resetPassword(
+    newPassword: string,
+    token?: string
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
     if (!newPassword || newPassword.length < 6) {
       return {
         success: false,
         error: 'New password must be at least 6 characters.',
       };
+    }
+
+    if (token) {
+      return customerAuthService.resetPassword(token, newPassword);
     }
 
     const current = accountService.getStoredUser();
@@ -160,7 +167,8 @@ export const authService = {
 
     return {
       success: true,
-      message: 'Your password has been successfully updated! You can now log in with your new password.',
+      message:
+        'Your password has been successfully updated! You can now log in with your new password.',
     };
   },
 
@@ -204,10 +212,10 @@ export const authService = {
   },
 
   /**
-   * Fetches current authenticated user profile
+   * Fetches current authenticated user profile from backend API or local cache
    */
   async getCurrentUser(): Promise<UserProfile | null> {
-    return accountService.getStoredUser();
+    return customerAuthService.getCurrentUser();
   },
 
   /**
