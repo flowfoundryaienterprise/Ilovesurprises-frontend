@@ -4,7 +4,6 @@ import {
   Phone,
   Clock,
   Send,
-  Sparkles,
   CheckCircle2,
   AlertCircle,
   ChevronDown,
@@ -150,7 +149,6 @@ export const Contact: React.FC = () => {
 
           <div className="relative z-10 max-w-2xl mx-auto space-y-2 sm:space-y-3">
             <div className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1 rounded-full bg-white text-[#D30915] border border-[#fecdd3] text-[10px] sm:text-xs font-black uppercase tracking-wider shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 text-[#D30915] shrink-0" />
               <span>Customer Care & Help Center</span>
             </div>
 

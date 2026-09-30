@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   DesktopFilterMegaPanel,
   ActiveFilterChips,
@@ -215,6 +215,16 @@ export const Shop: React.FC<ShopProps> = ({
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [serverTotalPages, setServerTotalPages] = useState<number>(1);
   const [isFetchingProducts, setIsFetchingProducts] = useState<boolean>(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState<boolean>(false);
+  const [retryCount, setRetryCount] = useState<number>(0);
+
+  const handleRetry = useCallback(() => {
+    setIsRetrying(true);
+    setFetchError(null);
+    setIsFetchingProducts(true);
+    setRetryCount((prev) => prev + 1);
+  }, []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -247,19 +257,25 @@ export const Shop: React.FC<ShopProps> = ({
           setServerTotal(res.total);
           setServerTotalPages(res.totalPages);
           setIsFetchingProducts(false);
+          setIsRetrying(false);
+          setFetchError(null);
         }
       })
       .catch((err) => {
         console.warn('Error fetching products from service:', err);
         if (!isCancelled) {
           setIsFetchingProducts(false);
+          setIsRetrying(false);
+          setFetchError(
+            err?.message || 'Unable to connect to the product catalog service. Please check your internet connection and try again.'
+          );
         }
       });
 
     return () => {
       isCancelled = true;
     };
-  }, [currentPage, appliedFilters, searchQuery]);
+  }, [currentPage, appliedFilters, searchQuery, retryCount]);
 
   // Active applied products shown in the grid (fallback in-memory)
   const filteredProducts = useMemo(() => {
@@ -267,13 +283,16 @@ export const Shop: React.FC<ShopProps> = ({
   }, [searchQuery, appliedFilters]);
 
   const activeProducts = useMemo(() => {
+    if (fetchError && serverProducts === null) {
+      return [];
+    }
     if (serverProducts !== null) {
       return deduplicateProducts(serverProducts);
     }
     const from = (currentPage - 1) * 15;
     const to = from + 15;
     return deduplicateProducts(filteredProducts).slice(from, to);
-  }, [serverProducts, filteredProducts, currentPage]);
+  }, [serverProducts, filteredProducts, currentPage, fetchError]);
 
   const totalPages = serverProducts !== null ? serverTotalPages : Math.max(1, Math.ceil(filteredProducts.length / 15));
 
@@ -469,11 +488,14 @@ export const Shop: React.FC<ShopProps> = ({
       {/* Product Grid Area (Full width with stable layout) */}
       <div id="shop-product-grid" className="w-full">
         <ProductGrid
-          isLoading={isFetchingProducts && !serverProducts}
+          isLoading={isFetchingProducts && !serverProducts && !fetchError}
           products={activeProducts}
           searchQuery={searchQuery}
           cart={cart}
           wishlistIds={wishlistIds}
+          errorMessage={fetchError}
+          onRetry={handleRetry}
+          isRetrying={isRetrying}
           onAddToCart={onAddToCart}
           onUpdateQuantity={onUpdateQuantity}
           onWishlistToggle={onWishlistToggle}

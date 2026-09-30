@@ -3,7 +3,6 @@ import {
   Mail,
   ShieldCheck,
   CreditCard,
-  Sparkles,
   Copy,
   Check,
 } from 'lucide-react';
@@ -59,7 +58,6 @@ export const RepresentativeAccountTab: React.FC<RepresentativeAccountTabProps> =
                   {repName}
                 </h3>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D30915]/10 text-[#D30915] text-[10px] font-black uppercase">
-                  <Sparkles className="w-3 h-3" />
                   <span>{stats.currentRank}</span>
                 </span>
               </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ShoppingBag, X, Plus, Minus, ArrowRight, ShieldCheck, Truck, Sparkles, Trash2, Tag, Check, Lock } from 'lucide-react';
+import { ShoppingBag, X, Plus, Minus, ArrowRight, ShieldCheck, Truck, Trash2, Tag, Check, Lock } from 'lucide-react';
 import type { CartItem } from '../../types';
 import { representativeService, type PublicRepresentative } from '../../services/representativeService';
 
@@ -213,7 +213,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   onClick={onClose}
                   className="h-[42px] px-6 rounded-[13px] bg-[#D30915] hover:bg-[#B60711] text-white font-black text-xs uppercase tracking-wider shadow-[0_6px_18px_rgba(211, 9, 21,0.28)] active:scale-95 transition-all cursor-pointer inline-flex items-center gap-1.5"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
                   <span>Start Unboxing</span>
                 </button>
               </div>

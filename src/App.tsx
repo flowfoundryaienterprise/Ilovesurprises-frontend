@@ -20,7 +20,7 @@ import { representativeService } from './services/representativeService';
 import { SEOHead } from './components/seo/SEOHead';
 import { authService } from './services/auth';
 import { customerAuthService } from './services/customerAuthService';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { PackageX, ArrowRight, RefreshCw } from 'lucide-react';
 
 // Route-level code splitting for rapid initial load and 144Hz responsiveness
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then((m) => ({ default: m.AdminDashboard })));
@@ -1575,7 +1575,7 @@ export function App() {
         accountTab={accountActiveTab}
       />
       {currentView === 'admin-login' ? (
-        <div key="page-admin-login" className="flex-1 w-full min-h-screen bg-[#0d0a11]">
+        <div key="page-admin-login" className="flex-1 w-full min-h-screen bg-[#fcf8fa]">
           <Suspense fallback={<PageLoadingFallback />}>
             <AdminLogin
               onSuccess={handleAdminLoginSuccess}
@@ -1586,14 +1586,14 @@ export function App() {
         </div>
       ) : currentView === 'admin' ? (
         adminAuthState.isChecking ? (
-          <div key="page-admin-checking" className="flex-1 w-full min-h-screen bg-[#0d0a11] flex flex-col items-center justify-center p-6 text-center text-white select-none">
-            <div className="w-16 h-16 rounded-2xl bg-[#D30915]/15 border border-[#D30915]/30 flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(211,9,21,0.25)]">
-              <div className="w-7 h-7 border-3 border-white/20 border-t-[#D30915] rounded-full animate-spin" />
+          <div key="page-admin-checking" className="flex-1 w-full min-h-screen bg-gradient-to-br from-[#fff1f2] via-[#fcf8fa] to-[#fbf2f6] flex flex-col items-center justify-center p-6 text-center text-[#141219] select-none">
+            <div className="w-16 h-16 rounded-2xl bg-[#D30915]/10 border border-[#fecdd3] flex items-center justify-center mb-4 shadow-[0_10px_25px_rgba(211,9,21,0.12)]">
+              <div className="w-7 h-7 border-3 border-[#fecdd3] border-t-[#D30915] rounded-full animate-spin" />
             </div>
-            <h2 className="text-lg font-black tracking-wide uppercase text-white mb-1 font-display">
+            <h2 className="text-lg font-black tracking-wide uppercase text-[#141219] mb-1 font-display">
               Verifying Executive Access
             </h2>
-            <p className="text-xs text-[#9c93a4] font-medium max-w-xs">
+            <p className="text-xs text-[#716d77] font-medium max-w-xs">
               Checking administrative session and cryptographic privileges...
             </p>
           </div>
@@ -1781,20 +1781,57 @@ export function App() {
               ) : productLoadingError ? (
                 <div className="max-w-[700px] mx-auto px-4 py-20 text-center animate-in fade-in duration-300">
                   <div className="w-16 h-16 rounded-full bg-[#fff1f2] border border-[#fecdd3] text-[#D30915] flex items-center justify-center mx-auto mb-4 shadow-xs">
-                    <Sparkles className="w-8 h-8" />
+                    <PackageX className="w-8 h-8" />
                   </div>
                   <h2 className="text-2xl font-black text-[#141219] mb-2 font-display">Product Not Found</h2>
                   <p className="text-sm text-[#716d77] max-w-md mx-auto mb-6 font-medium">
                     The requested product could not be found or is no longer available in our catalog. Explore our complete collection of real cash and jewelry reveal surprises!
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => handleNavigateToShop(undefined, 'backward')}
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#D30915] hover:bg-[#b80712] text-white text-xs font-black uppercase tracking-wider shadow-[0_8px_20px_rgba(211,9,21,0.25)] hover:shadow-[0_12px_24px_rgba(211,9,21,0.35)] transition-all cursor-pointer"
-                  >
-                    <span>Browse All Products</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const path = window.location.pathname;
+                        if (path.startsWith('/product/')) {
+                          const slug = decodeURIComponent(path.replace('/product/', '').trim());
+                          if (slug) {
+                            setIsProductLoading(true);
+                            setProductLoadingError(false);
+                            productService
+                              .getProductBySlug(slug)
+                              .then((prod) => {
+                                if (prod) {
+                                  setSelectedProduct(prod);
+                                  setProductLoadingError(false);
+                                } else {
+                                  setSelectedProduct(null);
+                                  setProductLoadingError(true);
+                                }
+                              })
+                              .catch(() => {
+                                setSelectedProduct(null);
+                                setProductLoadingError(true);
+                              })
+                              .finally(() => {
+                                setIsProductLoading(false);
+                              });
+                          }
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white border border-[#eedbe6] text-[#141219] hover:bg-gray-50 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-[#D30915]" />
+                      <span>Retry Loading</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleNavigateToShop(undefined, 'backward')}
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#D30915] hover:bg-[#b80712] text-white text-xs font-black uppercase tracking-wider shadow-[0_8px_20px_rgba(211,9,21,0.25)] hover:shadow-[0_12px_24px_rgba(211,9,21,0.35)] transition-all cursor-pointer"
+                    >
+                      <span>Browse All Products</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <PageLoadingFallback />

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { ShieldCheck, Truck, Sparkles, Mail, Phone, Lock, CheckCheck, Send, DollarSign, HelpCircle, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShieldCheck, Truck, Gift, Mail, Phone, Lock, CheckCheck, Send, DollarSign, HelpCircle, ChevronDown } from 'lucide-react';
+import { adminService } from '../../services/adminService';
+import type { FooterContentConfig } from '../../types/admin';
 
 interface FooterProps {
   onNavigate?: (
@@ -25,6 +27,27 @@ interface FooterProps {
 export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+  const [footerConfig, setFooterConfig] = useState<FooterContentConfig>(() => {
+    return adminService.getHomepageContent().footerContent || {
+      newsletterTitle: 'Unlock 15% Off Your Next Surprise & Weekly Cash Drop Alerts',
+      newsletterSubtitle:
+        'Join over 85,000+ unboxing fans. Be first to know about new limited scents, rare diamond jewelry drops, and grand cash reveals.',
+      copyrightText: '© 2026 ILoveSurprises.com. All rights reserved. Hand-poured with love in the USA.',
+      supportEmail: 'support@ilovesurprises.com',
+      supportPhone: '1-800-SURPRISE',
+      guaranteeText: '256-Bit SSL Encrypted Bank-Grade Checkout',
+    };
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const current = adminService.getHomepageContent().footerContent;
+      if (current) setFooterConfig(current);
+    };
+    window.addEventListener('ils_homepage_content_updated', handleUpdate);
+    return () => window.removeEventListener('ils_homepage_content_updated', handleUpdate);
+  }, []);
+
   const [mobileSections, setMobileSections] = useState<{ [key: string]: boolean }>({
     help: true,
     care: true,
@@ -55,17 +78,13 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
           <div className="lg:col-span-6">
             <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#D30915]/10 text-[#D30915] text-[10px] sm:text-[11px] font-black uppercase tracking-wider mb-1.5 sm:mb-2 shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 shrink-0" />
               <span>VIP Reveal Club</span>
             </div>
             <h3 className="text-lg sm:text-2xl lg:text-[26px] font-black text-[#141219] tracking-tight leading-snug hero-title-font m-0 mb-1 sm:mb-1.5">
-              Unlock 15% Off Your Next Surprise &{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#D30915] to-[#B60711]">
-                Weekly Cash Drop Alerts
-              </span>
+              {footerConfig.newsletterTitle}
             </h3>
             <p className="text-xs sm:text-sm text-[#55505a] leading-relaxed m-0 font-medium">
-              Join over <strong className="text-[#141219] font-bold">85,000+ unboxing fans</strong>. Be first to know about new limited scents, rare diamond jewelry drops, and grand cash reveals.
+              {footerConfig.newsletterSubtitle}
             </p>
           </div>
 
@@ -120,7 +139,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
           <div className="flex items-center justify-start text-left gap-2.5 sm:gap-3 px-3 py-2 sm:p-2.5 rounded-[12px] sm:rounded-[14px] bg-[#fff8fb] border border-[#f5e4ec] shadow-2xs">
             <div className="w-8 h-8 rounded-full bg-white border border-[#f2d8e2] text-[#D30915] flex items-center justify-center shrink-0 shadow-2xs">
-              <Sparkles className="w-4 h-4" />
+              <Gift className="w-4 h-4" />
             </div>
             <div className="text-left min-w-0">
               <strong className="block text-[11px] sm:text-xs font-black text-[#141219] leading-snug">Guaranteed Surprise Inside</strong>
@@ -560,7 +579,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
         <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold text-[#141219]">
           <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
-          <span>256-Bit SSL Encrypted Bank-Grade Checkout</span>
+          <span>{footerConfig.guaranteeText}</span>
         </div>
 
         {/* Payment Badges */}
@@ -593,7 +612,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
       {/* 5. Bottom Copyright Strip */}
       <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-[#f4edf2] text-[10px] sm:text-[11px] text-[#85818a] flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
         <p className="m-0">
-          © 2026 <strong className="text-[#141219]">ILoveSurprises.com</strong>. All rights reserved. Hand-poured with love in the USA.
+          {footerConfig.copyrightText}
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">

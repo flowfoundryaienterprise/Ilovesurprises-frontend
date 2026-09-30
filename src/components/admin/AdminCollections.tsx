@@ -5,7 +5,6 @@ import {
   Plus,
   Edit2,
   Trash2,
-  Sparkles,
   ArrowUp,
   ArrowDown,
   Package,
@@ -285,7 +284,6 @@ export const AdminCollections: React.FC<AdminCollectionsProps> = ({
                             <div className="font-bold text-[#141219]">{c.name}</div>
                             {c.featured && (
                               <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-[#D30915] bg-[#fff1f2] px-1.5 py-0.2 rounded mt-0.5">
-                                <Sparkles className="w-2.5 h-2.5" />
                                 <span>Featured</span>
                               </span>
                             )}

@@ -1,15 +1,59 @@
-import React from 'react';
-import { Gem, Gift, Store, Users } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Gem, Gift, Store, Users, ShieldCheck } from 'lucide-react';
+import { adminService } from '../../services/adminService';
+import type { HeroContentConfig } from '../../types/admin';
 
 interface HeroProps {
   onShopSurprises?: () => void;
   onBecomeConsultant?: () => void;
+  config?: HeroContentConfig;
 }
+
+const ICON_MAP = {
+  Gem,
+  Gift,
+  Store,
+  Users,
+  Sparkles: Gift,
+  ShieldCheck,
+};
 
 export const Hero: React.FC<HeroProps> = ({
   onShopSurprises,
   onBecomeConsultant,
+  config: propConfig,
 }) => {
+  const [storedHeroConfig, setStoredHeroConfig] = useState<HeroContentConfig>(() => {
+    const content = adminService.getHomepageContent();
+    return content.hero || {
+      desktopBannerImage: '/assets/ilovesurprises/banners/Neww banner.jpeg',
+      mobileBannerImage: '/assets/ilovesurprises/banners/mobile-banner.jpg',
+      headline: 'ILoveSurprises.com — Discover jewelry, cash, and surprises inside every candle & bath bomb',
+      subheadline: 'Every candle holds a real surprise inside!',
+      benefitTiles: [
+        { id: 'hidden-jewelry', title: 'Hidden Jewelry Reveals', subtitle: 'Real jewelry in every product', iconName: 'Gem', actionType: 'shop' },
+        { id: 'viral-unboxing', title: 'Viral Unboxing Fun', subtitle: 'Share, surprise, repeat', iconName: 'Gift', actionType: 'shop' },
+        { id: 'start-store', title: 'Start Your Store', subtitle: 'Your business. Your way.', iconName: 'Store', actionType: 'consultant' },
+        { id: 'earn-5-levels', title: 'Earn From 5 Levels', subtitle: 'Build your team. Grow together.', iconName: 'Users', actionType: 'consultant' },
+      ],
+    };
+  });
+
+  useEffect(() => {
+    const updateHero = () => {
+      const current = adminService.getHomepageContent().hero;
+      if (current) {
+        setStoredHeroConfig(current);
+      }
+    };
+    window.addEventListener('ils_homepage_content_updated', updateHero);
+    return () => {
+      window.removeEventListener('ils_homepage_content_updated', updateHero);
+    };
+  }, []);
+
+  const heroConfig = propConfig || storedHeroConfig;
+
   const handleShopClick = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
     if (onShopSurprises) {
@@ -35,36 +79,14 @@ export const Hero: React.FC<HeroProps> = ({
     }
   };
 
-  const benefitItems = [
-    {
-      id: 'hidden-jewelry',
-      title: 'Hidden Jewelry Reveals',
-      subtitle: 'Real jewelry in every product',
-      icon: Gem,
-      onClick: () => handleShopClick(),
-    },
-    {
-      id: 'viral-unboxing',
-      title: 'Viral Unboxing Fun',
-      subtitle: 'Share, surprise, repeat',
-      icon: Gift,
-      onClick: () => handleShopClick(),
-    },
-    {
-      id: 'start-store',
-      title: 'Start Your Store',
-      subtitle: 'Your business. Your way.',
-      icon: Store,
-      onClick: (e: React.MouseEvent) => handleConsultantClick(e),
-    },
-    {
-      id: 'earn-5-levels',
-      title: 'Earn From 5 Levels',
-      subtitle: 'Build your team. Grow together.',
-      icon: Users,
-      onClick: (e: React.MouseEvent) => handleConsultantClick(e),
-    },
-  ];
+  const benefitTiles = heroConfig.benefitTiles && heroConfig.benefitTiles.length > 0
+    ? heroConfig.benefitTiles
+    : [
+        { id: 'hidden-jewelry', title: 'Hidden Jewelry Reveals', subtitle: 'Real jewelry in every product', iconName: 'Gem' as const, actionType: 'shop' as const },
+        { id: 'viral-unboxing', title: 'Viral Unboxing Fun', subtitle: 'Share, surprise, repeat', iconName: 'Gift' as const, actionType: 'shop' as const },
+        { id: 'start-store', title: 'Start Your Store', subtitle: 'Your business. Your way.', iconName: 'Store' as const, actionType: 'consultant' as const },
+        { id: 'earn-5-levels', title: 'Earn From 5 Levels', subtitle: 'Build your team. Grow together.', iconName: 'Users' as const, actionType: 'consultant' as const },
+      ];
 
   return (
     <section id="hero" className="max-w-[1460px] mx-auto px-2 sm:px-6 pt-0.5 sm:pt-2.5 pb-1 sm:pb-2.5">
@@ -73,7 +95,7 @@ export const Hero: React.FC<HeroProps> = ({
         
         {/* Visually Hidden H1 for SEO & Accessibility */}
         <h1 className="sr-only">
-          ILoveSurprises.com — Discover jewelry, cash, and surprises inside every candle &amp; bath bomb
+          {heroConfig.headline || 'ILoveSurprises.com — Discover jewelry, cash, and surprises inside every candle & bath bomb'}
         </h1>
 
         {/* TOP HERO AREA: BLINKIT-STYLE FULL-BLEED HERO BANNER */}
@@ -88,17 +110,17 @@ export const Hero: React.FC<HeroProps> = ({
               handleShopClick();
             }
           }}
-          aria-label="Shop Surprises at ILoveSurprises.com - Discover jewelry, cash, and surprises inside every candle and bath bomb"
+          aria-label={heroConfig.headline || 'Shop Surprises at ILoveSurprises.com - Discover jewelry, cash, and surprises inside every candle and bath bomb'}
         >
-          {/* Responsive Banner Image (mobile-banner.jpg on mobile, Neww banner.jpeg on desktop) */}
+          {/* Responsive Banner Image */}
           <picture className="w-full h-full block">
             <source
               media="(max-width: 639px)"
-              srcSet="/assets/ilovesurprises/banners/mobile-banner.jpg"
+              srcSet={heroConfig.mobileBannerImage || '/assets/ilovesurprises/banners/mobile-banner.jpg'}
             />
             <img
-              src="/assets/ilovesurprises/banners/Neww banner.jpeg"
-              alt="ILoveSurprises.com - Discover jewelry, cash, and surprises inside every candle & bath bomb"
+              src={heroConfig.desktopBannerImage || '/assets/ilovesurprises/banners/Neww banner.jpeg'}
+              alt={heroConfig.headline || 'ILoveSurprises.com - Discover jewelry, cash, and surprises inside every candle & bath bomb'}
               className="w-full h-full object-cover object-center select-none transform-gpu backface-hidden [transform:translateZ(0)] transition-all duration-700 ease-out group-hover:scale-[1.012]"
               loading="eager"
               fetchPriority="high"
@@ -120,13 +142,14 @@ export const Hero: React.FC<HeroProps> = ({
         {/* BENEFIT STRIP DIRECTLY BELOW HERO (2 boxes per line on mobile, 4 columns on desktop) */}
         <div className="border-t border-[#f0e3ea] bg-white/98 backdrop-blur-xs px-2 min-[375px]:px-2.5 sm:px-8 py-2 sm:py-3 transition-all">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 min-[375px]:gap-2 sm:gap-6 lg:gap-4 lg:divide-x lg:divide-[#f0e2ea] items-stretch">
-            {benefitItems.map((item) => {
-              const IconComponent = item.icon;
+            {benefitTiles.map((item) => {
+              const IconComponent = (item.iconName && ICON_MAP[item.iconName]) ? ICON_MAP[item.iconName] : Gem;
+              const isConsultant = item.actionType === 'consultant';
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={item.onClick}
+                  onClick={(e) => isConsultant ? handleConsultantClick(e) : handleShopClick(e)}
                   className="group flex items-center gap-1.5 min-[360px]:gap-2 sm:gap-3.5 py-1.5 min-[360px]:py-2 px-1.5 min-[360px]:px-2 sm:py-1.5 sm:px-3 text-left rounded-xl bg-[#faf6f8]/80 sm:bg-transparent border border-[#f2e6ee] sm:border-transparent transition-all duration-200 hover:bg-[#fff7f9] cursor-pointer h-full min-h-[50px] sm:min-h-0"
                 >
                   {/* Thin Outline Icon matching Reference */}

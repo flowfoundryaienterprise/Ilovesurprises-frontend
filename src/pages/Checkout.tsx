@@ -3,7 +3,7 @@ import {
   ShieldCheck,
   Lock,
   Truck,
-  Sparkles,
+  Gift,
   ArrowRight,
   ArrowLeft,
   Check,
@@ -624,7 +624,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
           onClick={onNavigateToShop}
           className="h-[50px] px-8 rounded-[16px] bg-[#D30915] hover:bg-[#B60711] text-white font-black text-sm uppercase tracking-wider shadow-[0_8px_24px_rgba(211, 9, 21,0.3)] active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
         >
-          <Sparkles className="w-4 h-4" />
+          <Gift className="w-4 h-4" />
           <span>Explore All Surprise Candles</span>
         </button>
       </div>
@@ -908,7 +908,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
                         </h4>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                            <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
+                            <Gift className="w-2.5 h-2.5 text-emerald-600" />
                             {item.product.surpriseType === 'cash' ? 'Cash Inside' : 'Jewelry Inside'}
                           </span>
                           <span className="text-[10px] text-[#716d77]">
@@ -2086,7 +2086,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
                       </h4>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 shrink-0">
-                          <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
+                          <Gift className="w-2.5 h-2.5 text-emerald-600" />
                           {item.product.surpriseType === 'cash' ? 'Cash Inside' : 'Jewelry Inside'}
                         </span>
                         <span className="text-[10px] text-[#716d77]">
@@ -2177,7 +2177,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
                 {isRepPurchaser ? (
                   <div className="flex justify-between items-center text-emerald-800 font-bold bg-emerald-50/80 px-2.5 py-1.5 rounded-lg border border-emerald-200">
                     <div className="flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <Tag className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>Rep Personal Order Discount (20% Off)</span>
                     </div>
                     <span>-${repPersonalDiscount.toFixed(2)}</span>
@@ -2230,7 +2230,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
             {/* Satisfaction Guarantee card */}
             <div className="p-4 rounded-[18px] bg-gradient-to-r from-[#fff5f5] to-[#fbf7fc] border border-[#fecdd3] text-xs text-[#55505a] flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-white text-[#D30915] border border-[#fecdd3] flex items-center justify-center shrink-0 shadow-xs">
-                <Sparkles className="w-4 h-4" />
+                <Gift className="w-4 h-4" />
               </div>
               <div className="min-w-0">
                 <strong className="block text-[#141219] font-black text-xs truncate">

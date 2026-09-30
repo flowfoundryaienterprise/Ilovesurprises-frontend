@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, Plus, Minus, Star, Sparkles } from 'lucide-react';
+import { Heart, Plus, Minus, Star, Gift } from 'lucide-react';
 import type { Product } from '../../types';
 import { resolveProductImage } from '../../services/productService';
 import { handleImageErrorSafely, getCategoryFallback } from '../../utils/imageUtils';
@@ -132,7 +132,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
         {/* Surprise Pill Tag at Bottom of Image with Strict Truncation and No Overflow */}
         {product.surpriseValue && (
           <div className="absolute bottom-1.5 left-1.5 right-1.5 bg-white/95 backdrop-blur-xs rounded-[6px] sm:rounded-[8px] px-1.5 sm:px-2 py-0.5 border border-[#f2e6ec] flex items-center gap-1 shadow-2xs z-10 pointer-events-none overflow-hidden max-w-[calc(100%-12px)]">
-            <Sparkles className="w-2.5 h-2.5 text-[#D30915] shrink-0 animate-pulse" />
+            <Gift className="w-2.5 h-2.5 text-[#D30915] shrink-0" />
             <span className="text-[8.5px] sm:text-[10px] font-bold text-[#141219] truncate leading-tight">
               {product.surpriseValue}
             </span>

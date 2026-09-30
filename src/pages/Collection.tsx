@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Sparkles,
   ChevronDown,
   ChevronUp,
   PackageX,
@@ -130,7 +129,6 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex-1 max-w-3xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#fff1f2] border border-[#fecdd3] text-[#D30915] text-[11px] font-black uppercase tracking-wider mb-2.5">
-              <Sparkles className="w-3.5 h-3.5" />
               <span>Authentic Collection</span>
             </div>
 

@@ -5,7 +5,6 @@ import {
   Users,
   Award,
   CreditCard,
-  Sparkles,
   Layers,
   ArrowUpRight,
   ShieldCheck,
@@ -138,7 +137,6 @@ export const AffiliateOverview: React.FC<AffiliateOverviewProps> = ({
 
           <div className="flex items-center justify-between mb-2 relative z-10">
             <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-[#D30915] flex items-center gap-1">
-              <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
               <span>Available</span>
             </span>
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-[12px] bg-[#D30915] text-white flex items-center justify-center shadow-xs shrink-0">
@@ -322,7 +320,6 @@ export const AffiliateOverview: React.FC<AffiliateOverviewProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#f5eaf1]">
           <div>
             <div className="flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#D30915]">
-              <Sparkles className="w-3.5 h-3.5" />
               <span>Official Representative Plan Structure</span>
             </div>
             <h3 className="text-base sm:text-lg font-black text-[#141219] m-0 font-display">

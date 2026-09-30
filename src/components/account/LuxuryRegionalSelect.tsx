@@ -5,7 +5,6 @@ import {
   Search,
   Check,
   X,
-  Sparkles,
 } from 'lucide-react';
 
 import type { RegionalCategory, RegionalOption } from '../../constants/regional';
@@ -228,9 +227,6 @@ export const LuxuryRegionalSelect: React.FC<LuxuryRegionalSelectProps> = ({
                 'bg-[#fff1f2] text-[#D30915] border-[#fecdd3]'
               }`}
             >
-              {selectedOption.badge === 'Primary' || selectedOption.badge === 'Default' ? (
-                <Sparkles className="w-2.5 h-2.5 text-[#D30915]" />
-              ) : null}
               <span>{selectedOption.badge}</span>
             </span>
           )}
@@ -414,7 +410,7 @@ export const LuxuryRegionalSelect: React.FC<LuxuryRegionalSelectProps> = ({
               Showing {filteredOptions.length} of {options.length} options
             </span>
             <span className="font-semibold text-[#D30915] flex items-center gap-1">
-              <Sparkles className="w-2.5 h-2.5" /> Auto-saves instantly
+              <Check className="w-2.5 h-2.5" /> Auto-saves instantly
             </span>
           </div>
         </div>

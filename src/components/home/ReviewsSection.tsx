@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, CheckCircle, Sparkles, Gem, DollarSign, PackageCheck, ShieldCheck, Award } from 'lucide-react';
+import { Star, CheckCircle, Gift, Gem, DollarSign, PackageCheck, ShieldCheck, Award } from 'lucide-react';
 import type { Review } from '../../types';
 import { reviewsData } from '../../data/reviews';
 import { Skeleton } from '../ui/Skeleton';
@@ -72,7 +72,6 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = React.memo(({ isLoa
           <div className="max-w-2xl">
             {/* Top Eyebrow Tag */}
             <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#D30915]/10 text-[#D30915] text-[10px] sm:text-[11px] font-black uppercase tracking-wider mb-2.5 shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '4s' }} />
               <span>Real Customer Reveals</span>
             </div>
 
@@ -193,7 +192,7 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = React.memo(({ isLoa
           </div>
         ) : filteredReviews.length === 0 ? (
           <div className="py-12 px-4 rounded-[20px] bg-white border border-[#eedbe6] text-center mb-6">
-            <Sparkles className="w-10 h-10 text-[#D30915] mx-auto mb-3 opacity-60" />
+            <Gift className="w-10 h-10 text-[#D30915] mx-auto mb-3 opacity-60" />
             <h3 className="text-base sm:text-lg font-black text-[#141219] mb-1 font-display">
               No Customer Reviews Yet
             </h3>
@@ -285,7 +284,7 @@ export const ReviewsSection: React.FC<ReviewsSectionProps> = React.memo(({ isLoa
                           ) : isJewelry ? (
                             <Gem className="w-3.5 h-3.5" />
                           ) : (
-                            <Sparkles className="w-3.5 h-3.5" />
+                            <Gift className="w-3.5 h-3.5" />
                           )}
                         </div>
                         <div className="min-w-0">

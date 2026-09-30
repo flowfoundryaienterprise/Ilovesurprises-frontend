@@ -8,7 +8,8 @@ import {
   Percent,
   Clock,
   ArrowUpRight,
-  Sparkles,
+  Layers,
+  Gem,
   CheckCircle2,
   Download,
 } from 'lucide-react';
@@ -59,7 +60,6 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
       <div className="bg-gradient-to-r from-[#fff1f2] via-[#fff7fa] to-[#fbf4ff] rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-[#eedbe6] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#D30915]/10 text-[#D30915] text-[11px] font-black uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
             <span>Executive Command Center</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-[#141219] hero-title-font m-0 tracking-tight">
@@ -129,7 +129,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-[#716d77]">Collections</span>
               <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center group-hover:bg-purple-700 group-hover:text-white transition-colors">
-                <Sparkles className="w-3.5 h-3.5" />
+                <Layers className="w-3.5 h-3.5" />
               </div>
             </div>
             <div className="text-xl font-black text-[#141219]">
@@ -224,7 +224,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-[#716d77]">Appraisals</span>
               <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center group-hover:bg-indigo-700 group-hover:text-white transition-colors">
-                <Sparkles className="w-3.5 h-3.5" />
+                <Gem className="w-3.5 h-3.5" />
               </div>
             </div>
             <div className="text-xl font-black text-[#141219]">

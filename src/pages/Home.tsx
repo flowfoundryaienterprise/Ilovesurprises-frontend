@@ -5,6 +5,7 @@ import { CategorySection } from '../components/home/CategorySection';
 import { AffiliateSection } from '../components/home/AffiliateSection';
 import { FeaturedProducts } from '../components/home/FeaturedProducts';
 import { ReviewsSection } from '../components/home/ReviewsSection';
+import { ValuePropositionSection } from '../components/home/ValuePropositionSection';
 import { sessionTracker } from '../utils/sessionTracker';
 import type { Product, CartItem } from '../types';
 
@@ -75,6 +76,11 @@ export const Home: React.FC<HomeProps> = ({
           onSelectCollection={onSelectCollection}
           onSelectProduct={onSelectProduct}
         />
+      </div>
+
+      {/* Dynamic Storefront Value Proposition & Guarantees */}
+      <div className="transition-all duration-300">
+        <ValuePropositionSection />
       </div>
 
       {/* 4. Trending Best Sellers (Curated Products, Zero Tabs, Max 10 Products) */}

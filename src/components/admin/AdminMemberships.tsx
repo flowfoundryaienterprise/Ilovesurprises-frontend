@@ -7,7 +7,6 @@ import {
   X,
   Check,
   Sliders,
-  Sparkles,
   ShieldAlert,
 } from 'lucide-react';
 import type { MembershipAdminRecord, MembershipPlanType } from '../../types/admin';
@@ -617,7 +616,6 @@ export const AdminMemberships: React.FC<AdminMembershipsProps> = ({
               {/* Live Preview Card */}
               <div className="p-3.5 rounded-2xl bg-[#faf7f9] border border-[#eedbe6] space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-[#D30915] flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" />
                   <span>Calculated Billing Previews</span>
                 </span>
                 <div className="grid grid-cols-2 gap-2 text-xs">

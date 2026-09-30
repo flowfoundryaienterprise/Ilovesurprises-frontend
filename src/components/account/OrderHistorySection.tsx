@@ -8,7 +8,7 @@ import {
   Check,
   Truck,
   Clock,
-  Sparkles,
+  Gift,
   CreditCard,
   Banknote,
   XCircle,
@@ -166,7 +166,7 @@ export const OrderHistorySection: React.FC<OrderHistorySectionProps> = ({
 
         <div className="bg-white rounded-[20px] p-4.5 border border-[#eedbe6] shadow-[0_4px_16px_rgba(50,31,63,0.03)] flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-[14px] bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200">
-            <Sparkles className="w-5 h-5" />
+            <Gift className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[10px] uppercase tracking-wider font-bold text-[#716d77] block">
@@ -291,7 +291,7 @@ export const OrderHistorySection: React.FC<OrderHistorySectionProps> = ({
                 onClick={onNavigateToShop}
                 className="h-[40px] px-6 rounded-[12px] bg-[#D30915] hover:bg-[#B60711] text-white font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xs inline-flex items-center gap-1.5"
               >
-                <Sparkles className="w-3.5 h-3.5" />
+                <Package className="w-3.5 h-3.5" />
                 <span>Discover Candles</span>
               </button>
             )}

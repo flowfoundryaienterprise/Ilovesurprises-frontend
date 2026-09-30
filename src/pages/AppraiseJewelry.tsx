@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import {
-  Sparkles,
   Search,
   CheckCircle2,
   AlertCircle,
@@ -217,7 +216,6 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
         ================================================================ */}
         <section className="text-center max-w-3xl mx-auto pt-2 sm:pt-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#D30915]/10 border border-[#D30915]/20 text-[#D30915] text-xs font-black uppercase tracking-wider mb-4 shadow-2xs">
-            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
             <span>Official Gemological Verification</span>
           </div>
 

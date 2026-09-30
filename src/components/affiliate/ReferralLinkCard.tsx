@@ -4,7 +4,6 @@ import {
   Check,
   Share2,
   QrCode,
-  Sparkles,
   Edit2,
   Globe,
   X,
@@ -76,7 +75,6 @@ export const ReferralLinkCard: React.FC<ReferralLinkCardProps> = ({
           <div>
             <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 flex-wrap">
               <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-[#D30915] bg-[#fff1f2] px-2.5 sm:px-3 py-1 rounded-full border border-[#fecdd3] inline-flex items-center gap-1.5 shadow-2xs">
-                <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#D30915]" />
                 <span>20% Direct Commission Active</span>
               </span>
 

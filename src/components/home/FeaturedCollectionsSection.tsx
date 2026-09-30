@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Sparkles, ArrowRight, DollarSign, Flame, Gift, Gem } from 'lucide-react';
+import { ArrowRight, DollarSign, Flame, Gift, Gem } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { productService } from '../../services/productService';
 import { deduplicateProducts } from '../../utils/productUtils';
@@ -81,7 +81,7 @@ const DEFAULT_CURATED_CARDS: Record<string, CuratedCollectionConfig> = {
     title: 'Zodiac Cash Candles',
     categoryKey: 'ZODIAC CASH MONEY CANDLES',
     badge: 'Real Cash Inside',
-    badgeIcon: Sparkles,
+    badgeIcon: DollarSign,
     tagline: 'Astrology horoscope cash candles with real money prizes up to $2,500',
     itemCount: 12,
     image: '/assets/ilovesurprises/categories/AQUARIUSZODIACCANDLE.webp',

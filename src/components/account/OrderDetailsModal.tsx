@@ -9,7 +9,6 @@ import {
   Gift,
   Copy,
   Printer,
-  Sparkles,
   XCircle,
 } from 'lucide-react';
 import type { Order, OrderStatus } from '../../types';
@@ -277,7 +276,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
           {/* Items List */}
           <div>
             <h4 className="text-xs font-black uppercase tracking-wider text-[#716d77] mb-2 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#D30915]" />
+              <Package className="w-3.5 h-3.5 text-[#D30915]" />
               <span>Items In Package ({order.items.length})</span>
             </h4>
             <div className="space-y-2 divide-y divide-[#f7eff4]">

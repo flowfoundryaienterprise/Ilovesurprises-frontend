@@ -7,7 +7,7 @@ import {
   Settings,
   Users,
   LogOut,
-  Sparkles,
+  Gift,
   Star,
   ChevronRight,
 } from 'lucide-react';
@@ -125,7 +125,7 @@ export const AccountSidebar: React.FC<AccountSidebarProps> = ({
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-2.5 h-2.5" />
+                  <Star className="w-2.5 h-2.5" />
                   <span>VIP Club Member</span>
                 </>
               )}
@@ -136,7 +136,7 @@ export const AccountSidebar: React.FC<AccountSidebarProps> = ({
         {/* Cashback Balance Badge */}
         <div className="mt-4 pt-3.5 border-t border-[#f7eff4] flex items-center justify-between text-xs">
           <div className="flex items-center gap-1.5 text-[#716d77] font-semibold text-[11px]">
-            <Sparkles className="w-3.5 h-3.5 text-[#D30915]" />
+            <Gift className="w-3.5 h-3.5 text-[#D30915]" />
             <span>Surprise VIP Rewards</span>
           </div>
           <strong className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">

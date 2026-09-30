@@ -10,7 +10,7 @@ import {
   SlidersHorizontal,
   ArrowUpDown,
   PackageCheck,
-  Sparkles,
+  Gift,
   Search,
 } from 'lucide-react';
 import { categoriesData } from '../../data/categories';
@@ -317,7 +317,7 @@ export const DesktopFilterMegaPanel: React.FC<FilterComponentProps> = ({
             {[
               { id: 'jewelry', label: 'Fine Jewelry Inside', icon: Gem, color: 'text-[#D30915]' },
               { id: 'cash', label: 'Real Cash Bills Inside', icon: DollarSign, color: 'text-emerald-700' },
-              { id: 'mystery', label: 'Mystery Jackpot Item', icon: Sparkles, color: 'text-purple-600' },
+              { id: 'mystery', label: 'Mystery Jackpot Item', icon: Gift, color: 'text-purple-600' },
             ].map((item) => {
               const isSelected = filters.surpriseTypes.includes(item.id);
               const count = allProducts.filter((p) => p.surpriseType === item.id).length;
@@ -458,7 +458,6 @@ export const DesktopFilterMegaPanel: React.FC<FilterComponentProps> = ({
       {/* Bottom Action Strip */}
       <div className="mt-6 pt-4 border-t border-[#f2e8ef] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#fffafc] -mx-5 -mb-5 p-4 rounded-b-[24px]">
         <div className="flex items-center gap-2 text-xs font-bold text-[#716d77]">
-          <Sparkles className="w-4 h-4 text-[#D30915]" />
           <span>
             Matching <strong className="text-[#141219] font-black">{totalResultsCount}</strong> reveals based on your criteria
           </span>
