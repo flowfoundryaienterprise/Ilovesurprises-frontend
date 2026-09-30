@@ -1106,6 +1106,53 @@ export const adminService = {
           active: true,
         },
       ],
+      hero: {
+        desktopBannerImage: '/assets/ilovesurprises/banners/Neww banner.jpeg',
+        mobileBannerImage: '/assets/ilovesurprises/banners/mobile-banner.jpg',
+        headline: 'ILoveSurprises.com — Discover jewelry, cash, and surprises inside every candle & bath bomb',
+        subheadline: 'Handcrafted soy candles and bath treats with authentic real cash and luxury jewelry reveals in every product.',
+        benefitTiles: [
+          { id: 'hidden-jewelry', title: 'Hidden Jewelry Reveals', subtitle: 'Real jewelry in every product', iconName: 'Gem', actionType: 'shop' },
+          { id: 'viral-unboxing', title: 'Viral Unboxing Fun', subtitle: 'Share, surprise, repeat', iconName: 'Gift', actionType: 'shop' },
+          { id: 'start-store', title: 'Start Your Store', subtitle: 'Your business. Your way.', iconName: 'Store', actionType: 'consultant' },
+          { id: 'earn-5-levels', title: 'Earn From 5 Levels', subtitle: 'Build your team. Grow together.', iconName: 'Users', actionType: 'consultant' },
+        ],
+      },
+      valueProposition: {
+        eyebrow: '100% Real Reveal Guarantee',
+        title: 'Why Customers Love I Love Surprises',
+        description: 'Every single hand-poured candle and artisan bath treat conceals an authentic legal tender cash prize ($2 to $2,500) or genuine fine jewelry appraised up to $7,500.',
+        points: [
+          'Guaranteed genuine cash prizes sealed in protective gold foil',
+          'Solid .925 sterling silver & 14k gold rings with verified appraisal tags',
+          'Handcrafted with clean, 100% natural USA soy wax',
+          'Fast nationwide dispatch with real-time tracking',
+        ],
+      },
+      aboutContent: {
+        badge: 'Our Brand Story & Craftsmanship',
+        headline: 'Where Luxury Fragrance Meets the Thrill of Real Surprises',
+        storyText: 'Hand-poured 100% natural soy wax candles crafted with artisan care in the USA. Every single candle, bath treat, and wax melt is guaranteed to conceal authentic cash ($2 to $2,500) or luxury fine jewelry (appraised up to $7,500).',
+        naturalSoyStat: '100% Natural Soy',
+        unboxingsStat: '85,000+ Unboxings',
+        realCashStat: '$2 to $2.5K Real Cash',
+      },
+      faqItems: [
+        { id: 'faq-1', question: 'What is I Love Surprises?', answer: 'I Love Surprises offers fun products designed around the excitement of discovering a surprise. Depending on the product, the surprise may include jewelry, cash, or another featured reward.', category: 'About Surprises' },
+        { id: 'faq-2', question: 'What kinds of products do you offer?', answer: 'Our assortment includes candles, wax melts, bath products, soaps, candy, chocolates, slimes, greeting cards, jewelry, and other surprise products.', category: 'Products' },
+        { id: 'faq-3', question: 'Are the candles soy based?', answer: 'Where specified on the product page, our candle products are made with 100% natural soy wax.', category: 'Products' },
+        { id: 'faq-4', question: 'Can I choose my jewelry or ring size?', answer: 'Yes! Jewelry surprise products allow you to select ring sizes from 5 to 10 or preferred jewelry styles right on the product page.', category: 'Jewelry & Sizing' },
+        { id: 'faq-5', question: 'How do I check my jewelry appraisal code?', answer: 'Visit our Appraisal Verification portal (/appraise) and enter the authentic verification code printed on your jewelry reveal tag to inspect assessed retail value.', category: 'Jewelry & Sizing' },
+        { id: 'faq-6', question: 'Where do you ship and what are rates?', answer: 'We ship nationwide across the United States and selected international regions. Orders over $50 enjoy Free Express Shipping.', category: 'Shipping & Delivery' },
+      ],
+      footerContent: {
+        newsletterTitle: 'Unlock 15% Off Your Next Surprise & Weekly Cash Drop Alerts',
+        newsletterSubtitle: 'Join over 85,000+ unboxing fans. Be first to know about new limited scents, rare diamond jewelry drops, and grand cash reveals.',
+        copyrightText: '© 2026 ILoveSurprises.com. All rights reserved. Hand-poured with love in the USA.',
+        supportEmail: 'support@ilovesurprises.com',
+        supportPhone: '1-800-SURPRISE',
+        guaranteeText: '256-Bit SSL Encrypted Bank-Grade Checkout',
+      },
     };
 
     if (typeof window === 'undefined') return DEFAULT_CONTENT;
@@ -1119,7 +1166,15 @@ export const adminService = {
         const hasZodiac = parsed.featuredCards?.some((c: any) => c.id === 'zodiac-cash-money-candles');
         const hasObsolete = parsed.featuredCards?.some((c: any) => c.id === 'trending-collection');
         if (hasHalloween && hasChristmas && hasCash && hasZodiac && !hasObsolete) {
-          return parsed;
+          return {
+            ...DEFAULT_CONTENT,
+            ...parsed,
+            hero: parsed.hero ? { ...DEFAULT_CONTENT.hero, ...parsed.hero } : DEFAULT_CONTENT.hero,
+            valueProposition: parsed.valueProposition ? { ...DEFAULT_CONTENT.valueProposition, ...parsed.valueProposition } : DEFAULT_CONTENT.valueProposition,
+            aboutContent: parsed.aboutContent ? { ...DEFAULT_CONTENT.aboutContent, ...parsed.aboutContent } : DEFAULT_CONTENT.aboutContent,
+            faqItems: parsed.faqItems && parsed.faqItems.length > 0 ? parsed.faqItems : DEFAULT_CONTENT.faqItems,
+            footerContent: parsed.footerContent ? { ...DEFAULT_CONTENT.footerContent, ...parsed.footerContent } : DEFAULT_CONTENT.footerContent,
+          };
         }
       }
       localStorage.setItem(ADMIN_HOMEPAGE_CONTENT_KEY, JSON.stringify(DEFAULT_CONTENT));

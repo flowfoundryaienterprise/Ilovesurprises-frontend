@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Sparkles,
   DollarSign,
   Users,
   CreditCard,
@@ -188,7 +187,6 @@ export const AffiliateDashboard: React.FC<AffiliateDashboardProps> = ({
                 )}
 
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#fecdd3] text-[#D30915] text-[10px] sm:text-xs font-black uppercase tracking-wider shadow-2xs">
-                  <Sparkles className="w-3 h-3 text-[#D30915]" />
                   <span>Representative & Partner Hub</span>
                 </span>
 

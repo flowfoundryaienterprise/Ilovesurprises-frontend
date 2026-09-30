@@ -7,7 +7,6 @@ import {
   XCircle,
   Eye,
   X,
-  Sparkles,
   Check,
   Ban,
   Copy,
@@ -452,7 +451,7 @@ export const AdminRepresentatives: React.FC<AdminRepresentativesProps> = ({
           <div className="bg-white rounded-3xl border border-[#eedbe6] max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#D30915]" />
+                <Users className="w-5 h-5 text-[#D30915]" />
                 <h3 className="font-black text-base text-[#141219] hero-title-font m-0">
                   Representative Dossier
                 </h3>

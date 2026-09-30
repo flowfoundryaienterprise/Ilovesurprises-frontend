@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Search,
   Plus,
@@ -12,7 +12,12 @@ import {
   AlertTriangle,
   CheckCircle2,
   X,
+  UploadCloud,
+  Tag,
+  ArrowUpDown,
+  Gift,
 } from 'lucide-react';
+import { AdminCustomSelect, type AdminSelectOption } from './AdminCustomSelect';
 import type {
   AdminProductItem,
   AdminCollectionItem,
@@ -92,6 +97,112 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     setCurrentPage(1);
   };
 
+  // Memoized Select Options for Dropdowns
+  const categoryOptions: AdminSelectOption[] = useMemo(
+    () => [
+      { value: 'all', label: 'All Categories' },
+      ...collections.map((c) => ({
+        value: c.name,
+        label: c.name,
+        badge: c.featured ? 'Featured' : undefined,
+      })),
+    ],
+    [collections]
+  );
+
+  const stockOptions: AdminSelectOption[] = useMemo(
+    () => [
+      { value: 'all', label: 'All Stock Statuses' },
+      {
+        value: 'in_stock',
+        label: 'In Stock (>10)',
+        badge: 'Optimal',
+        badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      },
+      {
+        value: 'low_stock',
+        label: 'Low Stock (1–10)',
+        badge: 'Low Alert',
+        badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
+      },
+      {
+        value: 'out_of_stock',
+        label: 'Out of Stock (0)',
+        badge: 'Sold Out',
+        badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
+      },
+    ],
+    []
+  );
+
+  const sortOptions: AdminSelectOption[] = useMemo(
+    () => [
+      { value: 'name_asc', label: 'Title (A to Z)' },
+      { value: 'price_asc', label: 'Price (Low to High)' },
+      { value: 'price_desc', label: 'Price (High to Low)' },
+      { value: 'stock_asc', label: 'Stock (Low to High)' },
+      { value: 'stock_desc', label: 'Stock (High to Low)' },
+    ],
+    []
+  );
+
+  const pageSizeOptions: AdminSelectOption[] = useMemo(
+    () => [
+      { value: '10', label: '10' },
+      { value: '25', label: '25' },
+      { value: '50', label: '50' },
+    ],
+    []
+  );
+
+  const formCategoryOptions: AdminSelectOption[] = useMemo(
+    () =>
+      collections.map((c) => ({
+        value: c.name,
+        label: c.name,
+        badge: c.featured ? 'Featured' : undefined,
+      })),
+    [collections]
+  );
+
+  const formStatusOptions: AdminSelectOption[] = useMemo(
+    () => [
+      {
+        value: 'active',
+        label: 'Active (Published)',
+        badge: 'Live',
+        badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        description: 'Visible to storefront shoppers',
+      },
+      {
+        value: 'draft',
+        label: 'Draft (Hidden)',
+        badge: 'Draft',
+        badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
+        description: 'Hidden from public storefront catalog',
+      },
+      {
+        value: 'archived',
+        label: 'Archived',
+        badge: 'Archived',
+        badgeColor: 'bg-gray-100 text-gray-700 border-gray-200',
+        description: 'Decommissioned product record',
+      },
+    ],
+    []
+  );
+
+  const formSurpriseOptions: AdminSelectOption[] = useMemo(
+    () => [
+      { value: 'cash', label: 'Real Cash ($2 to $2,500)', badge: 'Cash Inside' },
+      { value: 'ring', label: 'Genuine Ring Reveal', badge: 'Up to $5,000' },
+      { value: 'necklace', label: 'Luxury Necklace Reveal', badge: 'Fine Jewels' },
+      { value: 'earrings', label: 'Diamond Earrings Reveal', badge: 'Certified' },
+      { value: 'bracelet', label: 'Tennis Bracelet Reveal', badge: 'Prestige' },
+    ],
+    []
+  );
+
   // Filtered & Sorted Products
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -170,6 +281,45 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     setFormVariants(p.variants || []);
     setModalTab('general');
     setIsModalOpen(true);
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+
+  const handleFilesSelected = (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter((file) => file.type.startsWith('image/'));
+    if (fileArray.length === 0) {
+      onShowToast('Please select valid image files (JPG, PNG, WEBP)', { type: 'info' });
+      return;
+    }
+
+    let loadedCount = 0;
+    const newPreviews: string[] = [];
+
+    fileArray.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (typeof e.target?.result === 'string') {
+          newPreviews.push(e.target.result);
+        }
+        loadedCount += 1;
+        if (loadedCount === fileArray.length) {
+          setFormImages((prev) => [...prev, ...newPreviews]);
+          onShowToast(`Added ${newPreviews.length} image${newPreviews.length > 1 ? 's' : ''} to preview (ready for future storage upload)`, {
+            type: 'success',
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleMoveImage = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= formImages.length) return;
+    const updated = [...formImages];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    setFormImages(updated);
   };
 
   const handleAddImage = (e: React.FormEvent) => {
@@ -331,47 +481,35 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
           {/* Category Filter */}
           <div>
-            <select
+            <AdminCustomSelect
+              options={categoryOptions}
               value={categoryFilter}
-              onChange={(e) => handleFilterChange(setCategoryFilter, e.target.value)}
-              className="w-full h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] font-medium focus:outline-none focus:border-[#D30915]"
-            >
-              <option value="all">All Categories</option>
-              {collections.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => handleFilterChange(setCategoryFilter, val)}
+              icon={<Tag className="w-3.5 h-3.5" />}
+              placeholder="Category"
+            />
           </div>
 
           {/* Stock Filter */}
           <div>
-            <select
+            <AdminCustomSelect
+              options={stockOptions}
               value={stockFilter}
-              onChange={(e) => handleFilterChange(setStockFilter, e.target.value)}
-              className="w-full h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] font-medium focus:outline-none focus:border-[#D30915]"
-            >
-              <option value="all">All Stock Statuses</option>
-              <option value="in_stock">In Stock (&gt;10)</option>
-              <option value="low_stock">Low Stock (1–10)</option>
-              <option value="out_of_stock">Out of Stock (0)</option>
-            </select>
+              onChange={(val) => handleFilterChange(setStockFilter, val)}
+              icon={<Package className="w-3.5 h-3.5" />}
+              placeholder="Stock Status"
+            />
           </div>
 
           {/* Sort By */}
           <div>
-            <select
+            <AdminCustomSelect
+              options={sortOptions}
               value={sortBy}
-              onChange={(e) => handleFilterChange(setSortBy, e.target.value)}
-              className="w-full h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] font-medium focus:outline-none focus:border-[#D30915]"
-            >
-              <option value="name_asc">Title (A to Z)</option>
-              <option value="price_asc">Price (Low to High)</option>
-              <option value="price_desc">Price (High to Low)</option>
-              <option value="stock_asc">Stock (Low to High)</option>
-              <option value="stock_desc">Stock (High to Low)</option>
-            </select>
+              onChange={(val) => handleFilterChange(setSortBy, val as any)}
+              icon={<ArrowUpDown className="w-3.5 h-3.5" />}
+              placeholder="Sort By"
+            />
           </div>
         </div>
 
@@ -384,11 +522,10 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                 key={st}
                 type="button"
                 onClick={() => handleFilterChange(setStatusFilter, st)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
-                  statusFilter === st
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${statusFilter === st
                     ? 'bg-[#D30915] text-white'
                     : 'bg-[#faf7f9] text-[#716d77] hover:bg-gray-100'
-                }`}
+                  }`}
               >
                 {st}
               </button>
@@ -528,11 +665,10 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                       {/* Status */}
                       <td className="py-3 px-3">
                         <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            p.status === 'active'
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.status === 'active'
                               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                               : 'bg-gray-100 text-gray-700'
-                          }`}
+                            }`}
                         >
                           {p.status || 'Active'}
                         </span>
@@ -589,19 +725,16 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         {filteredProducts.length > 0 && (
           <div className="p-4 border-t border-[#eedbe6] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#716d77]">
             <div className="flex items-center gap-2">
-              <span>Show</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
+              <AdminCustomSelect
+                options={pageSizeOptions}
+                value={String(pageSize)}
+                onChange={(val) => {
+                  setPageSize(Number(val));
                   setCurrentPage(1);
                 }}
-                className="h-8 px-2 rounded-lg bg-[#faf7f9] border border-[#eedbe6] font-bold text-[#141219]"
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
+                size="sm"
+                className="w-16"
+              />
               <span>per page</span>
             </div>
 
@@ -674,11 +807,10 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                   key={t.id}
                   type="button"
                   onClick={() => setModalTab(t.id as any)}
-                  className={`px-3 py-2 border-b-2 transition-all cursor-pointer ${
-                    modalTab === t.id
+                  className={`px-3 py-2 border-b-2 transition-all cursor-pointer ${modalTab === t.id
                       ? 'border-[#D30915] text-[#D30915]'
                       : 'border-transparent text-[#716d77] hover:text-[#141219]'
-                  }`}
+                    }`}
                 >
                   {t.label}
                 </button>
@@ -704,30 +836,25 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-[#141219] mb-1">Category</label>
-                      <select
+                      <AdminCustomSelect
+                        options={formCategoryOptions}
                         value={formCategory}
-                        onChange={(e) => setFormCategory(e.target.value)}
-                        className="w-full h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] font-medium focus:outline-none focus:border-[#D30915]"
-                      >
-                        {collections.map((c) => (
-                          <option key={c.id} value={c.name}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(val) => setFormCategory(val)}
+                        placeholder="Select category"
+                        icon={<Tag className="w-3.5 h-3.5" />}
+                        variant="form"
+                      />
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-[#141219] mb-1">Publication Status</label>
-                      <select
+                      <AdminCustomSelect
+                        options={formStatusOptions}
                         value={formStatus}
-                        onChange={(e) => setFormStatus(e.target.value as any)}
-                        className="w-full h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] font-medium focus:outline-none focus:border-[#D30915]"
-                      >
-                        <option value="active">Active (Published on storefront)</option>
-                        <option value="draft">Draft (Hidden from storefront)</option>
-                        <option value="archived">Archived</option>
-                      </select>
+                        onChange={(val) => setFormStatus(val as any)}
+                        placeholder="Select publication status"
+                        variant="form"
+                      />
                     </div>
                   </div>
 
@@ -745,17 +872,14 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#f4e2ed]">
                     <div>
                       <label className="block text-xs font-bold text-[#141219] mb-1">Surprise Reveal Type</label>
-                      <select
+                      <AdminCustomSelect
+                        options={formSurpriseOptions}
                         value={formSurpriseType}
-                        onChange={(e) => setFormSurpriseType(e.target.value)}
-                        className="w-full h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] font-medium focus:outline-none focus:border-[#D30915]"
-                      >
-                        <option value="cash">Real Cash ($2 to $2,500)</option>
-                        <option value="ring">Genuine Ring Reveal</option>
-                        <option value="necklace">Luxury Necklace Reveal</option>
-                        <option value="earrings">Diamond Earrings Reveal</option>
-                        <option value="bracelet">Tennis Bracelet Reveal</option>
-                      </select>
+                        onChange={(val) => setFormSurpriseType(val)}
+                        placeholder="Select surprise reveal type"
+                        icon={<Gift className="w-3.5 h-3.5" />}
+                        variant="form"
+                      />
                     </div>
 
                     <div>
@@ -911,13 +1035,62 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
               {modalTab === 'images' && (
                 <div className="space-y-4">
-                  {/* Add Image URL */}
+                  {/* Native Hidden File Input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        handleFilesSelected(e.target.files);
+                        e.target.value = '';
+                      }
+                    }}
+                    className="hidden"
+                  />
+
+                  {/* Drag & Drop File Picker Zone */}
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDraggingFiles(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      setIsDraggingFiles(false);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingFiles(false);
+                      if (e.dataTransfer.files) {
+                        handleFilesSelected(e.dataTransfer.files);
+                      }
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`p-6 border-2 border-dashed rounded-2xl text-center cursor-pointer transition-all ${isDraggingFiles
+                        ? 'border-[#D30915] bg-[#fff1f2] scale-[1.01]'
+                        : 'border-[#eedbe6] bg-[#faf7f9] hover:border-[#D30915]/50 hover:bg-[#fff9fa]'
+                      }`}
+                  >
+                    <div className="w-12 h-12 rounded-full bg-white border border-[#eedbe6] text-[#D30915] flex items-center justify-center mx-auto mb-2 shadow-2xs">
+                      <UploadCloud className="w-6 h-6" />
+                    </div>
+                    <div className="text-xs font-bold text-[#141219]">
+                      <span className="text-[#D30915] hover:underline">Click to browse</span> or drag and drop product photos
+                    </div>
+                    <p className="text-[11px] text-[#716d77] m-0 mt-1">
+                      Supports multiple image files (JPG, PNG, WEBP) • Stored in local preview state
+                    </p>
+                  </div>
+
+                  {/* Add Image URL Alternative */}
                   <div className="flex items-center gap-2">
                     <input
                       type="url"
                       value={newImageUrl}
                       onChange={(e) => setNewImageUrl(e.target.value)}
-                      placeholder="Enter Image CDN / Cloudflare URL..."
+                      placeholder="Or paste image CDN / external URL..."
                       className="flex-1 h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] focus:outline-none focus:border-[#D30915]"
                     />
                     <button
@@ -925,55 +1098,89 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                       onClick={handleAddImage}
                       className="px-4 py-2 rounded-xl bg-[#D30915] hover:bg-[#B60711] text-white text-xs font-bold shrink-0 cursor-pointer"
                     >
-                      Add Image
+                      Add URL
                     </button>
                   </div>
 
-                  {/* Image Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {formImages.map((img, idx) => (
-                      <div
-                        key={idx}
-                        className={`relative rounded-xl border p-1 bg-white group overflow-hidden ${
-                          idx === 0 ? 'border-[#D30915] ring-2 ring-[#D30915]/20' : 'border-[#eedbe6]'
-                        }`}
-                      >
-                        <img
-                          src={img}
-                          alt={`Product media ${idx + 1}`}
-                          className="w-full h-32 object-cover rounded-lg"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              '/assets/ilovesurprises/categories/Coke_CSH_Sodapop-CND_JC.jpg';
-                          }}
-                        />
+                  {/* Image Grid with Reorder & Remove Controls */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs text-[#716d77] font-semibold">
+                      <span>Configured Images ({formImages.length}) — Reorder or remove</span>
+                      <span className="text-[10px] text-[#D30915] font-bold">First image is storefront Primary</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {formImages.map((img, idx) => (
+                        <div
+                          key={idx}
+                          className={`relative rounded-xl border p-1 bg-white group overflow-hidden transition-all shadow-2xs ${idx === 0 ? 'border-[#D30915] ring-2 ring-[#D30915]/20' : 'border-[#eedbe6]'
+                            }`}
+                        >
+                          <img
+                            src={img}
+                            alt={`Product media ${idx + 1}`}
+                            className="w-full h-32 object-cover rounded-lg"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src =
+                                '/assets/ilovesurprises/categories/Coke_CSH_Sodapop-CND_JC.jpg';
+                            }}
+                          />
 
-                        {idx === 0 && (
-                          <div className="absolute top-2 left-2 bg-[#D30915] text-white text-[9px] font-black uppercase px-1.5 py-0.5 rounded">
-                            Primary
-                          </div>
-                        )}
-
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          {idx !== 0 && (
-                            <button
-                              type="button"
-                              onClick={() => handleSetPrimaryImage(idx)}
-                              className="p-1.5 rounded bg-white text-xs font-bold text-[#141219] hover:text-[#D30915] cursor-pointer"
-                            >
-                              Make Primary
-                            </button>
+                          {idx === 0 && (
+                            <div className="absolute top-2 left-2 bg-[#D30915] text-white text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-xs z-10">
+                              Primary
+                            </div>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveImage(idx)}
-                            className="p-1.5 rounded bg-rose-600 text-white cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+
+                          {/* Hover action overlay */}
+                          <div className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                            <div className="flex items-center justify-between">
+                              {idx !== 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetPrimaryImage(idx)}
+                                  className="px-2 py-1 rounded bg-white text-[10px] font-bold text-[#141219] hover:text-[#D30915] cursor-pointer shadow-xs"
+                                >
+                                  Make Primary
+                                </button>
+                              ) : <div />}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImage(idx)}
+                                className="p-1 rounded bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs"
+                                title="Remove image"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            {/* Reorder Arrows Bar */}
+                            <div className="flex items-center justify-center gap-2 pt-1 bg-black/40 rounded-lg p-1">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveImage(idx, idx - 1)}
+                                className="p-1 rounded bg-white/90 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed text-[#141219] text-xs font-bold cursor-pointer"
+                                title="Move left/earlier"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+                              <span className="text-[10px] text-white font-mono font-bold">
+                                {idx + 1} / {formImages.length}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={idx === formImages.length - 1}
+                                onClick={() => handleMoveImage(idx, idx + 1)}
+                                className="p-1 rounded bg-white/90 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed text-[#141219] text-xs font-bold cursor-pointer"
+                                title="Move right/later"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

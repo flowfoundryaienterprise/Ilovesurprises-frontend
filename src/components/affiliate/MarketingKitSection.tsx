@@ -2,7 +2,6 @@ import React from 'react';
 import {
   Download,
   Share2,
-  Sparkles,
   Gift,
   FileText,
   Image as ImageIcon,
@@ -48,7 +47,6 @@ export const MarketingKitSection: React.FC<MarketingKitSectionProps> = ({
 
         <div className="relative z-10 max-w-2xl">
           <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-[#D30915] bg-[#fff1f2] px-2.5 sm:px-3 py-1 rounded-full border border-[#fecdd3] inline-flex items-center gap-1.5 mb-2">
-            <Sparkles className="w-3.5 h-3.5" />
             <span>Official Representative Marketing Vault</span>
           </span>
 
@@ -167,7 +165,6 @@ export const MarketingKitSection: React.FC<MarketingKitSectionProps> = ({
             onClick={() => onShowToast(`Rep wholesale code applied to your account!`, { type: 'success' })}
             className="w-full h-[36px] sm:h-[38px] rounded-[11px] sm:rounded-[12px] bg-amber-50 hover:bg-amber-600 text-amber-800 hover:text-white font-black text-xs uppercase tracking-wider border border-amber-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
           >
-            <Sparkles className="w-3.5 h-3.5" />
             <span>Order Demo Samples</span>
           </button>
         </div>

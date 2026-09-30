@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { productService } from '../../services/productService';
 import { deduplicateProducts } from '../../utils/productUtils';
 import { ProductCard } from '../products/ProductCard';
@@ -96,7 +96,6 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6 sm:mb-8 pb-4 border-b border-[#f4edf2]">
         <div className="flex flex-col items-center sm:items-start text-center sm:text-left w-full sm:w-auto">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#fff1f2] border border-[#fecdd3] text-[#D30915] text-[10px] sm:text-[11px] font-black uppercase tracking-wider mb-2">
-            <Sparkles className="w-3.5 h-3.5" />
             <span>Curated Collection</span>
           </div>
 

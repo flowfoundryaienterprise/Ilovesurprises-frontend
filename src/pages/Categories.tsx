@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Sparkles,
   ArrowRight,
   ArrowLeft,
   Gem,
@@ -78,7 +77,6 @@ export const Categories: React.FC<CategoriesProps> = ({
         <div className="relative z-10 max-w-3xl">
           {/* Eyebrow Pill Tag */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-[#D30915]/10 border border-[#fecdd3] text-[#D30915] text-[9px] sm:text-[11px] font-black uppercase tracking-[0.16em] mb-2.5 sm:mb-3.5 shadow-2xs">
-            <Sparkles className="w-3 sm:w-3.5 h-3 sm:h-3.5 animate-pulse text-[#D30915]" />
             <span>Discover Collections</span>
           </div>
 
@@ -308,7 +306,6 @@ export const Categories: React.FC<CategoriesProps> = ({
 
         <div className="relative z-10 max-w-4xl mx-auto text-center mb-5 sm:mb-8">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-[#D30915]/10 border border-[#fecdd3] text-[#D30915] text-[9px] sm:text-[11px] font-black uppercase tracking-wider mb-2 shadow-2xs">
-            <Sparkles className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-[#D30915] animate-pulse" />
             <span>The Magic Unboxing</span>
           </div>
           <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-[#141219] m-0 mb-1.5 sm:mb-2 font-display">

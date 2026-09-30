@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, ChevronDown, Check, ExternalLink, X, ShieldCheck } from 'lucide-react';
+import { ChevronDown, Check, ExternalLink, X, ShieldCheck } from 'lucide-react';
 import {
   representativeService,
   type PublicRepresentative,
@@ -201,7 +201,6 @@ export const ShoppingWithRepBanner: React.FC<ShoppingWithRepBannerProps> = ({
             {/* Header / Banner */}
             <div className="h-24 bg-gradient-to-r from-[#D30915] via-[#e52e39] to-[#b80712] relative p-4 flex justify-between items-start">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white text-[11px] font-semibold">
-                <Sparkles className="w-3 h-3" />
                 <span>Independent Surprise Consultant</span>
               </div>
               <button
@@ -273,7 +272,6 @@ export const ShoppingWithRepBanner: React.FC<ShoppingWithRepBannerProps> = ({
                   }}
                   className="w-full py-2.5 px-3 rounded-xl bg-[#D30915] text-white text-xs font-semibold hover:bg-[#b80712] transition-colors shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
                   <span>Join Her Team</span>
                 </button>
               </div>

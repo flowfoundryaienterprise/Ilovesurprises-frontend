@@ -12,7 +12,7 @@ import {
   DollarSign,
   Gem,
   CheckCircle2,
-  Sparkles,
+  Gift,
   X,
   MessageSquare,
   Check,
@@ -540,7 +540,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             <div className="mb-5 p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] shadow-2xs">
               <div className="flex items-center justify-between mb-2">
                 <label htmlFor="scent-dropdown" className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1.5 cursor-pointer">
-                  <Sparkles className="w-3.5 h-3.5 text-[#D30915]" />
                   <span>Choose Scent / Fragrance (Required):</span>
                 </label>
                 <span className="text-xs font-bold text-[#D30915]">{selectedScent}</span>
@@ -627,7 +626,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-[#D30915]" />
                       <span>Select Jewelry Reveal Type:</span>
                     </span>
                     <span className="text-xs font-bold text-[#D30915]">{selectedJewelryType}</span>
@@ -910,7 +908,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
         <div className="space-y-4">
           {relevantReviews.length === 0 ? (
             <div className="p-8 sm:p-12 rounded-2xl sm:rounded-3xl bg-white border border-[#eedbe6] text-center space-y-3">
-              <Sparkles className="w-10 h-10 text-[#D30915] mx-auto opacity-50" />
+              <Gift className="w-10 h-10 text-[#D30915] mx-auto opacity-50" />
               <h4 className="text-base font-bold text-[#141219] m-0">No reviews for this product yet</h4>
               <p className="text-xs text-[#716d77] max-w-md mx-auto m-0">
                 Be the first to reveal your surprise and share your authentic unboxing experience!
@@ -963,7 +961,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
 
               {rev.revealedSurprise && (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#fff8fb] border border-[#f3dbe8] text-xs text-[#141219]">
-                  <Sparkles className="w-3.5 h-3.5 text-[#D30915]" />
+                  <Gift className="w-3.5 h-3.5 text-[#D30915]" />
                   <span className="text-[11px] text-[#716d77]">Revealed:</span>
                   <span className="font-bold text-[#D30915] text-[11px]">{rev.revealedSurprise}</span>
                 </div>

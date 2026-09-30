@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Sparkles,
   ShieldCheck,
   Flame,
   Award,
@@ -16,6 +15,8 @@ import {
   Package,
   Gift,
 } from 'lucide-react';
+import { adminService } from '../services/adminService';
+import type { AboutContentConfig } from '../types/admin';
 
 interface AboutProps {
   onNavigateToShop: () => void;
@@ -26,6 +27,27 @@ export const About: React.FC<AboutProps> = ({
   onNavigateToShop,
   onNavigateToAffiliate,
 }) => {
+  const [aboutConfig, setAboutConfig] = useState<AboutContentConfig>(() => {
+    return adminService.getHomepageContent().aboutContent || {
+      badge: 'Our Brand Story & Craftsmanship',
+      headline: 'Where Luxury Fragrance Meets the Thrill of Real Surprises',
+      storyText:
+        'Hand-poured 100% natural soy wax candles crafted with artisan care in the USA. Every single candle, bath treat, and wax melt is guaranteed to conceal authentic cash ($2 to $2,500) or luxury fine jewelry (appraised up to $7,500).',
+      naturalSoyStat: '100% Pure Natural Soy',
+      unboxingsStat: '125K+ Verified Unboxings',
+      realCashStat: '$2 to $2,500 Real Cash Inside',
+    };
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const current = adminService.getHomepageContent().aboutContent;
+      if (current) setAboutConfig(current);
+    };
+    window.addEventListener('ils_homepage_content_updated', handleUpdate);
+    return () => window.removeEventListener('ils_homepage_content_updated', handleUpdate);
+  }, []);
+
   const [activeCategoryTab, setActiveCategoryTab] = useState<'cash' | 'jewelry' | 'bath' | 'zodiac'>('cash');
 
   const categoryHighlights = {
@@ -77,16 +99,15 @@ export const About: React.FC<AboutProps> = ({
 
           <div className="relative z-10 max-w-3xl mx-auto space-y-3 sm:space-y-4">
             <div className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-white text-[#D30915] border border-[#fecdd3] text-[10px] sm:text-xs font-black uppercase tracking-wider shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 text-[#D30915] shrink-0" />
-              <span>Our Brand Story & Craftsmanship</span>
+              <span>{aboutConfig.badge}</span>
             </div>
 
             <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-[#141219] font-display tracking-tight leading-[1.15] m-0">
-              Where Luxury Fragrance Meets the Thrill of Real Surprises
+              {aboutConfig.headline}
             </h1>
 
             <p className="text-xs sm:text-base text-[#55505a] leading-relaxed max-w-2xl mx-auto font-medium m-0">
-              Hand-poured 100% natural soy wax candles crafted with artisan care in the USA. Every single candle, bath treat, and wax melt is guaranteed to conceal authentic cash (<strong className="text-[#141219] font-black">$2 to $2,500</strong>) or luxury fine jewelry (<strong className="text-[#141219] font-black">appraised up to $7,500</strong>).
+              {aboutConfig.storyText}
             </p>
 
             {/* Quick KPI Trust Ribbon (2x2 on mobile, 4-col on tablet/desktop) */}
@@ -96,25 +117,25 @@ export const About: React.FC<AboutProps> = ({
                   <Leaf className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
                   <span>100% Pure</span>
                 </div>
-                <strong className="text-base sm:text-xl font-black text-[#141219] block">Natural Soy</strong>
+                <strong className="text-base sm:text-xl font-black text-[#141219] block">{aboutConfig.naturalSoyStat}</strong>
                 <span className="text-[9px] sm:text-[10px] text-[#716d77]">Clean, Vegan Wax</span>
               </div>
 
               <div className="p-2.5 sm:p-3.5 rounded-[14px] sm:rounded-[20px] bg-white border border-[#eedbe6] shadow-xs group hover:border-[#D30915] transition-all">
                 <div className="flex items-center justify-center gap-1 text-[10px] sm:text-xs font-black text-purple-600 uppercase mb-0.5">
                   <Package className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
-                  <span>85,000+</span>
+                  <span>Unboxings</span>
                 </div>
-                <strong className="text-base sm:text-xl font-black text-[#141219] block">Unboxings</strong>
+                <strong className="text-base sm:text-xl font-black text-[#141219] block">{aboutConfig.unboxingsStat}</strong>
                 <span className="text-[9px] sm:text-[10px] text-[#716d77]">Nationwide Fans</span>
               </div>
 
               <div className="p-2.5 sm:p-3.5 rounded-[14px] sm:rounded-[20px] bg-white border border-[#eedbe6] shadow-xs group hover:border-[#D30915] transition-all">
                 <div className="flex items-center justify-center gap-1 text-[10px] sm:text-xs font-black text-emerald-600 uppercase mb-0.5">
                   <DollarSign className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
-                  <span>$2 to $2.5K</span>
+                  <span>Cash Inside</span>
                 </div>
-                <strong className="text-base sm:text-xl font-black text-[#141219] block">Real Cash</strong>
+                <strong className="text-base sm:text-xl font-black text-[#141219] block">{aboutConfig.realCashStat}</strong>
                 <span className="text-[9px] sm:text-[10px] text-[#716d77]">100% Win Guarantee</span>
               </div>
 
@@ -312,7 +333,7 @@ export const About: React.FC<AboutProps> = ({
                 </p>
               </div>
               <div className="pt-2.5 sm:pt-3 border-t border-purple-200 text-[10px] sm:text-[11px] font-bold text-purple-700 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
                 <span>Heat-Sealed Foil Protection</span>
               </div>
             </div>
@@ -533,7 +554,7 @@ export const About: React.FC<AboutProps> = ({
           {/* Mission */}
           <div className="bg-gradient-to-br from-white via-[#fffafc] to-[#fff3f8] rounded-[20px] sm:rounded-[28px] p-4 sm:p-8 border-2 border-[#fecdd3] shadow-[0_8px_30px_rgba(211, 9, 21,0.06)] space-y-2.5 sm:space-y-3">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-[12px] sm:rounded-[14px] bg-[#fff1f2] text-[#D30915] border border-[#fecdd3] flex items-center justify-center shadow-xs">
-              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
+              <Heart className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-[#D30915] block">Our Mission</span>
             <h3 className="text-lg sm:text-xl font-black text-[#141219] font-display m-0">

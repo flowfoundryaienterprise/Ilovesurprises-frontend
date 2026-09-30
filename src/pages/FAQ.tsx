@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, ArrowLeft, MessageCircleQuestion, Mail, Search } from 'lucide-react';
+import { adminService } from '../services/adminService';
 
 interface FAQProps {
   onNavigateToHome?: () => void;
@@ -66,12 +67,25 @@ export const FAQ: React.FC<FAQProps> = ({
 }) => {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [faqList, setFaqList] = useState<FaqItem[]>(() => {
+    const custom = adminService.getHomepageContent().faqItems;
+    return custom && custom.length > 0 ? custom : FAQ_LIST;
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const custom = adminService.getHomepageContent().faqItems;
+      if (custom && custom.length > 0) setFaqList(custom);
+    };
+    window.addEventListener('ils_homepage_content_updated', handleUpdate);
+    return () => window.removeEventListener('ils_homepage_content_updated', handleUpdate);
+  }, []);
 
   const toggleAccordion = (idx: number) => {
     setExpandedIndex((prev) => (prev === idx ? null : idx));
   };
 
-  const filteredFaqs = FAQ_LIST.filter(
+  const filteredFaqs = faqList.filter(
     (item) =>
       item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.answer.toLowerCase().includes(searchQuery.toLowerCase())

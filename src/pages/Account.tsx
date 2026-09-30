@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Lock, Sparkles } from 'lucide-react';
+import { User, Lock, Check } from 'lucide-react';
 import type { UserProfile, Order, SavedAddress, Product, AffiliateStats } from '../types';
 import { orderService } from '../services/orderService';
 import { accountService } from '../services/accountService';
@@ -172,7 +172,7 @@ export const Account: React.FC<AccountProps> = ({
         {/* Toast Feedback Notification Pill */}
         {toastMessage && (
           <div className="p-3.5 rounded-[14px] bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold animate-in fade-in flex items-center gap-2 shadow-sm">
-            <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{toastMessage.message}</span>
           </div>
         )}

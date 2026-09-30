@@ -19,7 +19,6 @@ import {
   Award,
   Copy,
   ExternalLink,
-  Sparkles,
   Upload,
   Camera,
   Trash2,
@@ -1451,9 +1450,7 @@ export const RepresentativeSubscriptionModal: React.FC<RepresentativeSubscriptio
 
               <div className="space-y-1">
                 <p className="text-sm sm:text-base font-bold text-stone-800 m-0 flex items-center justify-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
                   <span>Congratulations, {fullName || 'Janarthanan'}!</span>
-                  <Sparkles className="w-4 h-4 text-amber-500" />
                 </p>
                 <p className="text-xs sm:text-[13px] text-stone-600 leading-snug m-0 max-w-md mx-auto">
                   Your consultant license is active and your personalized surprise storefront is now live and ready to generate commissions!

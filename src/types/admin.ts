@@ -303,6 +303,54 @@ export interface HomepageFeaturedCard {
   active: boolean;
 }
 
+export interface HeroBenefitTile {
+  id: string;
+  title: string;
+  subtitle: string;
+  iconName?: 'Gem' | 'Gift' | 'Store' | 'Users' | 'Sparkles' | 'ShieldCheck';
+  actionType?: 'shop' | 'consultant' | 'scroll';
+}
+
+export interface HeroContentConfig {
+  desktopBannerImage: string;
+  mobileBannerImage: string;
+  headline: string;
+  subheadline?: string;
+  benefitTiles: HeroBenefitTile[];
+}
+
+export interface ValuePropositionConfig {
+  eyebrow: string;
+  title: string;
+  description: string;
+  points: string[];
+}
+
+export interface AboutContentConfig {
+  badge: string;
+  headline: string;
+  storyText: string;
+  naturalSoyStat: string;
+  unboxingsStat: string;
+  realCashStat: string;
+}
+
+export interface FaqContentItem {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+}
+
+export interface FooterContentConfig {
+  newsletterTitle: string;
+  newsletterSubtitle: string;
+  copyrightText: string;
+  supportEmail: string;
+  supportPhone: string;
+  guaranteeText: string;
+}
+
 export interface HomepageContentConfig {
   announcementText: string;
   announcementActive: boolean;
@@ -311,6 +359,11 @@ export interface HomepageContentConfig {
   promoBannerCode?: string;
   promoBannerActive: boolean;
   featuredCards: HomepageFeaturedCard[];
+  hero?: HeroContentConfig;
+  valueProposition?: ValuePropositionConfig;
+  aboutContent?: AboutContentConfig;
+  faqItems?: FaqContentItem[];
+  footerContent?: FooterContentConfig;
 }
 
 export interface AdminStaffUser {

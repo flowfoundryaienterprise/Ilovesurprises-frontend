@@ -5,7 +5,7 @@ import {
   Clock,
   CheckCircle2,
   RefreshCw,
-  Sparkles,
+  Gift,
   Package,
   AlertCircle,
   ChevronRight,
@@ -250,7 +250,7 @@ export const RepresentativeMembershipCard: React.FC<RepresentativeMembershipCard
 
             <div className="p-3.5 rounded-xl border border-[#ebdbe5] bg-[#fffafb]">
               <div className="flex items-center gap-2 text-xs font-bold text-[#141219] mb-1">
-                <Sparkles className="w-4 h-4 text-purple-600" />
+                <Gift className="w-4 h-4 text-purple-600" />
                 <span>$99 Pro Ambassador Kit</span>
               </div>
               <p className="text-[11px] text-[#716d77] leading-tight">
@@ -334,7 +334,7 @@ export const RepresentativeMembershipCard: React.FC<RepresentativeMembershipCard
         <div className="p-5 sm:p-6 space-y-4 animate-in fade-in duration-200">
           <div className="p-4 rounded-xl bg-purple-50 border border-purple-200">
             <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-4 h-4 text-purple-700" />
+              <CheckCircle2 className="w-4 h-4 text-purple-700" />
               <strong className="text-sm font-black text-purple-900">
                 Reactivate Your Representative Account
               </strong>

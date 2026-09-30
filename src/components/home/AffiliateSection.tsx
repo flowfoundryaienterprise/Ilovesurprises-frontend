@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { User, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Skeleton } from '../ui/Skeleton';
 
 interface AffiliateSectionProps {
@@ -69,7 +69,6 @@ export const AffiliateSection: React.FC<AffiliateSectionProps> = ({ isLoading = 
             
             {/* Eyebrow Tag */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#fff1f2] border border-[#fecdd3] text-[#D30915] text-[10px] sm:text-[11px] font-black uppercase tracking-[0.18em] mb-3 shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 text-[#D30915] animate-pulse" />
               <span>Independent Consultant Opportunity</span>
             </div>
 

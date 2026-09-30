@@ -41,6 +41,7 @@ import { AdminSettings } from '../components/admin/AdminSettings';
 import { AdminPermissions } from '../components/admin/AdminPermissions';
 import { AdminPermissionDenied } from '../components/admin/AdminPermissionDenied';
 import { AdminKpiSkeleton, AdminTableSkeleton } from '../components/admin/AdminSkeleton';
+import { AdminCustomSelect } from '../components/admin/AdminCustomSelect';
 
 interface AdminDashboardProps {
   initialTab?: AdminTab;
@@ -264,7 +265,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const hasAccess = adminService.hasTabAccess(activeTab, currentRole);
-  const currentRoleConfig = ADMIN_ROLES_CONFIG[currentRole];
 
   return (
     <div className="min-h-screen bg-[#fcf9fb] flex flex-col lg:flex-row text-[#141219] overflow-x-hidden">
@@ -299,6 +299,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Menu className="w-5 h-5" />
             </button>
 
+            {/* Mobile Brand Logo */}
+            <div className="lg:hidden flex items-center">
+              <img
+                src="/assets/ilovesurprises/logo/logo-16k.png"
+                alt="I Love Surprises"
+                width={8192}
+                height={2728}
+                className="h-8 w-auto max-w-[140px] object-contain"
+                style={{ imageRendering: '-webkit-optimize-contrast' }}
+              />
+            </div>
+
             {/* Breadcrumb */}
             <div className="flex items-center gap-1.5 text-xs text-[#716d77] min-w-0">
               <span className="font-semibold hidden sm:inline">Admin</span>
@@ -311,10 +323,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {/* Right Header Badges */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Live Role Pill */}
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#faf7f9] border border-[#eedbe6] text-xs">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#D30915]" />
-              <span className="font-bold text-[#141219]">{currentRoleConfig.name}</span>
+            {/* Live Role Switcher Dropdown */}
+            <div className="hidden sm:block">
+              <AdminCustomSelect
+                options={[
+                  { value: 'super_admin', label: 'Super Admin', badge: 'All Access', badgeColor: 'bg-[#fff1f2] text-[#D30915]' },
+                  { value: 'store_manager', label: 'Store Manager', badge: 'Commerce', badgeColor: 'bg-emerald-50 text-emerald-700' },
+                  { value: 'affiliate_manager', label: 'Affiliate Director', badge: 'Reps', badgeColor: 'bg-purple-50 text-purple-700' },
+                  { value: 'support_rep', label: 'Support Rep', badge: 'Read Only', badgeColor: 'bg-gray-100 text-gray-700' },
+                ]}
+                value={currentRole}
+                onChange={(val) => handleSwitchRole(val as AdminRole)}
+                icon={<ShieldCheck className="w-3.5 h-3.5 text-[#D30915]" />}
+                size="sm"
+                variant="pill"
+                dropdownClassName="w-56 right-0 left-auto shadow-2xl"
+              />
             </div>
 
             {/* Exit to Store Button */}

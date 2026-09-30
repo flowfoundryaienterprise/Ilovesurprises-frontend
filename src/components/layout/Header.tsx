@@ -7,7 +7,6 @@ import {
   User,
   MapPin,
   ChevronDown,
-  Sparkles,
   X,
   Star,
   Truck,
@@ -34,6 +33,7 @@ import {
 } from 'lucide-react';
 import type { UserProfile, Product } from '../../types';
 import { productService } from '../../services/productService';
+import { adminService } from '../../services/adminService';
 import {
   NAVIGATION_CATEGORIES,
   type NavigationCategory,
@@ -214,6 +214,19 @@ export const Header: React.FC<HeaderProps> = ({
   const topTimerHours = String(Math.floor(topCountdownSecs / 3600)).padStart(2, '0');
   const topTimerMinutes = String(Math.floor((topCountdownSecs % 3600) / 60)).padStart(2, '0');
   const topTimerSeconds = String(topCountdownSecs % 60).padStart(2, '0');
+
+  const [announcementText, setAnnouncementText] = useState(() => {
+    return adminService.getHomepageContent().announcementText || 'Free Shipping $75+ • Guaranteed Real Cash ($2-$2,500) or Jewelry in Every Item';
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const current = adminService.getHomepageContent();
+      if (current.announcementText) setAnnouncementText(current.announcementText);
+    };
+    window.addEventListener('ils_homepage_content_updated', handleUpdate);
+    return () => window.removeEventListener('ils_homepage_content_updated', handleUpdate);
+  }, []);
 
   // Typewriter Search Bar Animation: Types letters out, holds, then backspaces to next
   useEffect(() => {
@@ -807,7 +820,6 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Quick Trending Searches */}
       <div className="pt-0.5">
         <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[#8a858f] mb-2">
-          <Sparkles className="w-3 h-3 text-[#D30915]" />
           <span>Popular Searches:</span>
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -1059,7 +1071,7 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
             <span className="text-[#e2d5de] hidden sm:inline">|</span>
             <span className="truncate hidden sm:inline">
-              Free Shipping $75+ • Guaranteed Real Cash ($2-$2,500) or Jewelry in Every Item
+              {announcementText}
             </span>
           </div>
 
@@ -1433,7 +1445,6 @@ export const Header: React.FC<HeaderProps> = ({
                           }}
                           className="flex items-center gap-2 p-2 rounded-[10px] bg-[#fffbfd] hover:bg-[#fff1f2] text-[#D30915] font-black transition-colors whitespace-nowrap"
                         >
-                          <Sparkles className="w-3.5 h-3.5 text-[#D30915]" />
                           <span>Admin Suite Portal</span>
                         </a>
 
@@ -2344,7 +2355,6 @@ export const Header: React.FC<HeaderProps> = ({
                   }}
                   className="w-full h-[32px] rounded-[10px] bg-[#fff1f2] text-[#D30915] hover:bg-[#ffe5ef] text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
                   <span>Admin Suite Portal</span>
                 </button>
 

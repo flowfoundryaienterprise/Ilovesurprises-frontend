@@ -4,7 +4,6 @@ import {
   Shield,
   Globe,
   Trash2,
-  Sparkles,
   Smartphone,
   Mail,
   AlertTriangle,
@@ -146,7 +145,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
           {/* Surprise Drop Alerts */}
           <div className="flex items-center justify-between p-3.5 rounded-[16px] bg-[#fffafc] border border-[#f5e4ec]">
             <div className="flex items-start gap-3">
-              <Sparkles className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <Bell className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
               <div>
                 <strong className="text-xs font-bold text-[#141219] block">
                   Limited Edition $2,500 Cash Drop Alerts

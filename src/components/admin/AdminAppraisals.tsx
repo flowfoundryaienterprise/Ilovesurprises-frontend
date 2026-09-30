@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Sparkles,
+  Gem,
   Search,
   Plus,
   Copy,
@@ -376,7 +376,6 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#fff0f3] text-[#D30915] text-[10px] font-black uppercase tracking-wider mb-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
             <span>Candle Surprise Valuation Engine</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-[#141219] tracking-tight">
@@ -696,7 +695,7 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-[#eedbe6] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#D30915]" />
+                <Gem className="w-5 h-5 text-[#D30915]" />
                 <div>
                   <h3 className="text-base font-black text-[#141219] m-0">
                     Review Appraisal Submission

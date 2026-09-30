@@ -6,7 +6,7 @@ export const trustHighlights = [
   {
     title: 'Real Surprise in Every Item',
     description: 'Every candle, wax melt, and soap comes with a genuine jewelry or cash reveal inside.',
-    icon: 'Sparkles'
+    icon: 'Gift'
   },
   {
     title: '100% Hand-Poured Soy Wax',

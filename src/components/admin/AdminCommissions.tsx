@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Clock,
   RotateCcw,
-  Sparkles,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -324,7 +323,6 @@ export const AdminCommissions: React.FC<AdminCommissionsProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-black text-[#141219] uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#D30915]" />
                 <span>Approved Multi-Tier Commission Schedule</span>
               </span>
               <span className="text-[11px] font-bold text-[#D30915] bg-[#fff1f2] px-2 py-0.5 rounded-full border border-[#fecdd3]">

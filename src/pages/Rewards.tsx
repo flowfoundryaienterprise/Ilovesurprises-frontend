@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Sparkles,
   Gift,
   Star,
   Crown,
@@ -257,7 +256,6 @@ export const Rewards: React.FC<RewardsProps> = ({
           {/* Top Badge */}
           <div className="flex items-center justify-center mb-4">
             <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#f5cad7] shadow-xs text-xs font-black uppercase tracking-wider text-[#D30915]">
-              <Sparkles className="w-3.5 h-3.5 text-[#D30915] animate-spin" />
               <span>Surprise Club™ VIP Loyalty & Rewards</span>
             </span>
           </div>
@@ -362,7 +360,6 @@ export const Rewards: React.FC<RewardsProps> = ({
                     onClick={() => onOpenAuth?.('signup')}
                     className="w-full mt-2 py-2.5 px-4 rounded-xl bg-[#D30915] hover:bg-[#b60711] text-white text-xs font-black shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
                     <span>Join Free & Claim 100 Bonus PTS</span>
                   </button>
                 )}
@@ -754,7 +751,6 @@ export const Rewards: React.FC<RewardsProps> = ({
                             : 'bg-stone-100 text-stone-500 border border-stone-200 hover:bg-stone-200'
                           }`}
                       >
-                        <Sparkles className="w-3.5 h-3.5" />
                         <span>
                           {isAffordable
                             ? `Redeem for ${reward.pointsCost} PTS`
@@ -1022,7 +1018,6 @@ export const Rewards: React.FC<RewardsProps> = ({
         <div className="rounded-[32px] bg-gradient-to-r from-[#D30915] via-[#e61220] to-[#b60711] text-white p-8 sm:p-12 text-center relative overflow-hidden shadow-[0_20px_50px_rgba(211,9,21,0.28)]">
           <div className="relative z-10 max-w-2xl mx-auto space-y-4">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-black uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5" />
               <span>Ready To Start Earning?</span>
             </span>
             <h2 className="text-2xl sm:text-4xl font-black hero-title-font leading-tight m-0 text-white">

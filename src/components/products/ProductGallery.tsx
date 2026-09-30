@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Sparkles,
+  Gift,
   ZoomIn,
   ZoomOut,
   Maximize2,
@@ -185,7 +185,7 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
       {surpriseValue && (
         <div className="bg-[#fff8fb] rounded-[16px] p-3 border border-[#fecdd3] flex items-center gap-2.5 shadow-2xs w-full max-w-full overflow-hidden">
           <div className="w-7 h-7 rounded-full bg-[#D30915] text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Sparkles className="w-4 h-4 animate-pulse" />
+            <Gift className="w-4 h-4" />
           </div>
           <div className="min-w-0 flex-1">
             <strong className="block text-xs font-black text-[#141219] truncate">
