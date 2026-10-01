@@ -46,6 +46,10 @@ export interface PaymentSummary {
   isPaid: boolean;
   transactionId: string;
   paidAt: string;
+  gatewayStatus?: 'succeeded' | 'processing' | 'requires_action' | 'pending' | 'failed' | 'cancelled';
+  gatewayReference?: string;
+  paymentIntentId?: string;
+  sessionId?: string;
 }
 
 export interface Order {

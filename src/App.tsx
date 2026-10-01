@@ -284,8 +284,12 @@ export function App() {
     if (typeof window === 'undefined') return null;
     const path = window.location.pathname;
     if (path.startsWith('/order-confirmation/')) {
-      return path.replace('/order-confirmation/', '');
+      const idPart = path.replace('/order-confirmation/', '').split('?')[0].split('#')[0];
+      if (idPart) return idPart;
     }
+    const searchParams = new URLSearchParams(window.location.search);
+    const orderIdParam = searchParams.get('order_id') || searchParams.get('orderId');
+    if (orderIdParam) return orderIdParam;
     return null;
   });
 
