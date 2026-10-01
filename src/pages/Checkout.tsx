@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -26,14 +26,16 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import type { CartItem, ShippingAddress, DeliveryMethod, UserProfile, Order, PaymentSummary, SavedAddress } from '../types';
-import { orderService, calculateEstimatedDelivery } from '../services/orderService';
+import type { CartItem, ShippingAddress, DeliveryMethod, UserProfile, Order, SavedAddress } from '../types';
+import { calculateEstimatedDelivery } from '../services/orderService';
 import { accountService } from '../services/accountService';
 import { isValidEmail, isValidMobile } from '../services/auth';
 import { MapLocationPickerModal, type MapAddressResult } from '../components/checkout/MapLocationPickerModal';
 import { COUNTRIES_DATA, getStatesByCountryName, getDistrictsByState } from '../data/geoData';
 import { CustomSearchableSelect, type SelectOption } from '../components/ui/CustomSearchableSelect';
 import { representativeService, type PublicRepresentative } from '../services/representativeService';
+import { paymentService } from '../services/paymentService';
+import { ApiError } from '../services/apiClient';
 
 interface CheckoutProps {
   cart: CartItem[];
@@ -69,6 +71,13 @@ export const Checkout: React.FC<CheckoutProps> = ({
 
   const [currentStep, setCurrentStep] = useState<CheckoutStep>(() => {
     if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const paymentStatus = searchParams.get('payment_status') || searchParams.get('status');
+      const isCanceled = searchParams.get('canceled') === 'true' || searchParams.get('cancelled') === 'true';
+      if (isCanceled || paymentStatus === 'cancelled' || paymentStatus === 'failed') {
+        return 'payment';
+      }
+
       const p = window.location.pathname;
       if (p === '/payment' || p === '/checkout/payment') return 'payment';
       if (p === '/checkout/delivery') return 'delivery';
@@ -95,6 +104,30 @@ export const Checkout: React.FC<CheckoutProps> = ({
   }, []);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentSubmissionError, setPaymentSubmissionError] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const paymentStatus = searchParams.get('payment_status') || searchParams.get('status');
+      if (paymentStatus === 'failed') {
+        return searchParams.get('error') || 'Your payment attempt was declined or failed. Please check your payment details or try a different payment method.';
+      }
+    }
+    return '';
+  });
+
+  const [paymentNotice, setPaymentNotice] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const paymentStatus = searchParams.get('payment_status') || searchParams.get('status');
+      const isCanceled = searchParams.get('canceled') === 'true' || searchParams.get('cancelled') === 'true';
+      if (isCanceled || paymentStatus === 'cancelled') {
+        return 'Your previous payment session was cancelled. No charges were made. You may select your preferred payment method below to complete your order.';
+      }
+    }
+    return '';
+  });
+
+  const submitLockRef = useRef<boolean>(false);
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [isMobileSummaryOpen, setIsMobileSummaryOpen] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
@@ -539,25 +572,34 @@ export const Checkout: React.FC<CheckoutProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Place Mock Order
+  // Place Order through Payment Gateway Flow
   const handlePlaceOrder = async () => {
+    // 1. Guard against duplicate submission
+    if (isSubmitting || submitLockRef.current) {
+      return;
+    }
+
+    if (cart.length === 0) {
+      return;
+    }
+
+    // 2. Validate shipping form
+    if (!validateShippingForm()) {
+      setCurrentStep('shipping');
+      return;
+    }
+
+    // 3. Validate payment form if card is chosen
     if (paymentMethod === 'card' && !validatePaymentForm()) {
       return;
     }
 
+    submitLockRef.current = true;
     setIsSubmitting(true);
+    setPaymentSubmissionError('');
+    setPaymentNotice('');
 
     try {
-      const paymentSummary: PaymentSummary = {
-        method: paymentMethod,
-        isPaid: paymentMethod !== 'cod',
-        cardholderName: paymentMethod === 'card' ? cardName : (shippingForm.fullName || 'Shopper'),
-        last4: paymentMethod === 'card' ? cardNumber.replace(/\s/g, '').slice(-4) || '4242' : undefined,
-        cardBrand: paymentMethod === 'card' ? detectedCardBrand : paymentMethod === 'cod' ? 'Cash on Delivery' : paymentMethod.replace('_', ' ').toUpperCase(),
-        transactionId: `txn_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
-        paidAt: paymentMethod === 'cod' ? 'Due upon Doorstep Delivery' : new Date().toISOString(),
-      };
-
       const orderItems = cart.map((item) => ({
         product: item.product,
         quantity: item.quantity,
@@ -569,16 +611,30 @@ export const Checkout: React.FC<CheckoutProps> = ({
         totalPrice: item.product.price * item.quantity,
       }));
 
+      // Parse card details for gateway
+      let cardDetails;
+      if (paymentMethod === 'card') {
+        const [expMonthStr, expYearStr] = cardExpiry.split('/');
+        cardDetails = {
+          cardholderName: cardName.trim(),
+          last4: cardNumber.replace(/\s/g, '').slice(-4),
+          cardBrand: detectedCardBrand,
+          expMonth: parseInt(expMonthStr, 10),
+          expYear: parseInt(expYearStr, 10),
+        };
+      }
+
       // If user provided marketing consent, record in user settings
       if (marketingConsent) {
         accountService.updateUserSettings({ marketingEmails: true });
       }
 
-      const createdOrder = await orderService.createOrder({
+      // Initiate payment through backend API gateway flow
+      const result = await paymentService.initiatePayment({
+        paymentMethod,
         items: orderItems,
         shippingAddress: shippingForm,
         deliveryMethod: selectedDelivery,
-        paymentSummary,
         subtotal: rawSubtotal,
         discount: discountAmount,
         promoCode: isRepPurchaser ? 'REP_20_PERSONAL' : appliedPromo?.code,
@@ -592,16 +648,63 @@ export const Checkout: React.FC<CheckoutProps> = ({
         isPersonalPurchase: isRepPurchaser,
         repDiscountAmount: isRepPurchaser ? repPersonalDiscount : undefined,
         notes: isRepPurchaser ? 'rep_personal_order: 20% rep discount applied' : undefined,
+        cardDetails,
+        returnUrl: `${window.location.origin}/order-confirmation`,
+        cancelUrl: `${window.location.origin}/payment?payment_status=cancelled`,
       });
 
-      // Automatically sync & record delivery address (max 3, deduplicated)
-      accountService.recordOrderShippingAddress(shippingForm);
+      // Handle hosted gateway redirect (Stripe Checkout or PayPal Express)
+      if (result.requiresRedirect && result.checkoutUrl) {
+        accountService.recordOrderShippingAddress(shippingForm);
+        window.location.href = result.checkoutUrl;
+        return;
+      }
 
-      // Immediately navigate to Order Confirmation page
-      onOrderCompleted(createdOrder);
-    } catch (err) {
-      console.error('Order creation failed:', err);
+      // Handle synchronous backend success (e.g. COD or direct gateway capture)
+      if (result.status === 'succeeded' && result.order) {
+        accountService.recordOrderShippingAddress(shippingForm);
+        onOrderCompleted(result.order);
+        return;
+      }
+
+      // Verify payment with backend API before marking order paid
+      if (result.orderId) {
+        const verification = await paymentService.verifyPayment({
+          orderId: result.orderId,
+          paymentIntentId: result.paymentIntentId,
+          paymentMethod,
+        });
+
+        if (verification.verified && verification.order) {
+          accountService.recordOrderShippingAddress(shippingForm);
+          onOrderCompleted(verification.order);
+          return;
+        } else if (verification.status === 'pending') {
+          setPaymentNotice(
+            'Your payment is currently being processed by your bank. We will confirm your order as soon as gateway confirmation is received.'
+          );
+          return;
+        } else {
+          setPaymentSubmissionError(
+            verification.message ||
+            'Payment verification was not completed by the payment gateway. If your account was charged, please contact customer support.'
+          );
+          return;
+        }
+      }
+
+      setPaymentSubmissionError(result.message || 'Payment initiation failed. Please try again.');
+    } catch (err: any) {
+      console.error('Payment processing failed:', err);
+      if (err instanceof ApiError) {
+        setPaymentSubmissionError(err.message);
+      } else {
+        setPaymentSubmissionError(
+          err?.message || 'Unable to connect to the payment gateway. Please check your internet connection and try again.'
+        );
+      }
     } finally {
+      submitLockRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -1724,6 +1827,44 @@ export const Checkout: React.FC<CheckoutProps> = ({
                   </button>
                 </div>
 
+                {/* Gateway Payment Notification Notice */}
+                {paymentNotice && (
+                  <div className="mb-4 p-3.5 sm:p-4 rounded-[16px] bg-amber-50/90 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5 shadow-2xs animate-in fade-in duration-200">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="flex-1 leading-relaxed">
+                      <div className="font-black text-amber-950">Payment Notification</div>
+                      <div className="mt-0.5 font-medium">{paymentNotice}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentNotice('')}
+                      className="text-amber-600 hover:text-amber-900 text-sm font-bold p-0.5 -mr-1 cursor-pointer"
+                      aria-label="Dismiss notice"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                {/* Gateway Payment Error Notice */}
+                {paymentSubmissionError && (
+                  <div className="mb-4 p-3.5 sm:p-4 rounded-[16px] bg-red-50/90 border border-red-200 text-red-900 text-xs flex items-start gap-2.5 shadow-2xs animate-in fade-in duration-200">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <div className="flex-1 leading-relaxed">
+                      <div className="font-black text-red-950">Payment Action Required</div>
+                      <div className="mt-0.5 font-medium text-red-800">{paymentSubmissionError}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentSubmissionError('')}
+                      className="text-red-600 hover:text-red-950 text-sm font-bold p-0.5 -mr-1 cursor-pointer"
+                      aria-label="Dismiss error"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
                 {/* Payment Method Selector Tabs */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
                   {/* Card Option */}
@@ -1990,7 +2131,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
                     {isSubmitting ? (
                       <>
                         <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                        <span>Processing Order...</span>
+                        <span>Authorizing Payment...</span>
                       </>
                     ) : (
                       <>
@@ -2316,7 +2457,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
                 {isSubmitting ? (
                   <>
                     <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    <span>Processing...</span>
+                    <span>Authorizing...</span>
                   </>
                 ) : (
                   <>

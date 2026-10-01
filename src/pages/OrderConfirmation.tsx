@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Package,
   Truck,
@@ -9,9 +9,11 @@ import {
   Printer,
   ArrowRight,
   ShoppingBag,
+  AlertCircle,
 } from 'lucide-react';
 import type { Order } from '../types';
 import { orderService } from '../services/orderService';
+import { paymentService } from '../services/paymentService';
 import { OrderSuccessAnimation } from '../components/checkout/OrderSuccessAnimation';
 
 interface OrderConfirmationProps {
@@ -27,7 +29,108 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
   onNavigateToShop,
   onNavigateToAccountOrders,
 }) => {
+  const [verifying, setVerifying] = useState<boolean>(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [verifiedOrder, setVerifiedOrder] = useState<Order | null>(() => {
+    if (latestOrder && (!orderId || latestOrder.id === orderId)) {
+      return latestOrder;
+    }
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const sessionId = searchParams.get('session_id') || searchParams.get('sessionId') || undefined;
+      const paymentIntentId = searchParams.get('payment_intent') || searchParams.get('paymentIntentId') || undefined;
+      const queryOrderId = searchParams.get('order_id') || searchParams.get('orderId') || undefined;
+      if (!sessionId && !paymentIntentId && !orderId && !queryOrderId) {
+        const allOrders = orderService.getOrders();
+        return allOrders.length > 0 ? allOrders[0] : null;
+      }
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const sessionId = searchParams.get('session_id') || searchParams.get('sessionId') || undefined;
+    const paymentIntentId = searchParams.get('payment_intent') || searchParams.get('paymentIntentId') || undefined;
+    const queryOrderId = searchParams.get('order_id') || searchParams.get('orderId') || undefined;
+    const effectiveOrderId = orderId || queryOrderId;
+
+    // If we already have a verified order passed in that is marked paid or cod, skip verification
+    if (latestOrder && (!effectiveOrderId || latestOrder.id === effectiveOrderId)) {
+      return;
+    }
+
+    // If sessionId, paymentIntentId, or effectiveOrderId requires backend verification
+    if (sessionId || paymentIntentId || effectiveOrderId) {
+      setVerifying(true);
+      setVerificationError(null);
+
+      paymentService
+        .verifyPayment({
+          orderId: effectiveOrderId || '',
+          sessionId,
+          paymentIntentId,
+        })
+        .then((result) => {
+          if (isCancelled) return;
+          if (result.verified && result.order) {
+            setVerifiedOrder(result.order);
+            if (result.order.id) {
+              paymentService.clearPendingOrder(result.order.id);
+            }
+          } else if (result.status === 'pending') {
+            if (result.order) {
+              setVerifiedOrder(result.order);
+            } else {
+              const cached = effectiveOrderId ? orderService.getOrderById(effectiveOrderId) : null;
+              if (cached) {
+                setVerifiedOrder(cached);
+              } else {
+                setVerificationError(
+                  result.message || 'Payment is currently being processed by the gateway. Your order will be confirmed once authorization is complete.'
+                );
+              }
+            }
+          } else {
+            setVerificationError(
+              result.message ||
+              result.error ||
+              'Payment verification could not be confirmed by the payment gateway.'
+            );
+          }
+        })
+        .catch((err) => {
+          if (isCancelled) return;
+          const cached = effectiveOrderId ? orderService.getOrderById(effectiveOrderId) : null;
+          if (cached) {
+            setVerifiedOrder(cached);
+          } else {
+            setVerificationError(
+              err?.message || 'Unable to connect to the backend server to verify payment. Please check your connection.'
+            );
+          }
+        })
+        .finally(() => {
+          if (!isCancelled) {
+            setVerifying(false);
+          }
+        });
+    } else {
+      const allOrders = orderService.getOrders();
+      if (allOrders.length > 0) {
+        setVerifiedOrder(allOrders[0]);
+      }
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [orderId, latestOrder]);
+
   const order = React.useMemo<Order | null>(() => {
+    if (verifiedOrder) return verifiedOrder;
     if (latestOrder && (!orderId || latestOrder.id === orderId)) {
       return latestOrder;
     }
@@ -36,7 +139,7 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
     }
     const allOrders = orderService.getOrders();
     return allOrders.length > 0 ? allOrders[0] : null;
-  }, [orderId, latestOrder]);
+  }, [verifiedOrder, orderId, latestOrder]);
 
   const totalItemsPurchased = React.useMemo(() => {
     return order ? order.items.reduce((sum, item) => sum + item.quantity, 0) : 0;
@@ -51,6 +154,75 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  // 1. Loading Gateway Verification State
+  if (verifying) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center bg-[#fcf9fb]">
+        <div className="max-w-md mx-auto space-y-5 animate-in fade-in duration-300">
+          <div className="relative w-20 h-20 mx-auto">
+            <div className="w-20 h-20 rounded-full bg-[#fff1f2] border-2 border-[#fecdd3] flex items-center justify-center text-[#D30915] shadow-[0_10px_25px_rgba(211,9,21,0.12)]">
+              <ShieldCheck className="w-9 h-9 animate-pulse text-[#D30915]" />
+            </div>
+            <div className="absolute inset-0 rounded-full border-2 border-t-[#D30915] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+          </div>
+          <div>
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#D30915] bg-[#fff1f2] px-3 py-1 rounded-full border border-[#fecdd3]">
+              Level 1 PCI Gateway Verification
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-[#141219] mt-3 font-display">
+              Verifying Payment with Gateway...
+            </h2>
+            <p className="text-xs sm:text-sm text-[#716d77] max-w-sm mx-auto mt-2 leading-relaxed">
+              Confirming transaction authenticity and cryptographically validating your surprise order with the bank.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-2 text-xs text-[#8a858f] font-mono">
+            <Clock className="w-3.5 h-3.5 animate-spin" />
+            <span>Awaiting gateway confirmation webhook...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Gateway Verification Failed State
+  if (verificationError && !order) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center bg-[#fcf9fb]">
+        <div className="max-w-md mx-auto p-6 sm:p-8 rounded-[24px] bg-white border border-red-200 shadow-[0_10px_30px_rgba(211,9,21,0.06)] space-y-4 animate-in fade-in duration-300">
+          <div className="w-16 h-16 rounded-full bg-red-50 border-2 border-red-200 text-red-600 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-black text-[#141219] font-display">
+            Payment Verification Incomplete
+          </h2>
+          <p className="text-xs sm:text-sm text-[#716d77] leading-relaxed">
+            {verificationError}
+          </p>
+          <div className="p-3 bg-amber-50 rounded-[12px] border border-amber-200 text-[11px] text-amber-900 leading-normal text-left">
+            <strong>Security Notice:</strong> To protect your account, orders are only confirmed once payment authorization is verified directly with the payment gateway. If your card was charged, your order will automatically be recorded once the gateway webhook completes.
+          </div>
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={onNavigateToShop}
+              className="w-full sm:w-auto h-[44px] px-6 rounded-[12px] bg-[#D30915] text-white font-black text-xs uppercase tracking-wider cursor-pointer shadow-xs active:scale-95"
+            >
+              Return to Store
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigateToAccountOrders()}
+              className="w-full sm:w-auto h-[44px] px-6 rounded-[12px] border border-[#e8dfe5] hover:border-[#141219] text-[#141219] font-bold text-xs uppercase tracking-wider cursor-pointer active:scale-95 bg-white"
+            >
+              Check Order History
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!order) {
     return (

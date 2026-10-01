@@ -194,4 +194,28 @@ export const orderService = {
     }
     return target;
   },
+
+  /**
+   * Records a backend-verified order into local order storage and updates listeners.
+   */
+  recordBackendVerifiedOrder(verifiedOrder: Order): Order {
+    const existing = this.getOrders();
+    const idx = existing.findIndex((o) => o.id.toLowerCase() === verifiedOrder.id.toLowerCase());
+    let updated: Order[];
+    if (idx >= 0) {
+      updated = [...existing];
+      updated[idx] = verifiedOrder;
+    } else {
+      updated = [verifiedOrder, ...existing];
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('ilovesurprises_orders_updated'));
+      } catch (err) {
+        console.error('Failed to save verified order to localStorage', err);
+      }
+    }
+    return verifiedOrder;
+  },
 };

@@ -5,6 +5,8 @@ import { MinimalCheckoutHeader } from './components/layout/MinimalCheckoutHeader
 import { usePathname, isCheckoutRoute } from './hooks/usePathname';
 import { AuthModal } from './components/auth/AuthModal';
 import { CartDrawer } from './components/cart/CartDrawer';
+import { CartExitIntentModal } from './components/cart/CartExitIntentModal';
+import { useCartExitIntent } from './hooks/useCartExitIntent';
 import { ToastNotification, type ToastData } from './components/ui/ToastNotification';
 import { Home } from './pages/Home';
 import { Shop } from './pages/Shop';
@@ -282,8 +284,12 @@ export function App() {
     if (typeof window === 'undefined') return null;
     const path = window.location.pathname;
     if (path.startsWith('/order-confirmation/')) {
-      return path.replace('/order-confirmation/', '');
+      const idPart = path.replace('/order-confirmation/', '').split('?')[0].split('#')[0];
+      if (idPart) return idPart;
     }
+    const searchParams = new URLSearchParams(window.location.search);
+    const orderIdParam = searchParams.get('order_id') || searchParams.get('orderId');
+    if (orderIdParam) return orderIdParam;
     return null;
   });
 
@@ -411,6 +417,24 @@ export function App() {
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
   const [navDirection, setNavDirection] = useState<'forward' | 'backward'>('forward');
+
+  // Cart Abandonment Exit-Intent hook with session and 24h frequency control
+  const { isExitIntentOpen, closeExitIntent } = useCartExitIntent({
+    cart,
+    enabled:
+      currentView !== 'admin' &&
+      currentView !== 'admin-login' &&
+      currentView !== 'order-confirmation',
+  });
+
+  const handleClaimExitDiscount = (promoCode: string) => {
+    setAppliedCheckoutPromo(promoCode);
+    showToast(`VIP Promo ${promoCode} applied! 15% OFF your order.`, {
+      title: 'Discount Activated',
+      type: 'success',
+    });
+    handleTriggerCheckout();
+  };
 
   // Track scroll position per page for smooth return navigation
   const scrollPositions = useRef<Record<string, number>>({});
@@ -2003,6 +2027,15 @@ export function App() {
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveItem}
         onCheckout={handleTriggerCheckout}
+      />
+
+      {/* Cart Abandonment Exit-Intent Modal */}
+      <CartExitIntentModal
+        isOpen={isExitIntentOpen}
+        onClose={closeExitIntent}
+        cart={cart}
+        onClaimDiscount={handleClaimExitDiscount}
+        onViewCart={() => setIsCartOpen(true)}
       />
 
       {/* Representative Consultant Subscription & Enrollment Modal */}

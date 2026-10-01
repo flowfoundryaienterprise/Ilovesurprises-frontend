@@ -11,6 +11,8 @@ import {
   Copy,
   Check,
   Printer,
+  Download,
+  Loader2,
   X,
   Upload,
   Camera,
@@ -22,6 +24,7 @@ import {
 import type { PublicAppraisalResult } from '../types/appraisal';
 import { appraisalService } from '../services/appraisalService';
 import { accountService } from '../services/accountService';
+import { downloadAppraisalCertificatePdf } from '../utils/pdfGenerator';
 
 interface AppraiseJewelryProps {
   onNavigateToShop?: () => void;
@@ -77,6 +80,25 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
   const [isCertificateOpen, setIsCertificateOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [pdfStatus, setPdfStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleDownloadPdf = async () => {
+    if (!appraisalResult) return;
+    setIsDownloadingPdf(true);
+    setPdfStatus(null);
+    try {
+      await downloadAppraisalCertificatePdf(appraisalResult);
+      setPdfStatus({ type: 'success', message: 'Certificate PDF downloaded successfully!' });
+    } catch (err: any) {
+      setPdfStatus({
+        type: 'error',
+        message: err?.message || 'Failed to generate PDF. Please try again or use the print option.',
+      });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -651,13 +673,29 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
                     <span>{copiedCode ? 'Code Copied!' : `Copy Code: ${appraisalResult.code}`}</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsCertificateOpen(true)}
-                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-sm"
-                  >
-                    View Official Certificate
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDownloadPdf}
+                      disabled={isDownloadingPdf}
+                      className="px-4 py-2.5 rounded-xl bg-[#fff0f3] hover:bg-[#ffe0e6] text-[#D30915] text-xs font-bold transition-colors cursor-pointer border border-[#fecdd3] flex items-center gap-1.5 disabled:opacity-50"
+                      title="Download official PDF certificate"
+                    >
+                      {isDownloadingPdf ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Download className="w-3.5 h-3.5" />
+                      )}
+                      <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsCertificateOpen(true)}
+                      className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                    >
+                      View Official Certificate
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -781,22 +819,55 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="px-4 py-2 rounded-xl bg-[#fff0f3] hover:bg-[#ffe0e6] text-[#D30915] text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print Certificate</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsCertificateOpen(false)}
-                  className="px-5 py-2 rounded-xl bg-[#141219] hover:bg-black text-white text-xs font-bold cursor-pointer"
-                >
-                  Done
-                </button>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-4 pt-3 border-t border-amber-100">
+                {pdfStatus ? (
+                  <div
+                    className={`text-xs font-bold ${
+                      pdfStatus.type === 'success' ? 'text-emerald-700' : 'text-rose-700'
+                    } flex items-center gap-1`}
+                  >
+                    {pdfStatus.type === 'success' ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : (
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                    )}
+                    <span>{pdfStatus.message}</span>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-[#716d77] hidden sm:block">
+                    Official ISO 32000-1 vector PDF generated securely in browser.
+                  </div>
+                )}
+                <div className="flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={handleDownloadPdf}
+                    disabled={isDownloadingPdf}
+                    className="px-4 py-2 rounded-xl bg-[#D30915] hover:bg-[#B60711] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                  >
+                    {isDownloadingPdf ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-4 py-2 rounded-xl bg-[#fff0f3] hover:bg-[#ffe0e6] text-[#D30915] text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-[#fecdd3]"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsCertificateOpen(false)}
+                    className="px-5 py-2 rounded-xl bg-[#141219] hover:bg-black text-white text-xs font-bold cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             </div>
           </div>

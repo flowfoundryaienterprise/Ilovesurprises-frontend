@@ -19,9 +19,11 @@ import {
   Clock,
   ChevronDown,
   Flame,
+  Ruler,
 } from 'lucide-react';
 import { ProductGallery } from '../components/products/ProductGallery';
 import { ProductCard } from '../components/products/ProductCard';
+import { RingSizerModal } from '../components/products/RingSizerModal';
 import { productsData } from '../data/products';
 import { reviewsData } from '../data/reviews';
 import { deduplicateProducts } from '../utils/productUtils';
@@ -191,6 +193,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   // Jewelry Variant States (Ring Size & Jewelry Type fallback)
   const [selectedJewelryType, setSelectedJewelryType] = useState<string>('Ring');
   const [selectedRingSize, setSelectedRingSize] = useState<number>(7);
+  const [isRingSizerOpen, setIsRingSizerOpen] = useState(false);
 
   // Consultant Attribution
   const [rep, setRep] = useState<PublicRepresentative | null>(() =>
@@ -656,7 +659,18 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                       <span className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1">
                         <span>Select Ring Size (US):</span>
                       </span>
-                      <span className="text-xs font-bold text-[#D30915]">Size {selectedRingSize}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsRingSizerOpen(true)}
+                          className="text-[11px] font-bold text-[#D30915] hover:text-[#B60711] hover:underline inline-flex items-center gap-1 cursor-pointer bg-[#fff0f3] px-2 py-0.5 rounded-lg border border-[#fecdd3]"
+                          title="Open Interactive Ring Sizer & Measurement Ruler"
+                        >
+                          <Ruler className="w-3 h-3" />
+                          <span>Find My Size</span>
+                        </button>
+                        <span className="text-xs font-bold text-[#D30915]">Size {selectedRingSize}</span>
+                      </div>
                     </div>
                     <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
                       {RING_SIZES.map((size) => (
@@ -1144,6 +1158,14 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
           </div>
         </div>
       )}
+
+      {/* Interactive Ring Sizing Ruler & Circle Sizer Modal */}
+      <RingSizerModal
+        isOpen={isRingSizerOpen}
+        onClose={() => setIsRingSizerOpen(false)}
+        currentSize={selectedRingSize}
+        onSelectSize={(size) => setSelectedRingSize(size)}
+      />
     </div>
   );
 };
