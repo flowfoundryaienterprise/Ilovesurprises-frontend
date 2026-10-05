@@ -1,3 +1,4 @@
+import { apiClient } from './apiClient';
 import type {
   AdminRole,
   AdminRoleDefinition,
@@ -517,6 +518,40 @@ export const adminService = {
   },
 
   async fetchCommerceProducts(): Promise<AdminProductItem[]> {
+    try {
+      const response = await apiClient.get<any>('/api/products?limit=100', { skipAuth: true });
+      const rawProducts = response.data?.products || response.products || (Array.isArray(response.data) ? response.data : []);
+
+      if (Array.isArray(rawProducts) && rawProducts.length > 0) {
+        const mapped: AdminProductItem[] = rawProducts.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          sku: p.sku || `ILS-SKU-${p.id.slice(0, 4).toUpperCase()}`,
+          category: p.categoryName || p.category?.name || p.category || 'Surprise Candles',
+          price: Number(p.price) || 0,
+          originalPrice: p.compareAtPrice ? Number(p.compareAtPrice) : (p.originalPrice ? Number(p.originalPrice) : undefined),
+          description: p.description || p.shortDescription,
+          stock: p.stock !== undefined ? Number(p.stock) : 50,
+          lowStockThreshold: p.lowStockThreshold || 10,
+          surpriseType: p.surpriseType || 'cash',
+          surpriseValue: p.surpriseRevealInfo?.valueRange || p.surpriseValue || '$100 Cash Prize',
+          image: p.imageUrl || p.image || (Array.isArray(p.images) && p.images[0]) || '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg',
+          rating: Number(p.rating) || 5.0,
+          reviewCount: Number(p.reviewCount) || 0,
+          status: p.status === 'archived' ? 'archived' : (p.inStock !== false ? 'active' : 'draft'),
+          isBestSeller: Boolean(p.isBestSeller),
+        }));
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(ADMIN_PRODUCTS_OVERRIDE_KEY, JSON.stringify(mapped));
+          window.dispatchEvent(new CustomEvent('ils_admin_updated'));
+          window.dispatchEvent(new CustomEvent('ils_catalog_updated'));
+        }
+        return mapped;
+      }
+    } catch (err) {
+      console.warn('Backend fetchCommerceProducts warning:', err);
+    }
     return this.getCommerceProducts();
   },
 
@@ -527,8 +562,36 @@ export const adminService = {
       categoriesData.find((c) => c.name.toLowerCase() === (data.category || '').toLowerCase()) ||
       categoriesData[1];
 
+    let backendCreatedId = id;
+    if (apiClient.getAuthToken()) {
+      try {
+        const response = await apiClient.post<{
+          success: boolean;
+          data: { product: any };
+        }>('/api/admin/products', {
+          name: data.name || 'New Surprise Product',
+          description: data.description,
+          price: Number(data.price) || 29.99,
+          originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
+          category: matchedCategory.name,
+          stock: Number(data.stock) || 50,
+          surpriseType: data.surpriseType || 'cash',
+          surpriseValue: data.surpriseValue || '$100 Cash Prize',
+          sku: data.sku,
+          image: data.image || matchedCategory.image,
+          isBestSeller: Boolean(data.isBestSeller),
+          status: data.status || 'active',
+        });
+        if (response.data?.product?.id) {
+          backendCreatedId = response.data.product.id;
+        }
+      } catch (err) {
+        console.warn('Backend createProduct warning:', err);
+      }
+    }
+
     const newProduct: AdminProductItem = {
-      id,
+      id: backendCreatedId,
       name: data.name || 'New Surprise Candle',
       sku: data.sku || `ILS-SKU-${Date.now().toString().slice(-4)}`,
       category: matchedCategory.name,
@@ -555,7 +618,7 @@ export const adminService = {
       } catch (err) {
         console.error('Failed to save product override', err);
       }
-    }
+    }
 
     return newProduct;
   },
@@ -578,6 +641,18 @@ export const adminService = {
 
     products[targetIdx] = updatedItem;
 
+    if (apiClient.getAuthToken() && !id.startsWith('prod_')) {
+      apiClient.patch(`/api/admin/products/${id}`, {
+        name: updates.name,
+        price: updates.price,
+        stock: updates.stock,
+        category: matchedCat ? matchedCat.name : updates.category,
+        description: updates.description,
+        isBestSeller: updates.isBestSeller,
+        status: updates.status,
+      }).catch((err) => console.warn('Backend updateProduct warning:', err));
+    }
+
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(ADMIN_PRODUCTS_OVERRIDE_KEY, JSON.stringify(products));
@@ -586,7 +661,7 @@ export const adminService = {
       } catch (err) {
         console.error('Failed to update product', err);
       }
-    }
+    }
 
     return true;
   },
@@ -594,6 +669,10 @@ export const adminService = {
   async deleteProduct(id: string): Promise<boolean> {
     const products = this.getCommerceProducts();
     const filtered = products.filter((p) => p.id !== id);
+
+    if (apiClient.getAuthToken() && !id.startsWith('prod_')) {
+      apiClient.delete(`/api/admin/products/${id}`).catch((err) => console.warn('Backend deleteProduct warning:', err));
+    }
 
     if (typeof window !== 'undefined') {
       try {
@@ -603,7 +682,7 @@ export const adminService = {
       } catch (err) {
         console.error('Failed to delete product', err);
       }
-    }
+    }
 
     return true;
   },
@@ -733,7 +812,7 @@ export const adminService = {
       } catch (err) {
         console.error('Failed to create collection override', err);
       }
-    }
+    }
 
     return newCol;
   },
@@ -752,7 +831,7 @@ export const adminService = {
       } catch (err) {
         console.error('Failed to update collection', err);
       }
-    }
+    }
 
     return true;
   },
@@ -768,7 +847,7 @@ export const adminService = {
       } catch (err) {
         console.error('Failed to delete collection', err);
       }
-    }
+    }
 
     return true;
   },
@@ -781,8 +860,44 @@ export const adminService = {
   },
 
   async getCommerceOrders(): Promise<AdminOrderItem[]> {
+    const token = apiClient.getAuthToken();
+    if (token) {
+      try {
+        const response = await apiClient.get<{
+          success: boolean;
+          data: {
+            orders: any[];
+          };
+        }>('/api/admin/orders');
 
-    // Check local storage orders
+        if (response.data && Array.isArray(response.data.orders)) {
+          const liveOrders: AdminOrderItem[] = response.data.orders.map((o) => {
+            let sAddr = o.shippingAddress;
+            if (typeof sAddr === 'string') {
+              try { sAddr = JSON.parse(sAddr); } catch { sAddr = {}; }
+            }
+            return {
+              id: o.id,
+              orderNumber: o.id.startsWith('ILS-') ? o.id : `ILS-${o.id.slice(0, 6).toUpperCase()}`,
+              customerName: sAddr?.fullName || (o.user ? `${o.user.firstName || ''} ${o.user.lastName || ''}`.trim() : 'Valued Customer'),
+              customerEmail: sAddr?.email || o.user?.email || 'customer@order.com',
+              total: Number(o.totalAmount) || Number(o.total) || 0,
+              status: (o.status as any) || 'processing',
+              paymentStatus: (o.paymentStatus || 'paid') as any,
+              itemCount: (o.items && o.items.length) || 1,
+              itemsSummary: (o.items || []).map((i: any) => `${i.productName || i.name || 'Item'} (x${i.quantity || 1})`).join(', ') || '1 item revealed',
+              createdAt: o.createdAt ? o.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+            };
+          });
+
+          return liveOrders;
+        }
+      } catch (err) {
+        console.warn('Backend getCommerceOrders warning:', err);
+      }
+    }
+
+    // Check local storage orders fallback
     try {
       if (typeof window !== 'undefined') {
         const stored = localStorage.getItem('ilovesurprises_orders_v1');
@@ -936,6 +1051,43 @@ export const adminService = {
   },
 
   async fetchCommissions(): Promise<AdminCommissionRecord[]> {
+    const token = apiClient.getAuthToken();
+    if (token) {
+      try {
+        const response = await apiClient.get<{
+          success: boolean;
+          data: {
+            records: any[];
+          };
+        }>('/api/admin/commissions');
+
+        if (response.data && Array.isArray(response.data.records) && response.data.records.length > 0) {
+          const mapped: AdminCommissionRecord[] = response.data.records.map((c) => ({
+            id: c.id,
+            orderId: c.orderId,
+            repId: c.affiliate?.userId || 'rep_1',
+            repName: c.affiliate?.repUsername || 'Brand Ambassador',
+            repUsername: c.affiliate?.repUsername || 'rep_ambassador',
+            customerName: c.referredCustomerName || 'Store Customer',
+            orderAmount: Number(c.orderAmount) || 50,
+            commissionAmount: Number(c.amount) || 10,
+            tier: (c.level === 0 ? 'direct' : `level_${c.level}`) as any,
+            tierLabel: c.level === 0 ? 'Direct Referral (20%)' : `Level ${c.level} Override (${Number(c.rate) * 100}%)`,
+            ratePercent: Number(c.rate) * 100 || 20,
+            status: (c.status as any) || 'pending',
+            date: c.createdAt ? c.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+          }));
+
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(ADMIN_COMMISSIONS_KEY, JSON.stringify(mapped));
+            window.dispatchEvent(new CustomEvent('ils_admin_updated'));
+          }
+          return mapped;
+        }
+      } catch (err) {
+        console.warn('Backend fetchCommissions warning:', err);
+      }
+    }
     return this.getCommissionLedger();
   },
 
@@ -1194,6 +1346,94 @@ export const adminService = {
         console.error('Failed to save homepage content', err);
       }
     }
+
+    if (apiClient.getAuthToken()) {
+      import('./cmsService').then(({ cmsService }) => {
+        if (content.announcementText || content.promoBannerCode) {
+          cmsService.updateBanners({
+            topStickyAnnouncementBar: {
+              isActive: true,
+              announcementCopy: content.announcementText || '⚡ FLASH SALE: FREE SHIPPING ON ALL CASH CANDLES TODAY ONLY!',
+            },
+            promotionalDiscountAlertBar: {
+              isActive: true,
+              promoCopy: `Use code ${content.promoBannerCode || 'SPOOKY20'} for 20% OFF your surprise reveal!`,
+              promoCode: content.promoBannerCode || 'SPOOKY20',
+            },
+          }).catch((err) => console.warn('Backend banner sync warning:', err));
+        }
+
+        if (Array.isArray(content.featuredCards)) {
+          content.featuredCards.forEach((card) => {
+            const cardKey = card.id === 'christmas-candles-1' ? 'christmas-x' : card.id;
+            if (['halloween', 'christmas-x', 'cash-candles', 'zodiac-cash-candles'].includes(cardKey)) {
+              cmsService.updateShowcaseCard(cardKey, {
+                displayTitle: card.title,
+                highlightBadge: card.badge,
+                tagline: card.tagline,
+                ctaButtonText: card.ctaText,
+                showcaseImageUri: card.image,
+              }).catch(() => {});
+            }
+          });
+        }
+      }).catch(() => {});
+    }
+  },
+
+  async fetchLiveStorefrontContent(): Promise<HomepageContentConfig> {
+    try {
+      const { cmsService } = await import('./cmsService');
+      const sf = await cmsService.getStorefront();
+      if (sf) {
+        const current = this.getHomepageContent();
+        const topBanner = sf.banners?.topStickyAnnouncementBar?.announcementCopy;
+        const promoBanner = sf.banners?.promotionalDiscountAlertBar?.promoCopy;
+        const promoCode = sf.banners?.promotionalDiscountAlertBar?.promoCode;
+
+        const updated: HomepageContentConfig = {
+          ...current,
+          announcementText: topBanner || current.announcementText,
+          promoBannerText: promoBanner || current.promoBannerText,
+          promoBannerCode: promoCode || current.promoBannerCode,
+        };
+
+        if (sf.showcaseCards && typeof sf.showcaseCards === 'object') {
+          const cardKeys = Object.keys(sf.showcaseCards);
+          if (cardKeys.length > 0 && Array.isArray(updated.featuredCards)) {
+            const showcaseMap = sf.showcaseCards as Record<string, any>;
+            updated.featuredCards = updated.featuredCards.map((fc) => {
+              const cardKey = fc.id === 'christmas-candles-1' ? 'christmas-x' : fc.id;
+              const remoteCard = showcaseMap[cardKey];
+              if (remoteCard) {
+                return {
+                  ...fc,
+                  title: remoteCard.displayTitle || fc.title,
+                  badge: remoteCard.highlightBadge || fc.badge,
+                  tagline: remoteCard.tagline || fc.tagline,
+                  ctaText: remoteCard.ctaButtonText || fc.ctaText,
+                  image: remoteCard.showcaseImageUri || fc.image,
+                };
+              }
+              return fc;
+            });
+          }
+        }
+
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(ADMIN_HOMEPAGE_CONTENT_KEY, JSON.stringify(updated));
+            window.dispatchEvent(new CustomEvent('ils_homepage_content_updated'));
+          } catch {
+            // ignore
+          }
+        }
+        return updated;
+      }
+    } catch (err) {
+      console.warn('Failed to fetch live storefront content:', err);
+    }
+    return this.getHomepageContent();
   },
 
   resetHomepageContent(): HomepageContentConfig {

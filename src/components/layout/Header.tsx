@@ -32,6 +32,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { UserProfile, Product } from '../../types';
+import { isAffiliateRole } from '../../types';
 import { productService } from '../../services/productService';
 import { adminService } from '../../services/adminService';
 import {
@@ -68,6 +69,7 @@ export interface HeaderProps {
   onOpenCart?: () => void;
   onOpenAuth?: (mode?: 'login' | 'signup' | 'forgot') => void;
   onLogout?: () => void;
+  searchQuery?: string;
   onSearch?: (query: string) => void;
   onNavigate?: (
     route:
@@ -160,6 +162,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCart,
   onOpenAuth,
   onLogout,
+  searchQuery: externalSearchQuery,
   onSearch,
   onNavigate,
   onNavigateToAccount,
@@ -170,7 +173,12 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectCategory,
   onSelectCollection,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(externalSearchQuery || '');
+  const [prevExternalSearchQuery, setPrevExternalSearchQuery] = useState(externalSearchQuery);
+  if (externalSearchQuery !== undefined && externalSearchQuery !== prevExternalSearchQuery) {
+    setPrevExternalSearchQuery(externalSearchQuery);
+    setSearchQuery(externalSearchQuery);
+  }
   const [matchingProducts, setMatchingProducts] = useState<Product[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const activeSearchIdRef = useRef(0);
@@ -220,6 +228,14 @@ export const Header: React.FC<HeaderProps> = ({
   });
 
   useEffect(() => {
+    // 1. Fetch live storefront configuration from backend API
+    adminService.fetchLiveStorefrontContent().then((content) => {
+      if (content?.announcementText) {
+        setAnnouncementText(content.announcementText);
+      }
+    }).catch(() => {});
+
+    // 2. Listen to updates
     const handleUpdate = () => {
       const current = adminService.getHomepageContent();
       if (current.announcementText) setAnnouncementText(current.announcementText);
@@ -407,7 +423,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [isConsultantSubscribed, setIsConsultantSubscribed] = useState<boolean>(() => {
     if (typeof window === 'undefined' || !user) return false;
     return (
-      user.role === 'representative' ||
+      isAffiliateRole(user.role) ||
       localStorage.getItem('ils_consultant_subscribed') === 'true'
     );
   });
@@ -419,7 +435,7 @@ export const Header: React.FC<HeaderProps> = ({
         return;
       }
       const isSub = (
-        user.role === 'representative' ||
+        isAffiliateRole(user.role) ||
         localStorage.getItem('ils_consultant_subscribed') === 'true'
       );
       setIsConsultantSubscribed(isSub);
@@ -681,13 +697,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Execute Search action
   const executeSearch = (queryToSearch?: string) => {
-    let q = (queryToSearch !== undefined ? queryToSearch : searchQuery).trim();
-    if (!q) {
-      // Fallback: If user submits empty search, query current rotating suggestion
-      const currentSuggestion = SEARCH_SUGGESTIONS[searchPlaceholderIndex];
-      q = currentSuggestion?.query || 'Cash Candles';
-      setSearchQuery(q);
-    }
+    const q = (queryToSearch !== undefined ? queryToSearch : searchQuery).trim();
 
     setIsSearchOpen(false);
     setIsDesktopSearchFocused(false);
@@ -695,16 +705,13 @@ export const Header: React.FC<HeaderProps> = ({
     closeVoiceModal();
     closeMobileMenu();
 
-    // If an exact matching product is in the current search results, open it directly
-    const exactMatch = matchingProducts.find(
-      (p) => p.name.toLowerCase() === q.toLowerCase()
-    );
-    if (exactMatch && onSelectProduct) {
-      onSelectProduct(exactMatch);
+    if (!q) {
+      setSearchQuery('');
+      onSearch?.('');
       return;
     }
 
-    // Otherwise trigger onSearch (opens Shop page with search query)
+    // Trigger onSearch (opens Shop page with search query across full catalog)
     onSearch?.(q);
   };
 
@@ -789,6 +796,7 @@ export const Header: React.FC<HeaderProps> = ({
     productService.getFeaturedProducts(8).then((prods) => {
       setMatchingProducts(prods);
     });
+    onSearch?.('');
   };
 
   const handleSelectProduct = (product: Product) => {
@@ -1322,12 +1330,12 @@ export const Header: React.FC<HeaderProps> = ({
                         </strong>
                         <span className="text-[10px] text-[#716d77] block truncate">{user.email}</span>
                         <span className="inline-block mt-1 text-[9px] font-black uppercase text-[#D30915] bg-white px-2 py-0.5 rounded-full border border-[#fecdd3]">
-                          {user.role === 'representative' ? '★ Active Representative' : '💎 VIP Member'}
+                          {isAffiliateRole(user.role) ? '★ Active Representative' : '💎 VIP Member'}
                         </span>
                       </div>
 
                       <div className="space-y-1 text-xs font-bold text-[#55505a]">
-                        {user.role === 'representative' && (
+                        {isAffiliateRole(user.role) && (
                           <a
                             href="/affiliate"
                             onClick={(e) => {
@@ -2273,7 +2281,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   </div>
                   <span className="text-[9px] font-black uppercase text-[#D30915] bg-[#fff1f2] px-2 py-0.5 rounded-full border border-[#fecdd3] shrink-0">
-                    {user.role === 'representative' ? '20% Rep' : 'VIP'}
+                    {isAffiliateRole(user.role) ? '20% Rep' : 'VIP'}
                   </span>
                 </div>
 

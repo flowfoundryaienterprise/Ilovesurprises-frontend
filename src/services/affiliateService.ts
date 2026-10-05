@@ -1,3 +1,4 @@
+import { apiClient } from './apiClient';
 import type {
   AffiliateStats,
   CommissionRecord,
@@ -25,6 +26,163 @@ export const affiliateService = {
   /**
    * Retrieves live affiliate stats and balances
    */
+  async fetchStats(): Promise<AffiliateStats> {
+    const token = apiClient.getAuthToken();
+    if (!token) return this.getStats();
+
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        data: {
+          lifetimeEarnings: number;
+          availableBalance: number;
+          pendingBalance: number;
+          teamSalesVolume: number;
+          personalSalesVolume: number;
+          totalReferrals: number;
+          activeReferrals: number;
+          conversionRate: number;
+          rank: string;
+          directCommissionRate: number;
+          referralLink: string;
+          referralCode: string;
+          profile: {
+            repUsername?: string;
+          };
+        };
+      }>('/api/affiliates/dashboard');
+
+      if (response.data) {
+        const d = response.data;
+        const current = this.getStats();
+        const updated: AffiliateStats = {
+          ...current,
+          totalEarnings: Number(d.lifetimeEarnings) || 0,
+          availableBalance: Number(d.availableBalance) || 0,
+          pendingCommissions: Number(d.pendingBalance) || 0,
+          lifetimeSalesVolume: (Number(d.personalSalesVolume) || 0) + (Number(d.teamSalesVolume) || 0),
+          personalSalesVolume: Number(d.personalSalesVolume) || 0,
+          teamSalesVolume: Number(d.teamSalesVolume) || 0,
+          totalReferrals: Number(d.totalReferrals) || 0,
+          activeReferrals: Number(d.activeReferrals) || 0,
+          conversionRate: Number(d.conversionRate) || 0,
+          currentRank: (d.rank as any) || 'VIP Partner',
+          personalCommissionRate: Number(d.directCommissionRate) || 0.20,
+          repUsername: d.profile?.repUsername || current.repUsername || '',
+          customReferralCode: d.referralCode || current.customReferralCode || '',
+          referralLink: d.referralLink || current.referralLink,
+        };
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(AFFILIATE_STATS_KEY, JSON.stringify(updated));
+          window.dispatchEvent(new CustomEvent('ilovesurprises_affiliate_updated'));
+        }
+        return updated;
+      }
+    } catch {
+      // fallback
+    }
+    return this.getStats();
+  },
+
+  async fetchCommissions(): Promise<CommissionRecord[]> {
+    const token = apiClient.getAuthToken();
+    if (!token) return this.getCommissions();
+
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        data: {
+          commissions: Array<{
+            id: string;
+            orderId: string;
+            amount: number;
+            rate: number;
+            level: number;
+            type: string;
+            status: string;
+            createdAt: string;
+            referredCustomerName?: string;
+            orderAmount?: number;
+          }>;
+        };
+      }>('/api/affiliates/commissions');
+
+      if (response.data && Array.isArray(response.data.commissions)) {
+        const mapped: CommissionRecord[] = response.data.commissions.map((c) => ({
+          id: c.id,
+          orderId: c.orderId,
+          orderDate: c.createdAt ? c.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+          customerName: c.referredCustomerName || 'Store Customer',
+          productName: 'Surprise Candles & Melts',
+          level: (c.level === 0 ? 'direct' : `level_${c.level}`) as any,
+          levelLabel: c.level === 0 ? 'Personal Sale (20%)' : `Level ${c.level} Referral (${Number(c.rate) * 100}%)`,
+          orderAmount: Number(c.orderAmount) || 50,
+          commissionRate: Number(c.rate) || 0.2,
+          commissionAmount: Number(c.amount) || 10,
+          status: (c.status as any) || 'pending',
+        }));
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(COMMISSIONS_KEY, JSON.stringify(mapped));
+          window.dispatchEvent(new CustomEvent('ilovesurprises_affiliate_updated'));
+        }
+        return mapped;
+      }
+    } catch {
+      // fallback
+    }
+    return this.getCommissions();
+  },
+
+  async fetchPayouts(): Promise<PayoutRecord[]> {
+    const token = apiClient.getAuthToken();
+    if (!token) return this.getPayouts();
+
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        data: {
+          payouts: Array<{
+            id: string;
+            amount: number;
+            netAmount?: number;
+            method: string;
+            destinationAccount: string;
+            status: string;
+            referenceId?: string;
+            createdAt: string;
+            processedAt?: string;
+          }>;
+        };
+      }>('/api/affiliates/payouts');
+
+      if (response.data && Array.isArray(response.data.payouts)) {
+        const mapped: PayoutRecord[] = response.data.payouts.map((p) => ({
+          id: p.id,
+          amount: Number(p.amount),
+          fee: 0,
+          netAmount: Number(p.netAmount || p.amount),
+          method: (p.method as any) || 'paypal',
+          destinationAccount: p.destinationAccount,
+          requestedAt: p.createdAt,
+          processedAt: p.processedAt,
+          status: (p.status as any) || 'processing',
+          referenceId: p.referenceId || `REF-${p.id.slice(-6).toUpperCase()}`,
+        }));
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(PAYOUTS_KEY, JSON.stringify(mapped));
+          window.dispatchEvent(new CustomEvent('ilovesurprises_affiliate_updated'));
+        }
+        return mapped;
+      }
+    } catch {
+      // fallback
+    }
+    return this.getPayouts();
+  },
+
   getStats(): AffiliateStats {
     let base: AffiliateStats;
     if (typeof window === 'undefined') {
@@ -152,33 +310,48 @@ export const affiliateService = {
     method: PayoutMethod;
     destinationAccount: string;
   }): Promise<{ success: boolean; payout?: PayoutRecord; error?: string }> {
-    // Simulate brief latency (450ms)
-    await new Promise((resolve) => setTimeout(resolve, 450));
-
     const stats = this.getStats();
     if (params.amount < 25) {
       return { success: false, error: 'Minimum withdrawal threshold is $25.00' };
     }
     if (params.amount > stats.availableBalance) {
-      return { success: false, error: `Requested amount exceeds available balance ($${stats.availableBalance.toFixed(2)})` };
+      return { success: false, error: `Requested amount exceeds available balance (${stats.availableBalance.toFixed(2)})` };
+    }
+
+    let backendPayout: any = null;
+    const token = apiClient.getAuthToken();
+    if (token) {
+      try {
+        const response = await apiClient.post<{
+          success: boolean;
+          data: { payout: any };
+        }>('/api/affiliates/payout-request', {
+          amount: params.amount,
+          method: params.method,
+          destinationAccount: params.destinationAccount,
+        });
+        backendPayout = response.data?.payout;
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Failed to submit withdrawal request to server.' };
+      }
     }
 
     const newPayout: PayoutRecord = {
-      id: 'payout-' + Date.now(),
+      id: backendPayout?.id || 'payout-' + Date.now(),
       amount: params.amount,
       fee: 0,
       netAmount: params.amount,
       method: params.method,
       destinationAccount: params.destinationAccount,
-      requestedAt: new Date().toISOString(),
-      status: 'processing',
-      referenceId: 'REF-' + Math.floor(100000 + Math.random() * 900000),
+      requestedAt: backendPayout?.createdAt || new Date().toISOString(),
+      status: (backendPayout?.status as any) || 'processing',
+      referenceId: backendPayout?.referenceId || ('REF-' + Math.floor(100000 + Math.random() * 900000)),
     };
 
     // Update balances
     const updatedStats: AffiliateStats = {
       ...stats,
-      availableBalance: stats.availableBalance - params.amount,
+      availableBalance: Math.max(0, stats.availableBalance - params.amount),
     };
 
     const payouts = this.getPayouts();

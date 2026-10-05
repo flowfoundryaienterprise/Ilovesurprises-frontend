@@ -90,6 +90,12 @@ export const Account: React.FC<AccountProps> = ({
       setAffiliateStats(affiliateService.getStats());
     };
 
+    // Fetch live backend orders & addresses on account mount
+    if (currentUser) {
+      orderService.fetchOrders().catch(() => {});
+      accountService.fetchAddresses().catch(() => {});
+    }
+
     window.addEventListener('ilovesurprises_orders_updated', handleOrdersUpdate);
     window.addEventListener('ilovesurprises_addresses_updated', handleAddressesUpdate);
     window.addEventListener('ilovesurprises_affiliate_updated', handleAffiliateUpdate);

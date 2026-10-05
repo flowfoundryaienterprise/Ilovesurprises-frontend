@@ -1,6 +1,8 @@
+import { apiClient } from './apiClient';
 import type { UserProfile } from '../types';
 import { accountService } from './accountService';
 import { customerAuthService } from './customerAuthService';
+import { isAdminRole } from '../utils/roleUtils';
 
 export interface LoginPayload {
   identifier: string; // Email
@@ -222,16 +224,44 @@ export const authService = {
    * Verifies whether the current session possesses administrator privileges.
    */
   async verifyAdminSession(): Promise<{ isAdmin: boolean; user: UserProfile | null }> {
-    const user = accountService.getStoredUser();
-    if (!user) return { isAdmin: false, user: null };
+    const token = apiClient.getAuthToken();
+    if (!token) return { isAdmin: false, user: null };
 
-    const isFounder = user.email?.toLowerCase() === 'ilovesurprises.admin@gmail.com';
-    const isAdmin = user.role === 'admin' || isFounder;
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        data: {
+          user: {
+            id: string;
+            email: string;
+            role: string;
+            firstName?: string;
+            lastName?: string;
+            name?: string;
+          };
+        };
+      }>('/api/auth/me');
 
-    return {
-      isAdmin,
-      user: isAdmin ? { ...user, role: 'admin' } : user,
-    };
+      const backendUser = response.data.user;
+      const isAdmin = isAdminRole(backendUser.role);
+      if (!isAdmin) {
+        return { isAdmin: false, user: null };
+      }
+
+      const adminUser: UserProfile = {
+        id: backendUser.id,
+        name: [backendUser.firstName, backendUser.lastName].filter(Boolean).join(' ') || backendUser.name || 'Administrator',
+        email: backendUser.email,
+        role: 'admin',
+        avatar: '/assets/ilovesurprises/Profile/profile image.webp',
+        createdAt: new Date().toISOString(),
+      };
+
+      accountService.updateStoredUser(adminUser);
+      return { isAdmin: true, user: adminUser };
+    } catch {
+      return { isAdmin: false, user: null };
+    }
   },
 
   /**
@@ -274,24 +304,61 @@ export const authService = {
       };
     }
 
-    const res = await this.localAdminSignIn(payload);
-    if (!res.success || !res.user) {
-      return res;
+    try {
+      const response = await apiClient.post<{
+        success: boolean;
+        message?: string;
+        data: {
+          user: {
+            id: string;
+            email: string;
+            role: string;
+            firstName?: string;
+            lastName?: string;
+            name?: string;
+          };
+          token: string;
+        };
+      }>('/api/auth/login', {
+        email: cleanEmail,
+        password: payload.password,
+      }, { skipAuth: true });
+
+      const { user: backendUser, token } = response.data;
+      if (!isAdminRole(backendUser.role)) {
+        return {
+          success: false,
+          error: 'Access denied. This account does not possess administrator privileges.',
+          isAdmin: false,
+        };
+      }
+
+      apiClient.setAuthToken(token);
+
+      const adminUser: UserProfile = {
+        id: backendUser.id,
+        name: [backendUser.firstName, backendUser.lastName].filter(Boolean).join(' ') || backendUser.name || 'Administrator',
+        email: backendUser.email,
+        role: 'admin',
+        avatar: '/assets/ilovesurprises/Profile/profile image.webp',
+        createdAt: new Date().toISOString(),
+      };
+
+      accountService.updateStoredUser(adminUser);
+      window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
+
+      return {
+        success: true,
+        user: adminUser,
+        token,
+        isAdmin: true,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || 'Authentication failed. Please verify your credentials and try again.',
+      };
     }
-
-    const adminUser: UserProfile = {
-      ...res.user,
-      role: 'admin',
-    };
-
-    accountService.updateStoredUser(adminUser);
-    window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
-
-    return {
-      ...res,
-      user: adminUser,
-      isAdmin: true,
-    };
   },
 
   /**

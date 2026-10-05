@@ -41,13 +41,19 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
     onSelectProduct?.(product);
   };
 
+  const isOutOfStock = product.inStock === false || (typeof product.stock === 'number' && product.stock <= 0);
+
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isOutOfStock) return;
     onAddToCart?.(product);
   };
 
   const handleIncrement = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isOutOfStock || (typeof product.stock === 'number' && cartQuantity >= product.stock)) {
+      return;
+    }
     onUpdateQuantity?.(product.id, cartQuantity + 1);
   };
 
@@ -96,17 +102,19 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
 
         {/* Top-Left Badges Stack with Proper Flex Spacing & No Overlap */}
         <div className="absolute top-1.5 left-1.5 flex flex-col items-start gap-1 max-w-[calc(100%-32px)] sm:max-w-[calc(100%-36px)] z-10 pointer-events-none">
-          {discountPercent && (
+          {isOutOfStock ? (
+            <span className="px-1.5 sm:px-2 py-0.5 rounded-[6px] sm:rounded-full bg-stone-700 text-white text-[8px] sm:text-[9px] font-black uppercase tracking-wider shadow-xs">
+              Out of Stock
+            </span>
+          ) : discountPercent ? (
             <span className="px-1.5 sm:px-2 py-0.5 rounded-[6px] sm:rounded-full bg-[#D30915] text-white text-[8px] sm:text-[9px] font-black uppercase tracking-wider shadow-xs">
               {discountPercent}% OFF
             </span>
-          )}
-
-          {product.badge && !discountPercent && (
+          ) : product.badge ? (
             <span className="px-1.5 sm:px-2 py-0.5 rounded-[6px] sm:rounded-full bg-[#141219] text-white text-[8px] sm:text-[9px] font-black uppercase tracking-wider shadow-xs truncate max-w-[76px] sm:max-w-[90px]">
               {product.badge}
             </span>
-          )}
+          ) : null}
         </div>
 
         {/* Wishlist Button with Hover Glow */}
@@ -174,8 +182,17 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
             )}
           </div>
 
-          {/* Quick-Commerce ADD Button with Hover Elevation & Glow */}
-          {cartQuantity === 0 ? (
+          {/* Quick-Commerce ADD Button with Hover Elevation & Glow or Sold Out state */}
+          {isOutOfStock ? (
+            <button
+              type="button"
+              disabled
+              className="h-[28px] sm:h-[34px] px-2 sm:px-3 rounded-[8px] sm:rounded-[10px] bg-stone-100 text-stone-400 border border-stone-200 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 cursor-not-allowed select-none shrink-0"
+              aria-label={`${product.name} is sold out`}
+            >
+              Sold Out
+            </button>
+          ) : cartQuantity === 0 ? (
             <button
               type="button"
               onClick={handleAdd}
@@ -203,7 +220,10 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
               <button
                 type="button"
                 onClick={handleIncrement}
-                className="w-5 h-5 sm:w-6 sm:h-6 rounded-[6px] sm:rounded-[7px] flex items-center justify-center hover:bg-black/15 active:scale-90 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white"
+                disabled={typeof product.stock === 'number' && cartQuantity >= product.stock}
+                className={`w-5 h-5 sm:w-6 sm:h-6 rounded-[6px] sm:rounded-[7px] flex items-center justify-center hover:bg-black/15 active:scale-90 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white ${
+                  typeof product.stock === 'number' && cartQuantity >= product.stock ? 'opacity-40 cursor-not-allowed' : ''
+                }`}
                 aria-label={`Increase ${product.name} quantity`}
               >
                 <Plus className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 stroke-[3]" />

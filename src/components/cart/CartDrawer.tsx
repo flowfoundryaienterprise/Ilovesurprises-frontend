@@ -217,9 +217,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </button>
               </div>
             ) : (
-              cart.map((item) => (
+              cart.map((item, idx) => {
+                const itemKey = item.id || item.serverItemId || `${item.product.id}_${item.selectedRingSize || ''}_${item.selectedJewelryType || ''}_${item.selectedSize || ''}_${idx}`;
+                return (
                 <div
-                  key={item.product.id}
+                  key={itemKey}
                   className="flex gap-2.5 sm:gap-3.5 p-2.5 sm:p-3 rounded-[18px] bg-[#fffafc] border border-[#eee2eb] hover:border-[#fecdd3] transition-all shadow-2xs group w-full max-w-full overflow-visible"
                 >
                   {/* Product Thumbnail */}
@@ -270,7 +272,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                         <button
                           type="button"
-                          onClick={() => onRemoveItem(item.product.id)}
+                          onClick={() => onRemoveItem(itemKey)}
                           className="p-1 rounded-md text-[#a39ea8] hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
                           title="Remove item"
                         >
@@ -316,7 +318,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <div className="flex items-center border border-[#e8dfe5] rounded-[10px] bg-white px-1 py-0.5 gap-1.5 shadow-2xs shrink-0">
                         <button
                           type="button"
-                          onClick={() => onUpdateQuantity(item.product.id, -1)}
+                          onClick={() => onUpdateQuantity(itemKey, -1)}
                           className="w-6 h-6 rounded-[7px] hover:bg-[#fff1f2] text-[#716d77] hover:text-[#D30915] flex items-center justify-center transition-colors cursor-pointer"
                           aria-label="Decrease quantity"
                         >
@@ -329,7 +331,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                         <button
                           type="button"
-                          onClick={() => onUpdateQuantity(item.product.id, 1)}
+                          onClick={() => onUpdateQuantity(itemKey, 1)}
                           className="w-6 h-6 rounded-[7px] hover:bg-[#fff1f2] text-[#716d77] hover:text-[#D30915] flex items-center justify-center transition-colors cursor-pointer"
                           aria-label="Increase quantity"
                         >
@@ -345,7 +347,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
 
             {/* Quick Promo Code Accordion */}

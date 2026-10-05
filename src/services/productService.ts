@@ -1,7 +1,8 @@
-import type { Product, SurpriseType, Collection } from '../types';
+import type { Product, SurpriseType, Collection, ProductOption, ProductVariant } from '../types';
 import { productsData } from '../data/products';
 import { categoriesData } from '../data/categories';
 import { deduplicateProducts, rankProductsBySearch } from '../utils/productUtils';
+import { apiClient } from './apiClient';
 
 export const CARD_SELECT_COLUMNS =
   'product_id, handle, title, body_html, total_inventory_qty, category_name, product_variants, product_images';
@@ -229,33 +230,220 @@ export function isCustomerVisible(product: {
   return true;
 }
 
-export function mapRowToProduct(row: any): Product {
-  if (!row) return productsData[0];
-  if (row.price && row.name && row.category) return row as Product;
+/**
+ * Normalizes any backend surpriseType value into the frontend SurpriseType union
+ */
+export function resolveSurpriseType(rawType?: string | null, name?: string, cat?: string): SurpriseType {
+  const t = (rawType || '').toLowerCase();
+  if (t.includes('cash') || t.includes('money')) return 'cash';
+  if (t.includes('ring') || t.includes('jewel') || t.includes('diamond') || t.includes('necklace') || t.includes('earring') || t.includes('bracelet')) return 'jewelry';
+  if (t.includes('trinket')) return 'trinket';
+  if (t.includes('charm')) return 'charm';
+  if (t.includes('mystery')) return 'mystery';
+  if (t === 'both') return 'both';
 
-  const id = String(row.product_id || row.id || '');
-  const title = row.title || row.name || 'Surprise Candle';
-  const handle = row.handle || row.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  const catName = row.category_name || row.category || 'Surprise Candles';
+  const n = (name || '').toLowerCase();
+  const c = (cat || '').toLowerCase();
+  if (n.includes('cash') || c.includes('cash')) return 'cash';
+  return 'jewelry';
+}
+
+/**
+ * Maps live backend API product DTO (or database/row record) into the frontend Product type
+ */
+export function mapBackendProductToFrontend(raw: any): Product {
+  if (!raw) return productsData[0];
+
+  const id = String(raw.id || raw.product_id || raw._id || '');
+  const title = String(raw.name || raw.title || 'Surprise Candle');
+  const slug = String(
+    raw.slug ||
+    raw.handle ||
+    title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') ||
+    id
+  );
+
+  // Category resolution
+  let categoryName = 'Surprise Candles';
+  if (raw.category && typeof raw.category === 'object' && raw.category.name) {
+    categoryName = String(raw.category.name);
+  } else if (raw.categoryName) {
+    categoryName = String(raw.categoryName);
+  } else if (raw.category_name) {
+    categoryName = String(raw.category_name);
+  } else if (typeof raw.category === 'string' && raw.category.trim()) {
+    categoryName = raw.category.trim();
+  }
+
+  // Price resolution
+  const price = Number(raw.price) > 0
+    ? Number(raw.price)
+    : resolveFounderCategoryPrice(title, categoryName, 44.99);
+
+  const rawOrigPrice = raw.compareAtPrice ?? raw.compare_at_price ?? raw.originalPrice ?? raw.original_price;
+  const originalPrice = rawOrigPrice !== null && rawOrigPrice !== undefined && Number(rawOrigPrice) > 0
+    ? Number(rawOrigPrice)
+    : undefined;
+
+  // Surprise type
+  const surpriseType = resolveSurpriseType(raw.surpriseType || raw.surprise_type, title, categoryName);
+
+  // Surprise value string representation (e.g. "Real Cash inside up to $2,500" or "Guaranteed Jewelry inside worth up to $5,000")
+  let surpriseValue: string;
+  if (raw.surpriseValue !== undefined && raw.surpriseValue !== null) {
+    const numVal = Number(raw.surpriseValue);
+    if (!isNaN(numVal) && numVal > 0) {
+      surpriseValue = surpriseType === 'cash'
+        ? `Real Cash inside up to $${numVal.toLocaleString()}`
+        : `Guaranteed Jewelry inside worth up to $${numVal.toLocaleString()}`;
+    } else if (typeof raw.surpriseValue === 'string' && raw.surpriseValue.trim()) {
+      surpriseValue = raw.surpriseValue.trim();
+    } else {
+      surpriseValue = surpriseType === 'cash' ? 'Real Cash $2 - $2,500 inside' : 'Guaranteed Jewelry inside worth up to $5,000';
+    }
+  } else if (raw.surprise_value) {
+    surpriseValue = String(raw.surprise_value);
+  } else {
+    surpriseValue = surpriseType === 'cash' ? 'Real Cash $2 - $2,500 inside' : 'Guaranteed Jewelry inside worth up to $5,000';
+  }
+
+  // Rating and reviews
+  const rawRating = Number(raw.rating);
+  const rating = !isNaN(rawRating) && rawRating > 0 ? Number(rawRating.toFixed(1)) : 5.0;
+
+  const rawReviews = Number(raw.reviewCount ?? raw.review_count);
+  const reviewCount = !isNaN(rawReviews) && rawReviews >= 0 ? rawReviews : 24;
+
+  // Images resolution
+  let primaryImageRaw = raw.imageUrl || raw.image_url || raw.image;
+  const imageList: string[] = [];
+
+  if (Array.isArray(raw.images) && raw.images.length > 0) {
+    const sorted = [...raw.images].sort((a: any, b: any) => (a?.sortOrder ?? 0) - (b?.sortOrder ?? 0));
+    sorted.forEach((img: any) => {
+      const u = typeof img === 'string' ? img : img?.url || img?.src;
+      if (u && typeof u === 'string' && u.trim()) {
+        const cleanUrl = u.trim();
+        if (!imageList.includes(cleanUrl)) {
+          imageList.push(cleanUrl);
+        }
+        if (img?.isPrimary && !primaryImageRaw) {
+          primaryImageRaw = cleanUrl;
+        }
+      }
+    });
+  }
+
+  if (!primaryImageRaw && imageList.length > 0) {
+    primaryImageRaw = imageList[0];
+  }
+
+  const resolvedPrimaryImage = resolveProductImage(primaryImageRaw, title, categoryName);
+  if (!imageList.includes(resolvedPrimaryImage)) {
+    imageList.unshift(resolvedPrimaryImage);
+  }
+
+  // Stock resolution
+  const inStock = raw.stock !== undefined
+    ? Number(raw.stock) > 0
+    : (raw.inStock !== undefined ? Boolean(raw.inStock) : (raw.in_stock !== undefined ? Boolean(raw.in_stock) : true));
+
+  // Scent notes
+  let scentNotes: string[] | undefined;
+  if (Array.isArray(raw.scentNotes) && raw.scentNotes.length > 0) {
+    scentNotes = raw.scentNotes.map(String);
+  } else if (Array.isArray(raw.scent_notes) && raw.scent_notes.length > 0) {
+    scentNotes = raw.scent_notes.map(String);
+  }
+
+  // Ring sizes
+  let ringSizes: number[] | undefined;
+  const rawRingSizes = raw.ringSizes || raw.ring_sizes;
+  if (Array.isArray(rawRingSizes) && rawRingSizes.length > 0) {
+    const parsed = rawRingSizes.map(Number).filter((n: number) => !isNaN(n) && n > 0);
+    if (parsed.length > 0) ringSizes = parsed;
+  }
+
+  // Jewelry types
+  let jewelryTypes: string[] | undefined;
+  const rawJTypes = raw.jewelryTypes || raw.jewelry_types;
+  if (Array.isArray(rawJTypes) && rawJTypes.length > 0) {
+    jewelryTypes = rawJTypes.map(String);
+  }
+
+  // Variants mapping
+  let variants: ProductVariant[] | undefined;
+  if (Array.isArray(raw.variants) && raw.variants.length > 0) {
+    variants = raw.variants.map((v: any) => ({
+      variantId: String(v.id || v.variantId || v.variant_id || ''),
+      productId: id,
+      title: v.title ? String(v.title) : undefined,
+      price: Number(v.price) > 0 ? Number(v.price) : price,
+      compareAtPrice: v.compareAtPrice !== null && v.compareAtPrice !== undefined ? Number(v.compareAtPrice) : undefined,
+      sku: v.sku ? String(v.sku) : undefined,
+      inStock: v.stock !== undefined ? Number(v.stock) > 0 : (v.isActive ?? v.inStock ?? true),
+      option1Name: v.ringSize ? 'Ring Size' : undefined,
+      option1Value: v.ringSize ? String(v.ringSize) : undefined,
+      option2Name: v.scent ? 'Scent' : undefined,
+      option2Value: v.scent ? String(v.scent) : undefined,
+    }));
+  }
+
+  // Options mapping
+  let options: ProductOption[] | undefined;
+  if (Array.isArray(raw.options) && raw.options.length > 0) {
+    options = raw.options.map((opt: any, idx: number) => ({
+      name: String(opt.name || `Option ${idx + 1}`),
+      position: idx + 1,
+      values: Array.isArray(opt.values)
+        ? opt.values.map((val: any) => (typeof val === 'string' ? val : String(val?.value || ''))).filter(Boolean)
+        : [],
+    }));
+  }
+
+  // Badges and flags
+  const isBestSeller = Boolean(raw.isBestSeller ?? raw.is_best_seller);
+  const isNew = Boolean(raw.isNew ?? raw.is_new);
+  const badge = raw.badge
+    ? String(raw.badge)
+    : isBestSeller
+    ? 'Best Seller'
+    : isNew
+    ? 'New'
+    : undefined;
 
   return {
     id,
     name: title,
-    slug: handle,
-    price: Number(row.price) || 44.99,
-    originalPrice: Number(row.original_price || row.compare_at_price) || 54.99,
-    rating: Number(row.rating) || 5.0,
-    reviewCount: Number(row.review_count) || 24,
-    image: resolveProductImage(row.image || row.image_url, title, catName),
-    images: row.images || [resolveProductImage(row.image || row.image_url, title, catName)],
-    category: catName,
-    surpriseType: (row.surprise_type as SurpriseType) || 'both',
-    surpriseValue: row.surprise_value || '$10 - $5,000',
-    description: row.description || row.body_html || '',
-    inStock: row.in_stock !== undefined ? Boolean(row.in_stock) : true,
-    isBestSeller: Boolean(row.is_best_seller),
-    isNew: Boolean(row.is_new),
+    slug,
+    category: categoryName,
+    price,
+    originalPrice,
+    surpriseType,
+    surpriseValue,
+    rating,
+    reviewCount,
+    image: resolvedPrimaryImage,
+    images: imageList,
+    variants,
+    options,
+    badge,
+    isNew,
+    isBestSeller,
+    inStock,
+    scentNotes,
+    description: String(raw.description || raw.shortDescription || raw.body_html || ''),
+    sku: raw.sku ? String(raw.sku) : undefined,
+    ringSizes,
+    jewelryTypes,
   };
+}
+
+/**
+ * Backward compatibility alias for mapBackendProductToFrontend
+ */
+export function mapRowToProduct(row: any): Product {
+  return mapBackendProductToFrontend(row);
 }
 
 export function mapRowToCollection(row: any): Collection {
@@ -282,6 +470,7 @@ export interface GetProductsParams {
   ringSize?: string;
   page?: number;
   limit?: number;
+  noFallback?: boolean;
 }
 
 export interface PaginatedProductsResult {
@@ -289,16 +478,223 @@ export interface PaginatedProductsResult {
   total: number;
   page: number;
   totalPages: number;
+  isFallback?: boolean;
+}
+
+/**
+ * Helper to build URL query parameters conforming to the backend listProductsQuerySchema
+ */
+function buildProductQueryParams(params: GetProductsParams): string {
+  const query = new URLSearchParams();
+
+  if (params.page !== undefined && params.page !== null) {
+    query.set('page', String(Math.max(1, params.page)));
+  }
+  if (params.limit !== undefined && params.limit !== null) {
+    query.set('limit', String(Math.max(1, params.limit)));
+  }
+
+  const search = (params.search || params.searchQuery || '').trim();
+  if (search) {
+    query.set('search', search);
+  }
+
+  if (params.category && params.category !== 'all' && params.category !== 'All Surprises') {
+    const cleanCat = params.category.trim();
+    const cleanCatLower = cleanCat.toLowerCase();
+
+    // Map candle variants to the backend category 'candles'
+    if (
+      cleanCatLower === 'candles' ||
+      cleanCatLower === 'surprise candles' ||
+      cleanCatLower === 'cash candles' ||
+      cleanCatLower === 'jewelry candles' ||
+      cleanCatLower === 'cash money candles' ||
+      cleanCatLower === 'zodiac cash candles' ||
+      cleanCatLower === 'cash-candles' ||
+      cleanCatLower === 'jewelry-candles' ||
+      cleanCatLower === 'cash-money-candles' ||
+      cleanCatLower === 'zodiac-cash-money-candles'
+    ) {
+      query.set('category', 'candles');
+      if (!query.has('surpriseType') && !params.surpriseTypes && !params.surpriseType) {
+        if (cleanCatLower.includes('cash')) {
+          query.set('surpriseType', 'cash');
+        } else if (cleanCatLower.includes('jewelry')) {
+          query.set('surpriseType', 'jewelry');
+        }
+      }
+    } else {
+      const matchedCategory = categoriesData.find(
+        (c) => c.name.toLowerCase() === cleanCatLower || c.slug.toLowerCase() === cleanCatLower
+      );
+      query.set('category', matchedCategory ? matchedCategory.slug : cleanCat);
+    }
+  }
+
+  if (params.surpriseTypes && params.surpriseTypes.length === 1) {
+    query.set('surpriseType', params.surpriseTypes[0]);
+  } else if (params.surpriseType && params.surpriseType !== 'all') {
+    query.set('surpriseType', params.surpriseType);
+  }
+
+  if (params.minPrice !== undefined && params.minPrice !== null) {
+    query.set('minPrice', String(params.minPrice));
+  }
+  if (params.maxPrice !== undefined && params.maxPrice !== null) {
+    query.set('maxPrice', String(params.maxPrice));
+  }
+
+  const sort = params.sortBy || params.sort;
+  if (sort) {
+    let backendSort = 'featured';
+    switch (sort) {
+      case 'price-asc':
+      case 'price_asc':
+        backendSort = 'price_asc';
+        break;
+      case 'price-desc':
+      case 'price_desc':
+        backendSort = 'price_desc';
+        break;
+      case 'best-sellers':
+      case 'best_sellers':
+        backendSort = 'best_sellers';
+        break;
+      case 'rating':
+        backendSort = 'rating';
+        break;
+      case 'newest':
+        backendSort = 'newest';
+        break;
+      default:
+        backendSort = 'featured';
+        break;
+    }
+    query.set('sort', backendSort);
+  }
+
+  const qs = query.toString();
+  return qs ? `?${qs}` : '';
+}
+
+/**
+ * Extracts raw product list and pagination details across multiple response envelope structures
+ */
+function extractProductsAndPagination(
+  res: any,
+  fallbackPage: number,
+  fallbackLimit: number
+): {
+  products: any[];
+  total: number;
+  page: number;
+  totalPages: number;
+} {
+  let rawList: any[] = [];
+  let total = 0;
+  let page = fallbackPage;
+  let limit = fallbackLimit;
+  let totalPages = 1;
+
+  if (res && res.data) {
+    if (Array.isArray(res.data.products)) {
+      rawList = res.data.products;
+      if (res.data.pagination) {
+        total = Number(res.data.pagination.total) || rawList.length;
+        page = Number(res.data.pagination.page) || fallbackPage;
+        limit = Number(res.data.pagination.limit) || fallbackLimit;
+        totalPages = Number(res.data.pagination.totalPages) || Math.max(1, Math.ceil(total / limit));
+      } else {
+        total = Number(res.data.total) || rawList.length;
+        totalPages = Math.max(1, Math.ceil(total / limit));
+      }
+    } else if (Array.isArray(res.data)) {
+      rawList = res.data;
+      total = rawList.length;
+      totalPages = Math.max(1, Math.ceil(total / limit));
+    }
+  } else if (res && Array.isArray(res.products)) {
+    rawList = res.products;
+    total = Number(res.total) || rawList.length;
+    page = Number(res.page) || fallbackPage;
+    limit = Number(res.limit) || fallbackLimit;
+    totalPages = Number(res.totalPages) || Math.max(1, Math.ceil(total / limit));
+  } else if (Array.isArray(res)) {
+    rawList = res;
+    total = rawList.length;
+    totalPages = Math.max(1, Math.ceil(total / limit));
+  }
+
+  return { products: rawList, total, page, totalPages };
 }
 
 export const productService = {
   /**
-   * Retrieves products with filtering, search, sorting, and pagination
+   * Retrieves products with filtering, search, sorting, and pagination.
+   * PRIMARY SOURCE: Live backend endpoint GET /api/products
+   * FALLBACK SOURCE: src/data/products.ts (only if genuine network/API failure)
    */
   async getProducts(params: GetProductsParams = {}): Promise<PaginatedProductsResult> {
     const page = Math.max(1, params.page || 1);
-    const limit = params.limit || 12;
+    const limit = Math.max(1, params.limit || 12);
+    const cacheKey = `products_${JSON.stringify(params)}`;
 
+    // Check recent query cache (60s TTL)
+    const cachedEntry = queryCache.get(cacheKey);
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < 60000) {
+      return cachedEntry.result;
+    }
+
+    // 1. PRIMARY SOURCE: Attempt live backend API call
+    try {
+      const queryString = buildProductQueryParams(params);
+      const response = await apiClient.get<any>(`/api/products${queryString}`, { skipAuth: true });
+
+      if (response) {
+        const { products: rawProducts, total, totalPages } = extractProductsAndPagination(response, page, limit);
+
+        // Map live backend product records to frontend Product model
+        const mappedProducts = rawProducts.map(mapBackendProductToFrontend);
+
+        // Filter customer visible products
+        const visibleProducts = mappedProducts.filter(isCustomerVisible);
+
+        // Populate slug and id cache for instant lookups
+        visibleProducts.forEach(cacheProduct);
+
+        const result: PaginatedProductsResult = {
+          products: visibleProducts,
+          total: total > 0 ? total : visibleProducts.length,
+          page,
+          totalPages: totalPages > 0 ? totalPages : Math.max(1, Math.ceil((total || visibleProducts.length) / limit)),
+          isFallback: false,
+        };
+
+        if (result.products.length > 0) {
+          queryCache.set(cacheKey, { result, timestamp: Date.now() });
+        }
+        return result;
+      }
+    } catch (apiError: any) {
+      console.warn(
+        `[ProductService] Live API request to GET /api/products failed (${apiError?.statusCode || 0}: ${apiError?.message}). Gracefully falling back to static catalog.`
+      );
+
+      if (params.noFallback) {
+        throw apiError;
+      }
+    }
+
+    // 2. FALLBACK SOURCE: src/data/products.ts (only if live API is unavailable)
+    const fallbackResult = this.getLocalFallbackProducts(params, page, limit);
+    return fallbackResult;
+  },
+
+  /**
+   * Evaluates local static fallback catalog from src/data/products.ts
+   */
+  getLocalFallbackProducts(params: GetProductsParams, page: number, limit: number): PaginatedProductsResult {
     let filtered = productsData.filter(isCustomerVisible);
 
     // Filter by category
@@ -335,22 +731,24 @@ export const productService = {
     const sortBy = params.sortBy || params.sort;
     switch (sortBy) {
       case 'price-asc':
+      case 'price_asc':
         filtered.sort((a, b) => a.price - b.price);
         break;
       case 'price-desc':
+      case 'price_desc':
         filtered.sort((a, b) => b.price - a.price);
         break;
       case 'rating':
         filtered.sort((a, b) => b.rating - a.rating);
         break;
       case 'best-sellers':
+      case 'best_sellers':
         filtered.sort((a, b) => (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0));
         break;
       case 'newest':
         filtered.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
         break;
       default:
-        // Featured
         break;
     }
 
@@ -366,6 +764,7 @@ export const productService = {
       total,
       page,
       totalPages: Math.max(1, Math.ceil(total / limit)),
+      isFallback: true,
     };
   },
 
@@ -381,14 +780,36 @@ export const productService = {
   },
 
   /**
-   * Retrieves single product by slug
+   * Retrieves single product by slug or ID
+   * Primary source: GET /api/products/:slug
+   * Fallback source: src/data/products.ts
    */
   async getProductBySlug(slug: string): Promise<Product | null> {
     if (!slug) return null;
-    const cached = getCachedProduct(slug);
-    if (cached) return cached;
 
     const clean = decodeURIComponent(slug).trim().toLowerCase();
+    const cached = getCachedProduct(clean);
+    if (cached) return cached;
+
+    // Primary: query live backend API
+    try {
+      const response = await apiClient.get<any>(`/api/products/${encodeURIComponent(clean)}`, {
+        skipAuth: true,
+      });
+
+      const rawProduct = response?.data?.product || response?.product || response?.data;
+      if (rawProduct && (rawProduct.id || rawProduct.name || rawProduct.title)) {
+        const mapped = mapBackendProductToFrontend(rawProduct);
+        cacheProduct(mapped);
+        return mapped;
+      }
+    } catch (apiError: any) {
+      console.warn(
+        `[ProductService] Live API request to GET /api/products/${clean} failed (${apiError?.statusCode || 0}: ${apiError?.message}). Falling back to static catalog.`
+      );
+    }
+
+    // Fallback: search in productsData
     const found = productsData.find(
       (p) => p.slug.toLowerCase() === clean || p.id.toLowerCase() === clean
     );
@@ -414,11 +835,37 @@ export const productService = {
   async getProductsByIds(ids: string[]): Promise<Product[]> {
     if (!ids || ids.length === 0) return [];
     const idSet = new Set(ids.map((i) => i.toLowerCase().trim()));
+
+    const results: Product[] = [];
+    const missingIds: string[] = [];
+
+    for (const id of ids) {
+      const cached = getCachedProduct(id);
+      if (cached) {
+        results.push(cached);
+      } else {
+        missingIds.push(id);
+      }
+    }
+
+    if (missingIds.length === 0) {
+      return deduplicateProducts(results);
+    }
+
+    for (const id of missingIds) {
+      const p = await this.getProductById(id);
+      if (p) results.push(p);
+    }
+
+    if (results.length > 0) {
+      return deduplicateProducts(results);
+    }
+
     return productsData.filter((p) => idSet.has(p.id.toLowerCase()) || idSet.has(p.slug.toLowerCase()));
   },
 
   /**
-   * Retrieves featured products
+   * Retrieves featured products from live backend API
    */
   async getFeaturedProducts(limit = 8): Promise<Product[]> {
     const res = await this.getProducts({ sortBy: 'featured', limit });
@@ -426,7 +873,7 @@ export const productService = {
   },
 
   /**
-   * Retrieves collection products for homepage
+   * Retrieves collection products for homepage from live backend API
    */
   async getHomepageCollectionProducts(collectionHandle: string, limit = 8): Promise<Product[]> {
     const res = await this.getProducts({ category: collectionHandle, limit });
@@ -434,27 +881,34 @@ export const productService = {
   },
 
   /**
-   * Retrieves diverse featured products across multiple categories
+   * Retrieves diverse featured products across multiple categories from live backend API
    */
   async getDiverseFeaturedProducts(limit = 8): Promise<Product[]> {
     const categories = ['Cash Candles', 'Jewelry Candles', 'Wax Melts', 'Bath Treats'];
     const results: Product[] = [];
 
-    for (const cat of categories) {
-      const match = productsData.find((p) => p.category.toLowerCase().includes(cat.toLowerCase()));
-      if (match && !results.some((r) => r.id === match.id)) {
-        results.push(match);
-      }
-    }
+    try {
+      const res = await this.getProducts({ limit: 30 });
+      const pool = res.products.length > 0 ? res.products : productsData;
 
-    for (const p of productsData) {
-      if (results.length >= limit) break;
-      if (!results.some((r) => r.id === p.id)) {
-        results.push(p);
+      for (const cat of categories) {
+        const match = pool.find((p) => p.category.toLowerCase().includes(cat.toLowerCase()));
+        if (match && !results.some((r) => r.id === match.id)) {
+          results.push(match);
+        }
       }
-    }
 
-    return results.slice(0, limit);
+      for (const p of pool) {
+        if (results.length >= limit) break;
+        if (!results.some((r) => r.id === p.id)) {
+          results.push(p);
+        }
+      }
+
+      return results.slice(0, limit);
+    } catch {
+      return productsData.slice(0, limit);
+    }
   },
 
   /**
@@ -488,7 +942,7 @@ export const productService = {
   },
 
   /**
-   * Retrieves products by collection handle
+   * Retrieves products by collection handle from live backend API
    */
   async getProductsByCollection(
     handleOrId: string,
@@ -506,7 +960,7 @@ export const productService = {
   }> {
     const col = await this.getCollectionByHandle(handleOrId);
     const res = await this.getProducts({
-      category: col?.title,
+      category: col?.title || handleOrId,
       page: params.page,
       limit: params.limit,
       sortBy: params.sort,
@@ -522,12 +976,46 @@ export const productService = {
   },
 
   /**
-   * Retrieves curated trending products for home page
+   * Retrieves curated trending products for home page from live backend API
    */
   async getCuratedTrendingProducts(limit = 10): Promise<Product[]> {
     const capped = Math.min(10, Math.max(1, limit));
+    try {
+      const res = await this.getProducts({ sortBy: 'best-sellers', limit: capped });
+      if (res.products && res.products.length > 0) {
+        return deduplicateProducts(res.products).slice(0, capped);
+      }
+    } catch {
+      // Fallback below
+    }
     const trending = productsData.filter((p) => p.isBestSeller || p.category.toLowerCase().includes('cash'));
     return deduplicateProducts(trending).slice(0, capped);
+  },
+
+  /**
+   * Retrieves related products in the same category from live backend API
+   */
+  async getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {
+    if (!product) return [];
+    try {
+      const res = await this.getProducts({
+        category: product.category,
+        limit: limit + 6,
+      });
+      const related = res.products.filter(
+        (p) => p.id !== product.id && p.slug !== product.slug
+      );
+      if (related.length > 0) {
+        return deduplicateProducts(related).slice(0, limit);
+      }
+    } catch {
+      // Fallback below
+    }
+
+    const filtered = productsData.filter(
+      (p) => p.category === product.category && p.id !== product.id && p.slug !== product.slug
+    );
+    return deduplicateProducts(filtered).slice(0, limit);
   },
 
   /**
@@ -540,4 +1028,6 @@ export const productService = {
 
   getCachedProduct,
   cacheProduct,
+  mapBackendProductToFrontend,
 };
+

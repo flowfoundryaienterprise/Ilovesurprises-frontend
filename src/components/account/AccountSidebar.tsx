@@ -12,6 +12,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import type { UserProfile } from '../../types';
+import { isAffiliateRole } from '../../types';
 
 export type AccountTab = 'profile' | 'orders' | 'wishlist' | 'addresses' | 'settings' | 'affiliate';
 
@@ -36,7 +37,7 @@ export const AccountSidebar: React.FC<AccountSidebarProps> = ({
   onLogout,
   onNavigateToAffiliate,
 }) => {
-  const isRep = user.role === 'representative';
+  const isRep = isAffiliateRole(user.role);
 
   const navItems: {
     id: AccountTab;

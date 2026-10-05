@@ -81,7 +81,7 @@ export const AffiliateDashboard: React.FC<AffiliateDashboardProps> = ({
   };
 
   const handleQuickCopyLink = async () => {
-    const link = stats.referralLink || `https://8zhcds6b-5174.inc1.devtunnels.ms/shop?rep=${stats.repUsername}`;
+    const link = stats.referralLink || `${window.location.origin}/shop?rep=${stats.repUsername}`;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(link);

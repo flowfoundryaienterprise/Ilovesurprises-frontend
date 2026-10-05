@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { UserProfile } from '../../types';
+import { isAffiliateRole } from '../../types';
 import { accountService } from '../../services/accountService';
 import { isValidEmail, isValidMobile } from '../../services/auth';
 
@@ -109,7 +110,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
                 Personal Profile & Account
               </h2>
               <span className="text-[10px] font-black uppercase tracking-wider text-[#D30915] bg-[#fff1f2] px-2.5 py-0.5 rounded-full border border-[#fecdd3]">
-                {user.role === 'representative' ? '★ 20% Rep' : '💎 VIP Member'}
+                {isAffiliateRole(user.role) ? '★ 20% Rep' : '💎 VIP Member'}
               </span>
             </div>
             <p className="text-xs text-[#716d77] m-0 mt-0.5">
@@ -289,7 +290,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({
                     Account Status & Role
                   </span>
                   <strong className="text-sm font-black text-[#D30915] capitalize">
-                    {user.role === 'representative' ? 'Official 20% Rep Partner' : 'VIP Loyalty Member'}
+                    {isAffiliateRole(user.role) ? 'Official 20% Rep Partner' : 'VIP Loyalty Member'}
                   </strong>
                 </div>
               </div>

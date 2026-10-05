@@ -1,3 +1,4 @@
+import { wishlistService } from './services/wishlistService';
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
@@ -17,11 +18,13 @@ import type { Product, CartItem, UserProfile, Order } from './types';
 import type { AdminTab } from './types/admin';
 import { productsData } from './data/products';
 import { productService } from './services/productService';
+import { cartService } from './services/cartService';
 import { accountService } from './services/accountService';
 import { representativeService } from './services/representativeService';
 import { SEOHead } from './components/seo/SEOHead';
 import { authService } from './services/auth';
 import { customerAuthService } from './services/customerAuthService';
+import { isAdminRole } from './utils/roleUtils';
 import { PackageX, ArrowRight, RefreshCw } from 'lucide-react';
 
 // Route-level code splitting for rapid initial load and 144Hz responsiveness
@@ -375,6 +378,32 @@ export function App() {
     return accountService.getStoredUser();
   });
 
+  // Initial cart synchronization with backend
+  useEffect(() => {
+    cartService.getCart().then(({ items }) => {
+      if (items && items.length > 0) {
+        setCart(items);
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Sync wishlist and cart with backend when user is logged in
+  useEffect(() => {
+    if (user?.id) {
+      wishlistService.getWishlist().then((remoteIds) => {
+        if (remoteIds && remoteIds.length > 0) {
+          setWishlistIds((prev) => Array.from(new Set([...prev, ...remoteIds])));
+        }
+      }).catch(() => {});
+
+      cartService.syncLocalCartToServer().then((items) => {
+        if (items && items.length > 0) {
+          setCart(items);
+        }
+      }).catch(() => {});
+    }
+  }, [user?.id]);
+
   // Admin Authentication & Authorization Guard State
   const [adminAuthState, setAdminAuthState] = useState<{
     isChecking: boolean;
@@ -558,7 +587,7 @@ export function App() {
         if (isAdminRoute && !isAdminLoginRoute) {
           if (!result.isAdmin) {
             // Unauthenticated or customer account:
-            if (result.user && result.user.role !== 'admin') {
+            if (result.user && !isAdminRole(result.user.role)) {
               showToast('Access denied. Administrator privileges required.', {
                 title: 'Restricted Portal',
                 type: 'info',
@@ -1093,62 +1122,55 @@ export function App() {
     });
   };
 
-  const handleAddToCart = (
+  const handleAddToCart = async (
     product: Product,
     quantity: number = 1,
     options?: { selectedRingSize?: number; selectedJewelryType?: string; selectedSize?: string }
   ) => {
-    setCart((prev) => {
-      const existing = prev.find(
-        (item) =>
-          item.product.id === product.id &&
-          item.selectedRingSize === options?.selectedRingSize &&
-          item.selectedJewelryType === options?.selectedJewelryType &&
-          item.selectedSize === options?.selectedSize
-      );
-      if (existing) {
-        return prev.map((item) =>
-          item === existing ? { ...item, quantity: item.quantity + quantity } : item
-        );
-      }
-      return [
-        ...prev,
-        {
-          product,
-          quantity,
-          selectedRingSize: options?.selectedRingSize,
-          selectedJewelryType: options?.selectedJewelryType,
-          selectedSize: options?.selectedSize,
-        },
-      ];
-    });
-    showToast(`Added ${quantity > 1 ? `${quantity}x ` : ''}"${product.name}" to your bag`, {
-      title: 'Added to Bag',
-      type: 'cart',
-      actionLabel: 'View Bag',
-      onAction: () => setIsCartOpen(true),
+    if (!product.inStock || (typeof product.stock === 'number' && product.stock <= 0)) {
+      showToast(`Sorry, "${product.name}" is currently out of stock.`, {
+        title: 'Out of Stock',
+        type: 'info',
+      });
+      return;
+    }
+
+    try {
+      const { items } = await cartService.addItem({
+        product,
+        quantity,
+        selectedRingSize: options?.selectedRingSize,
+        selectedJewelryType: options?.selectedJewelryType,
+        selectedSize: options?.selectedSize,
+      });
+      setCart(items);
+      showToast(`Added ${quantity > 1 ? `${quantity}x ` : ''}"${product.name}" to your bag`, {
+        title: 'Added to Bag',
+        type: 'cart',
+        actionLabel: 'View Bag',
+        onAction: () => setIsCartOpen(true),
+      });
+    } catch (err: any) {
+      showToast(err?.message || 'Could not add product to cart', {
+        title: 'Cart Error',
+        type: 'info',
+      });
+    }
+  };
+
+  const handleUpdateQuantity = (itemIdentifier: string, delta: number) => {
+    cartService.updateQuantity(itemIdentifier, delta, cart).then((updatedCart) => {
+      setCart(updatedCart);
     });
   };
 
-  const handleUpdateQuantity = (productId: string, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((item) => {
-          if (item.product.id === productId) {
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
-          }
-          return item;
-        })
-        .filter((item): item is CartItem => item !== null)
-    );
-  };
-
-  const handleRemoveItem = (productId: string) => {
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
-    showToast('Item removed from bag', {
-      title: 'Bag Updated',
-      type: 'info',
+  const handleRemoveItem = (itemIdentifier: string) => {
+    cartService.removeItem(itemIdentifier, cart).then((updatedCart) => {
+      setCart(updatedCart);
+      showToast('Item removed from bag', {
+        title: 'Bag Updated',
+        type: 'info',
+      });
     });
   };
 
@@ -1219,6 +1241,7 @@ export function App() {
   };
 
   const handleOrderCompleted = (createdOrder: Order) => {
+    cartService.clearCart().catch(() => {});
     setCart([]); // Clear cart upon successful order
     setLatestPlacedOrder(createdOrder);
     setConfirmedOrderId(createdOrder.id);
@@ -1697,6 +1720,7 @@ export function App() {
         <>
           {/* Main Header / Navbar ONLY on Shopping Pages & Content Pages */}
           <Header
+            searchQuery={searchQuery}
             cartCount={totalCartCount}
             cartSubtotal={cartSubtotal}
             user={user}
@@ -1706,9 +1730,9 @@ export function App() {
             onLogout={handleLogout}
             onSearch={(q) => {
               setSearchQuery(q);
-              if (q.trim()) {
-                setCurrentView('shop');
-              }
+              setSelectedCategory('All Surprises');
+              setCurrentView('shop');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onNavigate={handleNavigate}
             onNavigateToAccount={handleNavigateToAccount}
@@ -1775,6 +1799,7 @@ export function App() {
                   wishlistIds={wishlistIds}
                   initialCategory={selectedCategory}
                   initialSearchQuery={searchQuery}
+                  onClearSearch={() => setSearchQuery('')}
                   onAddToCart={handleAddToCart}
                   onUpdateQuantity={handleUpdateQuantity}
                   onWishlistToggle={handleWishlistToggle}

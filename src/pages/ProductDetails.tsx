@@ -1,3 +1,4 @@
+import { reviewService } from '../services/reviewService';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ArrowLeft,
@@ -28,6 +29,7 @@ import { productsData } from '../data/products';
 import { reviewsData } from '../data/reviews';
 import { deduplicateProducts } from '../utils/productUtils';
 import type { Product, CartItem, Review } from '../types';
+import { productService } from '../services/productService';
 import { representativeService, type PublicRepresentative } from '../services/representativeService';
 
 interface ProductDetailsProps {
@@ -201,6 +203,20 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   );
 
   // Review System States
+  // Fetch live product reviews from backend
+  useEffect(() => {
+    if (!product?.id) return;
+    reviewService.getProductReviews(product.id).then((res) => {
+      if (res.reviews && res.reviews.length > 0) {
+        setAllReviews((prev) => {
+          const ids = new Set(res.reviews.map((r) => r.id));
+          const rest = prev.filter((r) => !ids.has(r.id));
+          return [...res.reviews, ...rest];
+        });
+      }
+    }).catch(() => {});
+  }, [product?.id]);
+
   const [allReviews, setAllReviews] = useState<Review[]>(() => {
     try {
       const stored = localStorage.getItem(LOCAL_REVIEWS_KEY);
@@ -246,13 +262,33 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     return allReviews;
   }, [allReviews, product]);
 
-  // Related products from the same category strictly deduplicated
-  const relatedProducts = useMemo(() => {
+  // Related products from the same category strictly deduplicated (Primary: productService, Fallback: productsData)
+  const fallbackRelatedProducts = useMemo(() => {
     const filtered = productsData.filter(
       (p) => p.category === product.category && p.id !== product.id && p.slug !== product.slug
     );
     return deduplicateProducts(filtered).slice(0, 4);
   }, [product.category, product.id, product.slug]);
+
+  const [liveRelatedProducts, setLiveRelatedProducts] = useState<Product[] | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+    productService
+      .getRelatedProducts(product, 4)
+      .then((items) => {
+        if (!isCancelled && items && items.length > 0) {
+          setLiveRelatedProducts(items);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [product]);
+
+  const relatedProducts = liveRelatedProducts ?? fallbackRelatedProducts;
 
   // Authentic alternate images strictly for THIS product (never cross-pollinating with different products)
   const alternateImages = useMemo(() => {
@@ -357,6 +393,16 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
       const stored = localStorage.getItem(LOCAL_REVIEWS_KEY);
       const existingUserReviews: Review[] = stored ? JSON.parse(stored) : [];
       localStorage.setItem(LOCAL_REVIEWS_KEY, JSON.stringify([createdReview, ...existingUserReviews]));
+
+    reviewService.createReview({
+      productId: product.id,
+      rating: newRating,
+      title: newTitle.trim(),
+      comment: newComment.trim(),
+      customerName: newAuthor.trim(),
+      surpriseType: product.surpriseType,
+      revealedItem: isJewelrySurprise ? `Selected Size ${selectedRingSize} Jewelry Reveal` : 'Guaranteed Authentic Prize Inside',
+    }).catch((err) => console.warn('Backend review create warning:', err));
     } catch {
       // fallback
     }
@@ -468,9 +514,9 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               <span className={`text-[10.5px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${
                 isVariantInStock
                   ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                  : 'text-amber-700 bg-amber-50 border-amber-200'
+                  : 'text-rose-700 bg-rose-50 border-rose-200'
               }`}>
-                {isVariantInStock ? 'In Stock & Ready to Ship' : 'Limited Stock'}
+                {isVariantInStock ? 'In Stock & Ready to Ship' : 'Out of Stock'}
               </span>
             </div>
 
@@ -748,13 +794,13 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 mb-6 pt-4 border-t border-[#f2edf1]">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 {/* Stepper with Large Accessible Tap Targets */}
-                <div className="flex items-center shrink-0 h-[48px] rounded-[16px] bg-[#f8f5f7] border border-[#ebdce5] p-1 shadow-2xs">
+                <div className={`flex items-center shrink-0 h-[48px] rounded-[16px] bg-[#f8f5f7] border border-[#ebdce5] p-1 shadow-2xs ${!isVariantInStock ? 'opacity-50 pointer-events-none' : ''}`}>
                   <button
                     type="button"
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    disabled={quantity <= 1}
+                    disabled={quantity <= 1 || !isVariantInStock}
                     className={`w-9 sm:w-10 h-full rounded-[12px] flex items-center justify-center font-black transition-all cursor-pointer shadow-2xs active:scale-90 ${
-                      quantity <= 1
+                      quantity <= 1 || !isVariantInStock
                         ? 'bg-white/60 text-[#a8a3ad] cursor-not-allowed opacity-60'
                         : 'bg-white hover:bg-[#fff1f2] text-[#141219] hover:text-[#D30915] hover:shadow-xs'
                     }`}
@@ -770,7 +816,8 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                   <button
                     type="button"
                     onClick={() => setQuantity((q) => q + 1)}
-                    className="w-9 sm:w-10 h-full rounded-[12px] bg-white hover:bg-[#fff1f2] text-[#141219] hover:text-[#D30915] flex items-center justify-center font-black transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-90"
+                    disabled={!isVariantInStock}
+                    className={`w-9 sm:w-10 h-full rounded-[12px] bg-white hover:bg-[#fff1f2] text-[#141219] hover:text-[#D30915] flex items-center justify-center font-black transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-90 ${!isVariantInStock ? 'cursor-not-allowed opacity-50' : ''}`}
                     aria-label="Increase quantity"
                   >
                     <Plus className="w-3.5 sm:w-4 h-3.5 sm:h-4 stroke-[2.5]" />
@@ -781,10 +828,19 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 <button
                   type="button"
                   onClick={handleAddToCartClick}
-                  className="flex-1 min-h-[48px] px-3 sm:px-6 rounded-[16px] bg-[#fff1f2] hover:bg-[#D30915] text-[#D30915] hover:text-white border-2 border-[#D30915] text-xs sm:text-sm font-black uppercase tracking-wider shadow-2xs hover:shadow-[0_8px_24px_rgba(211,9,21,0.3)] active:scale-97 transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D30915]/50 focus-visible:ring-offset-2"
+                  disabled={!isVariantInStock}
+                  className={`flex-1 min-h-[48px] px-3 sm:px-6 rounded-[16px] border-2 text-xs sm:text-sm font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D30915]/50 focus-visible:ring-offset-2 ${
+                    isVariantInStock
+                      ? 'bg-[#fff1f2] hover:bg-[#D30915] text-[#D30915] hover:text-white border-[#D30915] shadow-2xs hover:shadow-[0_8px_24px_rgba(211,9,21,0.3)] active:scale-97 cursor-pointer'
+                      : 'bg-stone-100 border-stone-300 text-stone-400 cursor-not-allowed opacity-75'
+                  }`}
                 >
                   <ShoppingBag className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Add to Cart — ${(product.price * quantity).toFixed(2)}</span>
+                  <span className="truncate">
+                    {isVariantInStock
+                      ? `Add to Cart — $${(currentPrice * quantity).toFixed(2)}`
+                      : 'Out of Stock'}
+                  </span>
                 </button>
               </div>
 
@@ -793,16 +849,23 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 <button
                   type="button"
                   onClick={handleBuyNowClick}
-                  className="w-full sm:w-auto min-h-[50px] px-6 sm:px-8 rounded-[16px] bg-gradient-to-r from-[#D30915] via-[#ff2e79] to-[#B60711] hover:from-[#B60711] hover:to-[#b81850] text-white text-xs sm:text-sm font-black uppercase tracking-wider shadow-[0_10px_28px_rgba(211,9,21,0.38)] hover:shadow-[0_14px_36px_rgba(211,9,21,0.52)] active:scale-[0.98] transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D30915]/50 focus-visible:ring-offset-2"
+                  disabled={!isVariantInStock}
+                  className={`w-full sm:w-auto min-h-[50px] px-6 sm:px-8 rounded-[16px] text-white text-xs sm:text-sm font-black uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D30915]/50 focus-visible:ring-offset-2 ${
+                    isVariantInStock
+                      ? 'bg-gradient-to-r from-[#D30915] via-[#ff2e79] to-[#B60711] hover:from-[#B60711] hover:to-[#b81850] shadow-[0_10px_28px_rgba(211,9,21,0.38)] hover:shadow-[0_14px_36px_rgba(211,9,21,0.52)] active:scale-[0.98] cursor-pointer'
+                      : 'bg-stone-300 cursor-not-allowed opacity-60 pointer-events-none'
+                  }`}
                 >
                   <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
                   <div className="w-6 h-6 rounded-full bg-white/20 border border-white/40 flex items-center justify-center shrink-0">
                     <Zap className="w-3.5 h-3.5 text-white fill-white animate-pulse" />
                   </div>
-                  <span>Buy Now — Fast Checkout</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/15 text-white font-extrabold tracking-normal ml-0.5 border border-white/25">
-                    1-Click
-                  </span>
+                  <span>{isVariantInStock ? 'Buy Now — Fast Checkout' : 'Sold Out'}</span>
+                  {isVariantInStock && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/15 text-white font-extrabold tracking-normal ml-0.5 border border-white/25">
+                      1-Click
+                    </span>
+                  )}
                 </button>
               </div>
             </div>

@@ -1,7 +1,9 @@
 import { accountService } from './accountService';
 
 export const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || 'https://api.ilovesurprises.com'
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+  (typeof globalThis !== 'undefined' && (globalThis as any).process?.env?.VITE_API_BASE_URL) ||
+  'https://api.ilovesurprises.com'
 ).replace(/\/+$/, '');
 
 export const TOKEN_STORAGE_KEY = 'ilovesurprises_jwt_token_v1';

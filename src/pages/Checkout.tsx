@@ -1,3 +1,4 @@
+import { couponService } from '../services/couponService';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
@@ -27,6 +28,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import type { CartItem, ShippingAddress, DeliveryMethod, UserProfile, Order, SavedAddress } from '../types';
+import { isAffiliateRole } from '../types';
 import { calculateEstimatedDelivery } from '../services/orderService';
 import { accountService } from '../services/accountService';
 import { isValidEmail, isValidMobile } from '../services/auth';
@@ -235,7 +237,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
 
   // Rule 1: Check if current customer is a registered Representative placing their own personal order
   const isRepPurchaser = useMemo(() => {
-    if (user?.role === 'representative' || !!user?.repUsername) return true;
+    if (user?.role === 'representative' || isAffiliateRole(user?.role) || !!user?.repUsername) return true;
     const email = (shippingForm.email || user?.email || '').toLowerCase().trim();
     if (!email) return false;
     const usernameFromEmail = email.split('@')[0];
@@ -317,20 +319,30 @@ export const Checkout: React.FC<CheckoutProps> = ({
   }, [currentStep]);
 
   // Handle Promo Code Apply
-  const handleApplyPromo = (e: React.FormEvent) => {
+  const handleApplyPromo = async (e: React.FormEvent) => {
     e.preventDefault();
     setPromoError('');
     const code = promoInput.trim().toUpperCase();
     if (!code) return;
 
-    if (code === 'VIP15' || code === 'SURPRISE15' || code === 'SPARKLE') {
-      setAppliedPromo({ code, discountPercent: 15 });
-      setPromoInput('');
-    } else if (code === 'WIN20' || code === 'REP20') {
-      setAppliedPromo({ code, discountPercent: 20 });
-      setPromoInput('');
-    } else {
-      setPromoError('Invalid promo code. Try "VIP15" or "WIN20"!');
+    try {
+      const res = await couponService.validateCoupon(code, rawSubtotal);
+      if (res.valid) {
+        setAppliedPromo({ code, discountPercent: res.discountPercent || 15 });
+        setPromoInput('');
+        return;
+      }
+      setPromoError(res.message || 'Invalid promo code. Try "VIP15" or "SURPRISE15"!');
+    } catch {
+      if (code === 'VIP15' || code === 'SURPRISE15' || code === 'SPARKLE') {
+        setAppliedPromo({ code, discountPercent: 15 });
+        setPromoInput('');
+      } else if (code === 'WIN20' || code === 'REP20') {
+        setAppliedPromo({ code, discountPercent: 20 });
+        setPromoInput('');
+      } else {
+        setPromoError('Invalid promo code. Try "VIP15" or "SURPRISE15"!');
+      }
     }
   };
 
@@ -580,6 +592,17 @@ export const Checkout: React.FC<CheckoutProps> = ({
     }
 
     if (cart.length === 0) {
+      return;
+    }
+
+    // 1b. Check if any item in cart is out of stock
+    const outOfStockItem = cart.find(
+      (item) => !item.product.inStock || (typeof item.product.stock === 'number' && item.product.stock <= 0)
+    );
+    if (outOfStockItem) {
+      setPaymentSubmissionError(
+        `"${outOfStockItem.product.name}" is currently sold out. Please remove it from your shopping bag to continue.`
+      );
       return;
     }
 
@@ -972,8 +995,8 @@ export const Checkout: React.FC<CheckoutProps> = ({
 
                 {/* Product Items List */}
                 <div className="space-y-3 max-h-[240px] overflow-y-auto pt-2.5 pb-1.5 px-2 divide-y divide-[#f7eff4]">
-                  {cart.map((item) => (
-                    <div key={item.product.id} className="pt-3 first:pt-1 flex items-center justify-between gap-3 overflow-visible">
+                  {cart.map((item, idx) => (
+                    <div key={item.id || item.serverItemId || `${item.product.id}_${item.selectedRingSize || ''}_${idx}`} className="pt-3 first:pt-1 flex items-center justify-between gap-3 overflow-visible">
                       <div className="relative shrink-0 overflow-visible" style={{ overflow: 'visible' }}>
                         <div className="w-12 h-12 rounded-[10px] bg-white border border-[#ecdbe6] flex items-center justify-center p-1 shadow-2xs overflow-hidden">
                           <img
@@ -2188,8 +2211,8 @@ export const Checkout: React.FC<CheckoutProps> = ({
 
               {/* Items List */}
               <div className="max-h-[300px] overflow-y-auto space-y-3 pt-2.5 pb-1.5 px-2.5 divide-y divide-[#f7eff4]">
-                {cart.map((item) => (
-                  <div key={item.product.id} className="pt-3 first:pt-1 flex items-center justify-between gap-3 overflow-visible">
+                {cart.map((item, idx) => (
+                  <div key={item.id || item.serverItemId || `${item.product.id}_${item.selectedRingSize || ''}_${idx}`} className="pt-3 first:pt-1 flex items-center justify-between gap-3 overflow-visible">
                     <div className="relative shrink-0 overflow-visible" style={{ overflow: 'visible' }}>
                       <div className="w-13 h-13 rounded-[12px] bg-[#faf5f8] border border-[#ecdbe6] flex items-center justify-center p-1 shadow-2xs overflow-hidden">
                         <img
