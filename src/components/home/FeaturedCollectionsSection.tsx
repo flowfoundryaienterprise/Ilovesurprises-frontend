@@ -109,6 +109,14 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
   const wishlistSet = useMemo(() => new Set(wishlistIds), [wishlistIds]);
 
   useEffect(() => {
+    // 1. Fetch live storefront configuration from backend API
+    adminService.fetchLiveStorefrontContent().then((content) => {
+      if (content) {
+        setHomepageConfig(content);
+      }
+    }).catch(() => {});
+
+    // 2. Listen to updates
     const handleUpdate = () => {
       setHomepageConfig(adminService.getHomepageContent());
     };

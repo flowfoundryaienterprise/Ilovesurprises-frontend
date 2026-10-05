@@ -1,3 +1,4 @@
+import { apiClient } from './apiClient';
 import type {
   JewelryAppraisal,
   PublicAppraisalResult,
@@ -106,10 +107,48 @@ class AppraisalService {
       };
     }
 
-    // Realistic suspense delay for authentic appraisal feel
-    await new Promise((resolve) => setTimeout(resolve, 650));
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        data: {
+          appraisal: any;
+        };
+      }>(`/api/appraisals/lookup/${encodeURIComponent(cleanCode)}`, { skipAuth: true });
 
-    // Case-insensitive exact lookup against active appraisals
+      if (response.data && response.data.appraisal) {
+        const a = response.data.appraisal;
+        const publicResult: PublicAppraisalResult = {
+          code: a.code || cleanCode,
+          name: a.name || a.productRevealed || 'Genuine Surprise Jewellery',
+          type: (a.type || 'Ring') as any,
+          estimatedValue: Number(a.assessedRetailValue || a.estimatedValue || a.initialEstimatedValue) || 125,
+          image: a.image || a.imageBase64 || '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg',
+          material: a.metalDetails || a.material || 'Solid 925 Sterling Silver',
+          stone: a.gemstoneDetails || a.stone || 'Lab-Grown Solitaire Diamond',
+          cutSetting: a.cutSetting || 'Brilliant Cut / 4-Prong Setting',
+          description: a.description || 'Verified authentic I Love Surprises fine jewelry piece.',
+          serialNumber: a.serialOrTagNumber || a.serialNumber || cleanCode,
+          inspectedDate: a.inspectedDate || (a.createdAt ? a.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
+        };
+
+        return {
+          success: true,
+          data: publicResult,
+        };
+      }
+    } catch (err: any) {
+      // If code not found on server
+      if (err?.statusCode === 404) {
+        return {
+          success: false,
+          error: "We couldn't find that jewelry code. Please check the code and try again.",
+        };
+      }
+    }
+
+    // Realistic suspense delay for local fallback
+    await new Promise((resolve) => setTimeout(resolve, 450));
+
     const matched = this.appraisals.find(
       (a) => this.normalizeCode(a.code) === cleanCode && a.status === 'active'
     );
@@ -121,7 +160,6 @@ class AppraisalService {
       };
     }
 
-    // Public sanitized representation (does not leak supplier, cost, or internal notes)
     const publicResult: PublicAppraisalResult = {
       code: matched.code,
       name: matched.name,
@@ -223,6 +261,23 @@ class AppraisalService {
       status: 'pending',
       createdAt: new Date().toISOString(),
     };
+
+    // Asynchronously dispatch to backend
+    apiClient.post<{ data: { record: any } }>('/api/appraisals/request', {
+      customerName: data.customerName,
+      customerEmail: data.customerEmail,
+      productRevealed: data.productName,
+      initialEstimatedValue: data.estimatedValue || 0,
+      serialOrTagNumber: data.codeInfo || '',
+      notes: data.notes,
+      imageBase64: (data.photoPreviews && data.photoPreviews[0]) || undefined,
+    }).then((res) => {
+      if (res?.data?.record?.id) {
+        newSubmission.id = res.data.record.id;
+      }
+    }).catch((err) => {
+      console.warn('Backend submitAppraisal warning:', err);
+    });
 
     this.submissions = [newSubmission, ...this.submissions];
     this.saveSubmissionsToStorage();

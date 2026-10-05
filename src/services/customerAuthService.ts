@@ -4,6 +4,7 @@ import { attributionService } from './attributionService';
 import { sponsorService } from './sponsorService';
 import { apiClient, ApiError } from './apiClient';
 import type { UserProfile, LoginPayload, RegisterPayload } from '../types';
+import { normalizeRole } from '../utils/roleUtils';
 
 export interface CustomerAuthResult {
   success: boolean;
@@ -18,7 +19,7 @@ export interface BackendUser {
   email: string;
   firstName: string | null;
   lastName: string | null;
-  role: 'CUSTOMER' | 'ADMIN' | 'REPRESENTATIVE';
+  role: 'CUSTOMER' | 'ADMIN' | 'AFFILIATE' | 'STAFF' | string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -46,7 +47,7 @@ export interface BackendMeResponse {
 export function mapBackendUserToUserProfile(
   backendUser: BackendUser,
   extra?: {
-    role?: 'customer' | 'representative' | 'admin';
+    role?: 'customer' | 'representative' | 'admin' | 'staff';
     repUsername?: string;
     sponsorUsername?: string;
     mobile?: string;
@@ -59,10 +60,8 @@ export function mapBackendUserToUserProfile(
     [firstName, lastName].filter(Boolean).join(' ') ||
     backendUser.email.split('@')[0];
 
-  const backendRole =
-    (backendUser.role?.toLowerCase() as 'customer' | 'representative' | 'admin') ||
-    'customer';
-  const role = extra?.role || backendRole;
+  const backendRole = normalizeRole(backendUser.role);
+  const role = extra?.role ? normalizeRole(extra.role) : backendRole;
 
   return {
     id: backendUser.id,

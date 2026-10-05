@@ -26,6 +26,7 @@ interface ShopProps {
   wishlistIds?: string[];
   initialCategory?: string;
   initialSearchQuery?: string;
+  onClearSearch?: () => void;
   onAddToCart: (product: Product) => void;
   onUpdateQuantity: (productId: string, delta: number) => void;
   onWishlistToggle: (product: Product) => void;
@@ -141,6 +142,7 @@ export const Shop: React.FC<ShopProps> = ({
   wishlistIds = [],
   initialCategory = 'All Surprises',
   initialSearchQuery = '',
+  onClearSearch,
   onAddToCart,
   onUpdateQuantity,
   onWishlistToggle,
@@ -209,6 +211,15 @@ export const Shop: React.FC<ShopProps> = ({
   if (initialSearchQuery !== prevSearchQuery) {
     setPrevSearchQuery(initialSearchQuery);
     setSearchQuery(initialSearchQuery);
+    // When a storewide search is performed or search query changes, clear category filters
+    setAppliedFilters((prev) => ({
+      ...prev,
+      categories: [],
+    }));
+    setDraftFilters((prev) => ({
+      ...prev,
+      categories: [],
+    }));
     setCurrentPage(1);
   }
   const [serverProducts, setServerProducts] = useState<Product[] | null>(null);
@@ -315,6 +326,8 @@ export const Shop: React.FC<ShopProps> = ({
     setSearchQuery('');
     setAppliedFilters(DEFAULT_FILTERS);
     setDraftFilters(DEFAULT_FILTERS);
+    setCurrentPage(1);
+    onClearSearch?.();
   };
 
   // When a chip is removed directly from active filters

@@ -64,6 +64,7 @@ export interface Product {
   isNew?: boolean;
   isBestSeller?: boolean;
   inStock: boolean;
+  stock?: number;
   scentNotes?: string[];
   description?: string;
   sku?: string;
@@ -94,6 +95,8 @@ export interface NavItem {
 }
 
 export interface CartItem {
+  id?: string;
+  serverItemId?: string;
   product: Product;
   quantity: number;
   selectedSurpriseOption?: string;
@@ -115,7 +118,7 @@ export interface UserProfile {
   state?: string;
   zipCode?: string;
   country?: string;
-  role: 'customer' | 'representative' | 'admin';
+  role: 'customer' | 'representative' | 'admin' | 'staff';
   repUsername?: string;
   avatar?: string;
   createdAt?: string;
@@ -125,6 +128,7 @@ export interface UserProfile {
 export * from './order';
 export * from './affiliate';
 export * from './admin';
+export * from '../utils/roleUtils';
 
 export interface LoginPayload {
   identifier: string; // Email

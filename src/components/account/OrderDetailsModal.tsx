@@ -1,3 +1,4 @@
+import { orderService } from '../../services/orderService';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -8,7 +9,7 @@ import {
   Check,
   Gift,
   Copy,
-  Printer,
+  Printer, Ban,
   XCircle,
 } from 'lucide-react';
 import type { Order, OrderStatus } from '../../types';
@@ -23,6 +24,19 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   onClose,
 }) => {
   const [copiedTracking, setCopiedTracking] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleCancelOrder = async () => {
+    if (!order) return;
+    if (!window.confirm('Are you sure you want to cancel this order? Items will be returned to inventory.')) return;
+    setIsCancelling(true);
+    try {
+      await orderService.cancelOrder(order.id);
+      order.status = 'cancelled';
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   if (!order || typeof document === 'undefined') return null;
 
@@ -385,6 +399,18 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
         {/* Modal Bottom Actions */}
         <div className="pt-3.5 mt-3.5 border-t border-[#f4edf2] flex items-center justify-between gap-2">
+          {order.status === 'processing' && (
+            <button
+              type="button"
+              disabled={isCancelling}
+              onClick={handleCancelOrder}
+              className="h-[38px] px-3.5 rounded-[11px] bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Ban className="w-3.5 h-3.5" />
+              <span>{isCancelling ? 'Cancelling...' : 'Cancel Order'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => {
