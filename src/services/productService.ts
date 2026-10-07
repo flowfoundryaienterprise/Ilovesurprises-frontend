@@ -165,68 +165,12 @@ export function isCustomerVisible(product: {
   categoryName?: string;
   productType?: string;
   tags?: string;
+  status?: string;
 }): boolean {
   if (!product) return false;
-
-  const title = (product.title || product.name || '').toLowerCase();
-  const handle = (product.handle || product.slug || '').toLowerCase();
-  const surpriseType = (product.surpriseType || '').toLowerCase();
-  const category = (product.category || product.categoryName || '').toLowerCase();
-  const productType = (product.productType || '').toLowerCase();
-  const tags = (product.tags || '').toLowerCase();
-
-  if (
-    handle.includes('scented-flower') ||
-    title.includes('scented flowers bouquet') ||
-    title.includes('scented flower bouquet') ||
-    handle.includes('you-make-me-so-happy') ||
-    title.includes('you make me so happy')
-  ) {
+  if (product.status && product.status.toLowerCase() !== 'active') {
     return false;
   }
-
-  const hasCash =
-    surpriseType.includes('cash') ||
-    surpriseType.includes('money') ||
-    title.includes('cash') ||
-    title.includes('money') ||
-    handle.includes('cash') ||
-    handle.includes('money') ||
-    category.includes('cash') ||
-    productType.includes('cash') ||
-    tags.includes('cash');
-
-  const hasJewelry =
-    surpriseType.includes('jewel') ||
-    surpriseType.includes('diamond') ||
-    surpriseType.includes('ring') ||
-    title.includes('jewelry') ||
-    title.includes('jewellery') ||
-    title.includes('ring') ||
-    title.includes('necklace') ||
-    title.includes('bracelet') ||
-    title.includes('earring') ||
-    title.includes('diamond') ||
-    handle.includes('jewelry') ||
-    handle.includes('jewellery') ||
-    handle.includes('ring') ||
-    handle.includes('necklace') ||
-    handle.includes('bracelet') ||
-    handle.includes('earring') ||
-    handle.includes('diamond') ||
-    category.includes('jewelry') ||
-    category.includes('jewellery') ||
-    productType.includes('jewelry') ||
-    tags.includes('jewelry');
-
-  if (title.includes('cereal') || handle.includes('cereal')) {
-    if (!hasCash && !hasJewelry) return false;
-  }
-
-  if (title.includes('beer') || handle.includes('beer')) {
-    if (!hasCash && !hasJewelry) return false;
-  }
-
   return true;
 }
 
@@ -458,6 +402,7 @@ export function mapRowToCollection(row: any): Collection {
 }
 
 export interface GetProductsParams {
+  collection?: string;
   category?: string;
   search?: string;
   searchQuery?: string;
@@ -499,11 +444,12 @@ function buildProductQueryParams(params: GetProductsParams): string {
     query.set('search', search);
   }
 
-  if (params.category && params.category !== 'all' && params.category !== 'All Surprises') {
+  if (params.collection) {
+    query.set('collection', params.collection.trim());
+  } else if (params.category && params.category !== 'all' && params.category !== 'All Surprises') {
     const cleanCat = params.category.trim();
     const cleanCatLower = cleanCat.toLowerCase();
 
-    // Map candle variants to the backend category 'candles'
     if (
       cleanCatLower === 'candles' ||
       cleanCatLower === 'surprise candles' ||
@@ -516,7 +462,7 @@ function buildProductQueryParams(params: GetProductsParams): string {
       cleanCatLower === 'cash-money-candles' ||
       cleanCatLower === 'zodiac-cash-money-candles'
     ) {
-      query.set('category', 'candles');
+      query.set('collection', 'candles');
       if (!query.has('surpriseType') && !params.surpriseTypes && !params.surpriseType) {
         if (cleanCatLower.includes('cash')) {
           query.set('surpriseType', 'cash');
@@ -528,7 +474,7 @@ function buildProductQueryParams(params: GetProductsParams): string {
       const matchedCategory = categoriesData.find(
         (c) => c.name.toLowerCase() === cleanCatLower || c.slug.toLowerCase() === cleanCatLower
       );
-      query.set('category', matchedCategory ? matchedCategory.slug : cleanCat);
+      query.set('collection', matchedCategory ? matchedCategory.slug : cleanCat);
     }
   }
 
@@ -686,9 +632,14 @@ export const productService = {
       }
     }
 
-    // 2. FALLBACK SOURCE: src/data/products.ts (only if live API is unavailable)
-    const fallbackResult = this.getLocalFallbackProducts(params, page, limit);
-    return fallbackResult;
+    // 2. FALLBACK SOURCE: Return empty result for live browsing
+    return {
+      products: [],
+      total: 0,
+      page,
+      totalPages: 1,
+      isFallback: false,
+    };
   },
 
   /**
@@ -916,6 +867,25 @@ export const productService = {
    */
   async getCollectionByHandle(handle: string): Promise<Collection | null> {
     const clean = decodeURIComponent(handle).trim().toLowerCase();
+
+    // 1. Query live backend API for real collection details
+    try {
+      const response = await apiClient.get<any>(`/api/collections/${encodeURIComponent(clean)}`, { skipAuth: true });
+      if (response?.data?.collection) {
+        const c = response.data.collection;
+        return {
+          id: c.id,
+          title: c.name,
+          handle: c.slug,
+          description: c.description || '',
+          imageUrl: c.bannerImage || '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg',
+          productsCount: c._count?.products || 0,
+        };
+      }
+    } catch {
+      // Fall through to local collection metadata if not found
+    }
+
     const matchedCategory = categoriesData.find(
       (c) => c.slug.toLowerCase() === clean || c.name.toLowerCase() === clean.replace(/-/g, ' ')
     );
@@ -927,7 +897,7 @@ export const productService = {
         handle: matchedCategory.slug,
         description: matchedCategory.description || '',
         imageUrl: matchedCategory.image,
-        productsCount: matchedCategory.itemCount || 10,
+        productsCount: matchedCategory.itemCount || 0,
       };
     }
 
@@ -937,7 +907,7 @@ export const productService = {
       handle: clean,
       description: 'Exclusive surprise reveal collection',
       imageUrl: '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg',
-      productsCount: 12,
+      productsCount: 0,
     };
   },
 
@@ -960,7 +930,7 @@ export const productService = {
   }> {
     const col = await this.getCollectionByHandle(handleOrId);
     const res = await this.getProducts({
-      category: col?.title || handleOrId,
+      collection: handleOrId,
       page: params.page,
       limit: params.limit,
       sortBy: params.sort,

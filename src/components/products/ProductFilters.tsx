@@ -148,7 +148,7 @@ export const DesktopFilterMegaPanel: React.FC<FilterComponentProps> = ({
           <div className="flex-1 overflow-y-auto pr-1 space-y-1">
             {categoriesData.map((cat) => {
               const isSelected = filters.categories.includes(cat.name);
-              const count = allProducts.filter((p) => p.category === cat.name).length;
+              const count = cat.itemCount || allProducts.filter((p) => p.category === cat.name).length;
               return (
                 <label
                   key={cat.id}
@@ -732,7 +732,7 @@ export const MobileFilterModal: React.FC<MobileFilterModalProps> = ({
             <div className="grid grid-cols-2 gap-2">
               {categoriesData.map((cat) => {
                 const isSelected = filters.categories.includes(cat.name);
-                const count = allProducts.filter((p) => p.category === cat.name).length;
+                const count = cat.itemCount || allProducts.filter((p) => p.category === cat.name).length;
                 return (
                   <button
                     key={cat.id}

@@ -11,7 +11,6 @@ import {
   type FilterState,
 } from '../components/products/filterConstants';
 import { ProductGrid } from '../components/products/ProductGrid';
-import { productsData } from '../data/products';
 import { productService } from '../services/productService';
 import { deduplicateProducts } from '../utils/productUtils';
 import type { Product, CartItem, SurpriseType } from '../types';
@@ -31,110 +30,6 @@ interface ShopProps {
   onUpdateQuantity: (productId: string, delta: number) => void;
   onWishlistToggle: (product: Product) => void;
   onSelectProduct: (product: Product) => void;
-}
-
-// Helper to filter products against any FilterState
-function filterProducts(
-  products: Product[],
-  filters: FilterState,
-  searchQuery: string
-): Product[] {
-  return products
-    .filter((p) => {
-      // 1. Search query filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesName = p.name.toLowerCase().includes(q);
-        const matchesCategory = p.category.toLowerCase().includes(q);
-        const matchesSurprise = p.surpriseValue?.toLowerCase().includes(q) ?? false;
-        const matchesScent = p.scentNotes?.some((s) => s.toLowerCase().includes(q)) ?? false;
-        const matchesDesc = p.description?.toLowerCase().includes(q) ?? false;
-        if (!matchesName && !matchesCategory && !matchesSurprise && !matchesScent && !matchesDesc) {
-          return false;
-        }
-      }
-
-      // 2. Categories filter (OR logic among selected categories with smart hierarchy matching)
-      if (filters.categories.length > 0) {
-        const matchesCat = filters.categories.some((cat) => {
-          if (cat === p.category) return true;
-          const catNorm = cat.toLowerCase().trim();
-          const prodCatNorm = p.category.toLowerCase().trim();
-
-          // Parent category umbrellas
-          if (catNorm === 'candles' && prodCatNorm.includes('candle')) return true;
-          if ((catNorm === 'bath + bombs' || catNorm === 'bath & body') && (prodCatNorm.includes('bath') || prodCatNorm.includes('body'))) return true;
-          if (catNorm === 'wax melts' && prodCatNorm.includes('wax')) return true;
-          if (catNorm === 'soaps' && prodCatNorm.includes('soap')) return true;
-          if (catNorm === 'slimes' && prodCatNorm.includes('slime')) return true;
-          if (catNorm === 'jewelry' && (prodCatNorm.includes('jewelry') || p.surpriseType === 'jewelry')) return true;
-
-          // Subcategory name / keyword matching against product name or description
-          if (catNorm.includes('zodiac') && (p.name.toLowerCase().includes('zodiac') || p.description?.toLowerCase().includes('zodiac'))) return true;
-          const rootNorm = catNorm.replace(/s$/i, '');
-          if (p.name.toLowerCase().includes(catNorm) || p.name.toLowerCase().includes(rootNorm)) return true;
-          if (p.description?.toLowerCase().includes(catNorm) || p.description?.toLowerCase().includes(rootNorm)) return true;
-          if (p.scentNotes?.some((s) => s.toLowerCase().includes(catNorm) || s.toLowerCase().includes(rootNorm))) return true;
-
-          return false;
-        });
-
-        if (!matchesCat) {
-          return false;
-        }
-      }
-
-      // 3. Price range filter
-      if (filters.minPrice !== null && p.price < filters.minPrice) {
-        return false;
-      }
-      if (filters.maxPrice !== null && p.price > filters.maxPrice) {
-        return false;
-      }
-
-      // 4. Customer Rating filter
-      if (filters.minRating !== null && p.rating < filters.minRating) {
-        return false;
-      }
-
-      // 5. Surprise Prize Type filter (OR logic)
-      if (filters.surpriseTypes.length > 0) {
-        if (!filters.surpriseTypes.includes(p.surpriseType)) {
-          return false;
-        }
-      }
-
-      // 6. Discount filter
-      if (filters.minDiscount !== null) {
-        if (!p.originalPrice || p.originalPrice <= p.price) return false;
-        const discountPct = Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100);
-        if (discountPct < filters.minDiscount) return false;
-      }
-
-      // 7. Best Sellers Only
-      if (filters.bestSellersOnly && !p.isBestSeller) {
-        return false;
-      }
-
-      // 8. New Arrivals Only
-      if (filters.newArrivalsOnly && !p.isNew) {
-        return false;
-      }
-
-      // 9. In Stock Only
-      if (filters.inStockOnly && !p.inStock) {
-        return false;
-      }
-
-      return true;
-    })
-    .sort((a, b) => {
-      if (filters.sortBy === 'price-asc') return a.price - b.price;
-      if (filters.sortBy === 'price-desc') return b.price - a.price;
-      if (filters.sortBy === 'rating') return b.rating - a.rating;
-      if (filters.sortBy === 'best-sellers') return (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0);
-      return 0; // Default Featured preserved
-    });
 }
 
 export const Shop: React.FC<ShopProps> = ({
@@ -288,31 +183,17 @@ export const Shop: React.FC<ShopProps> = ({
     };
   }, [currentPage, appliedFilters, searchQuery, retryCount]);
 
-  // Active applied products shown in the grid (fallback in-memory)
-  const filteredProducts = useMemo(() => {
-    return filterProducts(productsData, appliedFilters, searchQuery);
-  }, [searchQuery, appliedFilters]);
-
+  // Active applied products shown in the grid
   const activeProducts = useMemo(() => {
-    if (fetchError && serverProducts === null) {
-      return [];
-    }
     if (serverProducts !== null) {
       return deduplicateProducts(serverProducts);
     }
-    const from = (currentPage - 1) * 15;
-    const to = from + 15;
-    return deduplicateProducts(filteredProducts).slice(from, to);
-  }, [serverProducts, filteredProducts, currentPage, fetchError]);
+    return [];
+  }, [serverProducts]);
 
-  const totalPages = serverProducts !== null ? serverTotalPages : Math.max(1, Math.ceil(filteredProducts.length / 15));
+  const totalPages = serverProducts !== null ? serverTotalPages : 1;
 
-  const displayTotalCount = serverTotal ?? productsData.length;
-
-  // Draft matching products (shown on the "Search by Filter (X)" button)
-  const draftFilteredProducts = useMemo(() => {
-    return filterProducts(productsData, draftFilters, searchQuery);
-  }, [searchQuery, draftFilters]);
+  const displayTotalCount = serverTotal ?? 0;
 
   // Apply draft filters when "Search by Filter" / "Show Results" is clicked and auto-close filter panel
   const handleApplyFilters = () => {
@@ -485,8 +366,8 @@ export const Shop: React.FC<ShopProps> = ({
             onResetFilters={handleResetFilters}
             onApplyFilters={handleApplyFilters}
             onClose={handleCloseDesktopFilter}
-            allProducts={productsData}
-            totalResultsCount={draftFilteredProducts.length}
+            allProducts={serverProducts || []}
+            totalResultsCount={serverTotal ?? undefined}
           />
         </div>
       )}
@@ -561,8 +442,8 @@ export const Shop: React.FC<ShopProps> = ({
         onFilterChange={setDraftFilters}
         onResetFilters={handleResetFilters}
         onApplyFilters={handleApplyFilters}
-        allProducts={productsData}
-        totalResultsCount={draftFilteredProducts.length}
+        allProducts={serverProducts || []}
+        totalResultsCount={serverTotal ?? 0}
       />
 
       {/* Mobile Sort Bottom Sheet Portal */}
