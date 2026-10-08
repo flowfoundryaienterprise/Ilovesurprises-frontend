@@ -6,7 +6,6 @@ import {
   type ForgotPasswordResponse,
 } from '../services/auth';
 import { accountService } from '../services/accountService';
-import { apiClient } from '../services/apiClient';
 
 export interface UseAuthReturn {
   user: UserProfile | null;
@@ -166,7 +165,7 @@ export function useAuth(): UseAuthReturn {
     }
   }, []);
 
-  const isAuthenticated = !!user && !!apiClient.getAuthToken();
+  const isAuthenticated = !!user;
 
   return {
     user,

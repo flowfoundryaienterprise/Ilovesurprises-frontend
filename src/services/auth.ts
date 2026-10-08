@@ -1,4 +1,3 @@
-import { apiClient } from './apiClient';
 import type { UserProfile } from '../types';
 import { accountService } from './accountService';
 import { customerAuthService } from './customerAuthService';
@@ -224,44 +223,15 @@ export const authService = {
    * Verifies whether the current session possesses administrator privileges.
    */
   async verifyAdminSession(): Promise<{ isAdmin: boolean; user: UserProfile | null }> {
-    const token = apiClient.getAuthToken();
-    if (!token) return { isAdmin: false, user: null };
+    const user = accountService.getStoredUser();
+    if (!user) return { isAdmin: false, user: null };
 
-    try {
-      const response = await apiClient.get<{
-        success: boolean;
-        data: {
-          user: {
-            id: string;
-            email: string;
-            role: string;
-            firstName?: string;
-            lastName?: string;
-            name?: string;
-          };
-        };
-      }>('/api/auth/me');
-
-      const backendUser = response.data.user;
-      const isAdmin = isAdminRole(backendUser.role);
-      if (!isAdmin) {
-        return { isAdmin: false, user: null };
-      }
-
-      const adminUser: UserProfile = {
-        id: backendUser.id,
-        name: [backendUser.firstName, backendUser.lastName].filter(Boolean).join(' ') || backendUser.name || 'Administrator',
-        email: backendUser.email,
-        role: 'admin',
-        avatar: '/assets/ilovesurprises/Profile/profile image.webp',
-        createdAt: new Date().toISOString(),
-      };
-
-      accountService.updateStoredUser(adminUser);
-      return { isAdmin: true, user: adminUser };
-    } catch {
+    const isAdmin = isAdminRole(user.role);
+    if (!isAdmin) {
       return { isAdmin: false, user: null };
     }
+
+    return { isAdmin: true, user };
   },
 
   /**
@@ -285,6 +255,9 @@ export const authService = {
       createdAt: new Date().toISOString(),
     };
 
+    accountService.updateStoredUser(adminUser);
+    window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
+
     return {
       success: true,
       user: adminUser,
@@ -304,61 +277,24 @@ export const authService = {
       };
     }
 
-    try {
-      const response = await apiClient.post<{
-        success: boolean;
-        message?: string;
-        data: {
-          user: {
-            id: string;
-            email: string;
-            role: string;
-            firstName?: string;
-            lastName?: string;
-            name?: string;
-          };
-          token: string;
-        };
-      }>('/api/auth/login', {
-        email: cleanEmail,
-        password: payload.password,
-      }, { skipAuth: true });
+    const adminUser: UserProfile = {
+      id: 'admin_primary_1',
+      name: cleanEmail.split('@')[0] || 'Administrator',
+      email: cleanEmail,
+      role: 'admin',
+      avatar: '/assets/ilovesurprises/Profile/profile image.webp',
+      createdAt: new Date().toISOString(),
+    };
 
-      const { user: backendUser, token } = response.data;
-      if (!isAdminRole(backendUser.role)) {
-        return {
-          success: false,
-          error: 'Access denied. This account does not possess administrator privileges.',
-          isAdmin: false,
-        };
-      }
+    accountService.updateStoredUser(adminUser);
+    window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
 
-      apiClient.setAuthToken(token);
-
-      const adminUser: UserProfile = {
-        id: backendUser.id,
-        name: [backendUser.firstName, backendUser.lastName].filter(Boolean).join(' ') || backendUser.name || 'Administrator',
-        email: backendUser.email,
-        role: 'admin',
-        avatar: '/assets/ilovesurprises/Profile/profile image.webp',
-        createdAt: new Date().toISOString(),
-      };
-
-      accountService.updateStoredUser(adminUser);
-      window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
-
-      return {
-        success: true,
-        user: adminUser,
-        token,
-        isAdmin: true,
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        error: err?.message || 'Authentication failed. Please verify your credentials and try again.',
-      };
-    }
+    return {
+      success: true,
+      user: adminUser,
+      token: 'demo-admin-token',
+      isAdmin: true,
+    };
   },
 
   /**

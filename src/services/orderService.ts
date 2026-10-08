@@ -1,5 +1,5 @@
-import { apiClient } from './apiClient';
 import type { Order, OrderStatus, OrderItem, ShippingAddress, DeliveryMethod, PaymentSummary } from '../types';
+import { MOCK_ORDERS } from '../data/mockData';
 import { attributionService } from './attributionService';
 import { commissionService } from './commissionService';
 import { representativeService } from './representativeService';
@@ -50,122 +50,32 @@ export function calculateEstimatedDelivery(daysToAdd: number): string {
  */
 export const orderService = {
   /**
-   * Loads all orders from storage
+   * Loads all orders from storage (initialized with mock orders if empty)
    */
   async fetchOrders(): Promise<Order[]> {
-    const token = apiClient.getAuthToken();
-    if (!token) return this.getOrders();
-
-    try {
-      const response = await apiClient.get<{
-        success: boolean;
-        data: { orders: any[] };
-      }>('/api/orders');
-
-      if (response.data && Array.isArray(response.data.orders)) {
-        const mapped: Order[] = response.data.orders.map((o: any) => {
-          let sAddr = o.shippingAddress;
-          if (typeof sAddr === 'string') {
-            try { sAddr = JSON.parse(sAddr); } catch { sAddr = {}; }
-          }
-          let dMethod = o.deliveryMethod;
-          if (typeof dMethod === 'string') {
-            try { dMethod = JSON.parse(dMethod); } catch { dMethod = undefined; }
-          }
-          let pSummary = o.paymentSummary;
-          if (typeof pSummary === 'string') {
-            try { pSummary = JSON.parse(pSummary); } catch { pSummary = undefined; }
-          }
-
-          return {
-            id: o.id,
-            createdAt: o.createdAt,
-            status: o.status,
-            trackingNumber: o.trackingNumber || generateTrackingNumber(),
-            estimatedDeliveryDate: o.estimatedDeliveryDate || calculateEstimatedDelivery(5),
-            items: (o.items || []).map((i: any) => ({
-              product: {
-                id: i.productId || i.id,
-                name: i.productName || i.name || 'Surprise Item',
-                slug: i.slug || i.productId || 'surprise-item',
-                category: i.category || 'Surprise Products',
-                price: Number(i.price) || 0,
-                image: i.image || '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg',
-                surpriseType: i.surpriseType || 'cash',
-                rating: 5.0,
-                reviewCount: 1,
-                inStock: true,
-              },
-              quantity: i.quantity || 1,
-              selectedRingSize: i.selectedRingSize,
-              selectedJewelryType: i.selectedJewelryType,
-            })),
-            shippingAddress: sAddr || {
-              fullName: 'Customer',
-              addressLine1: 'Address',
-              city: 'City',
-              state: 'State',
-              zipCode: '00000',
-              country: 'United States',
-            },
-            deliveryMethod: dMethod || {
-              id: 'standard',
-              name: 'Standard Insured Delivery',
-              price: Number(o.shippingFee) || 0,
-              estimatedDeliveryDate: o.estimatedDeliveryDate || calculateEstimatedDelivery(5),
-            },
-            paymentSummary: pSummary || {
-              method: o.paymentMethod || 'card',
-              status: o.paymentStatus || 'paid',
-              transactionId: o.paymentReference || o.id,
-            },
-            subtotal: Number(o.subtotal) || Number(o.totalAmount) || 0,
-            discount: Number(o.discountAmount) || Number(o.discount) || 0,
-            promoCode: o.couponCode || o.promoCode,
-            shippingFee: Number(o.shippingFee) || 0,
-            total: Number(o.totalAmount) || Number(o.total) || 0,
-            notes: o.notes,
-          };
-        });
-
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(mapped));
-          window.dispatchEvent(new CustomEvent('ilovesurprises_orders_updated'));
-        }
-        return mapped;
-      }
-    } catch {
-      // fallback
-    }
     return this.getOrders();
   },
 
-  async cancelOrder(orderId: string, reason?: string): Promise<Order | null> {
-    const token = apiClient.getAuthToken();
-    if (token) {
-      try {
-        await apiClient.post(`/api/orders/${orderId}/cancel`, {
-          reason: reason || 'Customer requested order cancellation',
-        });
-      } catch (err) {
-        console.warn('Backend cancelOrder call warning:', err);
-      }
-    }
-
+  async cancelOrder(orderId: string, _reason?: string): Promise<Order | null> {
     const updated = this.updateOrderStatus(orderId, 'cancelled');
     return updated || null;
   },
 
   getOrders(): Order[] {
-    if (typeof window === 'undefined') return [];
+    if (typeof window === 'undefined') return MOCK_ORDERS;
     try {
       const stored = localStorage.getItem(ORDERS_STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       }
-      return [];
+      // Initialize with realistic mock orders
+      localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(MOCK_ORDERS));
+      return MOCK_ORDERS;
     } catch {
-      return [];
+      return MOCK_ORDERS;
     }
   },
 

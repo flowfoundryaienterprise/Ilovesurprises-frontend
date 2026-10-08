@@ -1,5 +1,5 @@
-import { apiClient } from './apiClient';
 import type { SavedAddress, UserProfile, UserSettings } from '../types';
+import { apiClient } from './apiClient';
 
 const ADDRESSES_STORAGE_KEY = 'ilovesurprises_addresses_v1';
 const USER_STORAGE_KEY = 'ilovesurprises_user_v1';
@@ -30,69 +30,118 @@ export function isSameAddress(
 }
 
 /**
- * Account Service layer - ready for backend REST API endpoints:
- * GET /api/account/addresses
- * POST /api/account/addresses
- * PUT /api/account/addresses/:id
- * DELETE /api/account/addresses/:id
- * PUT /api/account/profile
+ * Account Service layer - connects user profile to backend (GET/PATCH /api/users/me)
+ * while maintaining reliable local storage for addresses.
  */
 export const accountService = {
   MAX_SAVED_ADDRESSES,
 
   /**
+   * Fetches user profile from backend (GET /api/users/me) if authenticated
+   */
+  async fetchProfile(): Promise<UserProfile | null> {
+    const token = apiClient.getAuthToken();
+    if (token) {
+      try {
+        const response = await apiClient.get<any>('/api/users/me');
+        const user = response?.data?.user;
+        if (user) {
+          const current = this.getStoredUser();
+          const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+          const updated: UserProfile = {
+            id: user.id,
+            name: fullName || current?.name || user.email.split('@')[0],
+            email: user.email,
+            role: (user.role || 'customer').toLowerCase() as any,
+            avatar: current?.avatar || '/assets/ilovesurprises/Profile/profile image.webp',
+            createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : current?.createdAt || new Date().toISOString(),
+            mobile: current?.mobile,
+          };
+          this.updateStoredUser(updated);
+          return updated;
+        }
+      } catch (err: any) {
+        if (err.statusCode === 401) {
+          apiClient.setAuthToken(null);
+          this.updateStoredUser(null);
+          return null;
+        }
+      }
+    }
+    return this.getStoredUser();
+  },
+
+  /**
+   * Updates user profile via backend (PATCH /api/users/me)
+   */
+  async updateProfile(data: { name?: string; firstName?: string; lastName?: string }): Promise<UserProfile | null> {
+    const token = apiClient.getAuthToken();
+    let firstName = data.firstName;
+    let lastName = data.lastName;
+
+    if (data.name && (!firstName || !lastName)) {
+      const parts = data.name.trim().split(' ');
+      firstName = parts[0] || data.name;
+      lastName = parts.slice(1).join(' ') || undefined;
+    }
+
+    if (token) {
+      try {
+        const response = await apiClient.patch<any>('/api/users/me', {
+          firstName,
+          lastName,
+        });
+        const user = response?.data?.user;
+        if (user) {
+          const current = this.getStoredUser();
+          const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+          const updated: UserProfile = {
+            id: user.id,
+            name: fullName || data.name || current?.name || user.email.split('@')[0],
+            email: user.email,
+            role: (user.role || 'customer').toLowerCase() as any,
+            avatar: current?.avatar || '/assets/ilovesurprises/Profile/profile image.webp',
+            createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : current?.createdAt || new Date().toISOString(),
+          };
+          this.updateStoredUser(updated);
+          window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
+          return updated;
+        }
+      } catch (err: any) {
+        console.warn('Backend update profile notice:', err.message);
+      }
+    }
+
+    // Local fallback update
+    const current = this.getStoredUser();
+    if (current) {
+      const updated: UserProfile = {
+        ...current,
+        name: data.name || [firstName, lastName].filter(Boolean).join(' ') || current.name,
+      };
+      this.updateStoredUser(updated);
+      window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
+      return updated;
+    }
+
+    return null;
+  },
+
+  /**
+   * Changes user password via backend (PATCH /api/users/me/password)
+   */
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await apiClient.patch('/api/users/me/password', {
+      currentPassword,
+      newPassword,
+    });
+  },
+
+  /**
    * Loads saved addresses from storage (max 3) - filters out and removes default saved address
    */
   async fetchAddresses(): Promise<SavedAddress[]> {
-    const token = apiClient.getAuthToken();
-    if (!token) return this.getSavedAddresses();
 
-    try {
-      const response = await apiClient.get<{
-        success: boolean;
-        data: {
-          addresses: Array<{
-            id: string;
-            fullName?: string;
-            name?: string;
-            phone?: string;
-            addressLine1?: string;
-            street?: string;
-            addressLine2?: string;
-            city: string;
-            state: string;
-            zipCode?: string;
-            postalCode?: string;
-            country?: string;
-            isDefault?: boolean;
-          }>;
-        };
-      }>('/api/addresses');
-
-      if (response.data && Array.isArray(response.data.addresses)) {
-        const mapped: SavedAddress[] = response.data.addresses.map((a, idx) => ({
-          id: a.id,
-          label: `Delivery Address ${idx + 1}`,
-          fullName: a.fullName || a.name || '',
-          phone: a.phone || '',
-          addressLine1: a.addressLine1 || a.street || '',
-          addressLine2: a.addressLine2 || '',
-          city: a.city,
-          state: a.state,
-          zipCode: a.zipCode || a.postalCode || '',
-          country: a.country || 'United States',
-          isDefault: !!a.isDefault,
-        }));
-
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(ADDRESSES_STORAGE_KEY, JSON.stringify(mapped.slice(0, MAX_SAVED_ADDRESSES)));
-          window.dispatchEvent(new CustomEvent('ilovesurprises_addresses_updated'));
-        }
-        return mapped;
-      }
-    } catch {
-      // fallback to stored
-    }
     return this.getSavedAddresses();
   },
 
@@ -216,21 +265,6 @@ export const accountService = {
       } else {
         list.push(saved);
       }
-
-      // Sync with backend if authenticated
-      if (apiClient.getAuthToken()) {
-        apiClient.put(`/api/addresses/${data.id}`, {
-          fullName: saved.fullName,
-          phone: saved.phone,
-          addressLine1: saved.addressLine1,
-          addressLine2: saved.addressLine2,
-          city: saved.city,
-          state: saved.state,
-          zipCode: saved.zipCode,
-          country: saved.country,
-          isDefault: saved.isDefault,
-        }).catch(() => {});
-      }
     } else {
       // Check if duplicate exists before creating
       const existingIndex = list.findIndex((a) => isSameAddress(a, data));
@@ -267,25 +301,6 @@ export const accountService = {
       }
 
       list.unshift(saved);
-
-      // Sync with backend if authenticated
-      if (apiClient.getAuthToken()) {
-        apiClient.post<{ data: { address: { id: string } } }>('/api/addresses', {
-          fullName: saved.fullName,
-          phone: saved.phone,
-          addressLine1: saved.addressLine1,
-          addressLine2: saved.addressLine2,
-          city: saved.city,
-          state: saved.state,
-          zipCode: saved.zipCode,
-          country: saved.country,
-          isDefault: saved.isDefault,
-        }).then((res) => {
-          if (res?.data?.address?.id) {
-            saved.id = res.data.address.id;
-          }
-        }).catch(() => {});
-      }
     }
 
     const cappedList = list.slice(0, MAX_SAVED_ADDRESSES);
@@ -304,10 +319,6 @@ export const accountService = {
   deleteAddress(id: string): void {
     let list = this.getSavedAddresses();
     list = list.filter((a) => a.id !== id);
-
-    if (apiClient.getAuthToken() && !id.startsWith('addr-')) {
-      apiClient.delete(`/api/addresses/${id}`).catch(() => {});
-    }
 
     if (typeof window !== 'undefined') {
       localStorage.setItem(ADDRESSES_STORAGE_KEY, JSON.stringify(list));

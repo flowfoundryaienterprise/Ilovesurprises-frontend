@@ -1,5 +1,5 @@
-import { apiClient } from './apiClient';
 import type { Product, CartItem } from '../types';
+import { apiClient } from './apiClient';
 
 export const CART_STORAGE_KEY = 'ilovesurprises_cart_v1';
 
@@ -103,7 +103,7 @@ export const cartService = {
   },
 
   /**
-   * Persists cart to local storage cache
+   * Persists cart to local storage cache and notifies UI
    */
   saveLocalCart(cart: CartItem[]): void {
     if (typeof window === 'undefined') return;
@@ -116,36 +116,31 @@ export const cartService = {
   },
 
   /**
-   * Retrieves the live cart from the backend API.
-   * Falls back to local storage if API call fails or user is offline.
+   * Retrieves the current cart from backend (GET /api/cart) with local fallback.
    */
   async getCart(): Promise<{ items: CartItem[]; subtotal: number; total: number }> {
     try {
-      const response = await apiClient.get<{
-        status: string;
-        data: { cart: BackendCartDTO };
-      }>('/api/cart');
+      const res = await apiClient.get<any>('/api/cart');
+      const backendCart: BackendCartDTO = res?.data?.cart;
 
-      const serverCart = response.data?.cart;
-      if (serverCart && Array.isArray(serverCart.items)) {
-        const localCart = this.getLocalCart();
-        const mappedItems = serverCart.items.map((srvItem) => {
-          const matchedLocal = localCart.find(
-            (loc) => loc.product.id === srvItem.productId || loc.serverItemId === srvItem.id
+      if (backendCart && Array.isArray(backendCart.items)) {
+        const localItems = this.getLocalCart();
+        const mappedItems: CartItem[] = backendCart.items.map((bItem) => {
+          const match = localItems.find(
+            (l) => l.product.id === bItem.productId || l.product.slug === bItem.productSlug
           );
-          return mapBackendCartItemToFrontend(srvItem, matchedLocal?.product);
+          return mapBackendCartItemToFrontend(bItem, match?.product);
         });
 
         this.saveLocalCart(mappedItems);
         return {
           items: mappedItems,
-          subtotal: Number(serverCart.subtotal) || 0,
-          total: Number(serverCart.total) || 0,
+          subtotal: backendCart.subtotal,
+          total: backendCart.total,
         };
       }
     } catch (err: any) {
-      // Graceful fallback to cached cart
-      console.warn('[CartService] Live backend cart fetch notice:', err?.message || err);
+      console.warn('Backend getCart failed, using local cart:', err.message);
     }
 
     const localItems = this.getLocalCart();
@@ -158,7 +153,7 @@ export const cartService = {
   },
 
   /**
-   * Adds an item to the cart via live backend API.
+   * Adds an item to the cart via backend (POST /api/cart/items) with local fallback.
    */
   async addItem(params: {
     product: Product;
@@ -167,84 +162,78 @@ export const cartService = {
     selectedJewelryType?: string;
     selectedSize?: string;
   }): Promise<{ items: CartItem[]; subtotal?: number }> {
-    // 1. Prevent adding out-of-stock products
     if (!params.product.inStock) {
       throw new Error(`"${params.product.name}" is currently out of stock.`);
     }
 
-    let serverSuccess = false;
-    let updatedCartItems: CartItem[] = [];
-
-    // 2. Call backend API POST /api/cart/items
     try {
-      const response = await apiClient.post<{
-        status: string;
-        data: { cart: BackendCartDTO };
-      }>('/api/cart/items', {
-        productId: params.product.id,
+      const res = await apiClient.post<any>('/api/cart/items', {
+        productId: params.product.id || params.product.slug,
         quantity: params.quantity,
         selectedRingSize: params.selectedRingSize ? String(params.selectedRingSize) : undefined,
         selectedScent: params.selectedSize,
-        customNote: params.selectedJewelryType ? `Type: ${params.selectedJewelryType}` : undefined,
       });
 
-      const serverCart = response.data?.cart;
-      if (serverCart && Array.isArray(serverCart.items)) {
-        const localCart = this.getLocalCart();
-        updatedCartItems = serverCart.items.map((srvItem) => {
-          const matchedLocal = localCart.find(
-            (loc) => loc.product.id === srvItem.productId || loc.serverItemId === srvItem.id
+      const backendCart: BackendCartDTO = res?.data?.cart;
+      if (backendCart && Array.isArray(backendCart.items)) {
+        const localItems = this.getLocalCart();
+        const mappedItems: CartItem[] = backendCart.items.map((bItem) => {
+          if (bItem.productId === params.product.id || bItem.productSlug === params.product.slug) {
+            return mapBackendCartItemToFrontend(bItem, params.product);
+          }
+          const match = localItems.find(
+            (l) => l.product.id === bItem.productId || l.product.slug === bItem.productSlug
           );
-          return mapBackendCartItemToFrontend(srvItem, matchedLocal?.product || params.product);
+          return mapBackendCartItemToFrontend(bItem, match?.product);
         });
-        serverSuccess = true;
+
+        this.saveLocalCart(mappedItems);
+        return { items: mappedItems, subtotal: backendCart.subtotal };
       }
     } catch (err: any) {
-      console.warn('[CartService] Backend addItem notice:', err?.message || err);
+      console.warn('Backend addItem notice, applying local fallback:', err.message);
     }
 
-    // 3. Fallback / client state management
-    if (!serverSuccess) {
-      const current = this.getLocalCart();
-      const itemKey = generateCartItemKey(params.product.id, {
+    // Local fallback
+    const current = this.getLocalCart();
+    const itemKey = generateCartItemKey(params.product.id, {
+      selectedRingSize: params.selectedRingSize,
+      selectedJewelryType: params.selectedJewelryType,
+      selectedSize: params.selectedSize,
+    });
+
+    const existingIdx = current.findIndex((item) => {
+      const existingKey = item.id || generateCartItemKey(item.product.id, {
+        selectedRingSize: item.selectedRingSize,
+        selectedJewelryType: item.selectedJewelryType,
+        selectedSize: item.selectedSize,
+      });
+      return existingKey === itemKey;
+    });
+
+    if (existingIdx !== -1) {
+      current[existingIdx] = {
+        ...current[existingIdx],
+        quantity: current[existingIdx].quantity + params.quantity,
+      };
+    } else {
+      current.push({
+        id: itemKey,
+        product: params.product,
+        quantity: params.quantity,
         selectedRingSize: params.selectedRingSize,
         selectedJewelryType: params.selectedJewelryType,
         selectedSize: params.selectedSize,
       });
-
-      const existingIdx = current.findIndex((item) => {
-        const existingKey = item.id || generateCartItemKey(item.product.id, {
-          selectedRingSize: item.selectedRingSize,
-          selectedJewelryType: item.selectedJewelryType,
-          selectedSize: item.selectedSize,
-        });
-        return existingKey === itemKey;
-      });
-
-      if (existingIdx !== -1) {
-        current[existingIdx] = {
-          ...current[existingIdx],
-          quantity: current[existingIdx].quantity + params.quantity,
-        };
-      } else {
-        current.push({
-          id: itemKey,
-          product: params.product,
-          quantity: params.quantity,
-          selectedRingSize: params.selectedRingSize,
-          selectedJewelryType: params.selectedJewelryType,
-          selectedSize: params.selectedSize,
-        });
-      }
-      updatedCartItems = current;
     }
 
-    this.saveLocalCart(updatedCartItems);
-    return { items: updatedCartItems };
+    this.saveLocalCart(current);
+    const subtotal = current.reduce((acc, i) => acc + (i.product.price || 0) * i.quantity, 0);
+    return { items: current, subtotal };
   },
 
   /**
-   * Updates line item quantity via live backend API.
+   * Updates line item quantity via backend (PATCH /api/cart/items/:id) with local fallback.
    */
   async updateQuantity(
     itemIdentifier: string,
@@ -258,24 +247,41 @@ export const cartService = {
     if (!targetItem) return currentCart;
 
     const newQuantity = targetItem.quantity + delta;
+    const targetItemId = targetItem.serverItemId || targetItem.id;
 
+    if (targetItemId && !targetItemId.startsWith('prod-') && !targetItemId.startsWith('rs:')) {
+      try {
+        let res: any;
+        if (newQuantity <= 0) {
+          res = await apiClient.delete<any>(`/api/cart/items/${encodeURIComponent(targetItemId)}`);
+        } else {
+          res = await apiClient.patch<any>(`/api/cart/items/${encodeURIComponent(targetItemId)}`, {
+            quantity: newQuantity,
+          });
+        }
+
+        const backendCart: BackendCartDTO = res?.data?.cart;
+        if (backendCart && Array.isArray(backendCart.items)) {
+          const mappedItems: CartItem[] = backendCart.items.map((bItem) => {
+            const match = currentCart.find(
+              (l) => l.product.id === bItem.productId || l.product.slug === bItem.productSlug
+            );
+            return mapBackendCartItemToFrontend(bItem, match?.product);
+          });
+
+          this.saveLocalCart(mappedItems);
+          return mappedItems;
+        }
+      } catch (err: any) {
+        console.warn('Backend updateQuantity failed, using local update:', err.message);
+      }
+    }
+
+    // Local fallback
     if (newQuantity <= 0) {
       return this.removeItem(itemIdentifier, currentCart);
     }
 
-    // 1. If line item has backend server ID, sync with backend API
-    const serverItemId = targetItem.serverItemId;
-    if (serverItemId) {
-      try {
-        await apiClient.patch(`/api/cart/items/${serverItemId}`, {
-          quantity: newQuantity,
-        });
-      } catch (err: any) {
-        console.warn('[CartService] Backend updateQuantity notice:', err?.message || err);
-      }
-    }
-
-    // 2. Update local state
     const updated = currentCart.map((item) => {
       const isTarget =
         item.id === itemIdentifier ||
@@ -289,22 +295,35 @@ export const cartService = {
   },
 
   /**
-   * Removes line item from cart via live backend API.
+   * Removes line item via backend (DELETE /api/cart/items/:id) with local fallback.
    */
   async removeItem(itemIdentifier: string, currentCart: CartItem[]): Promise<CartItem[]> {
     const targetItem = currentCart.find(
       (i) => i.id === itemIdentifier || i.serverItemId === itemIdentifier || i.product.id === itemIdentifier
     );
+    const targetItemId = targetItem?.serverItemId || targetItem?.id;
 
-    const serverItemId = targetItem?.serverItemId;
-    if (serverItemId) {
+    if (targetItemId && !targetItemId.startsWith('prod-') && !targetItemId.startsWith('rs:')) {
       try {
-        await apiClient.delete(`/api/cart/items/${serverItemId}`);
+        const res = await apiClient.delete<any>(`/api/cart/items/${encodeURIComponent(targetItemId)}`);
+        const backendCart: BackendCartDTO = res?.data?.cart;
+        if (backendCart && Array.isArray(backendCart.items)) {
+          const mappedItems: CartItem[] = backendCart.items.map((bItem) => {
+            const match = currentCart.find(
+              (l) => l.product.id === bItem.productId || l.product.slug === bItem.productSlug
+            );
+            return mapBackendCartItemToFrontend(bItem, match?.product);
+          });
+
+          this.saveLocalCart(mappedItems);
+          return mappedItems;
+        }
       } catch (err: any) {
-        console.warn('[CartService] Backend removeItem notice:', err?.message || err);
+        console.warn('Backend removeItem failed, using local remove:', err.message);
       }
     }
 
+    // Local fallback
     const filtered = currentCart.filter((item) => {
       const isTarget =
         item.id === itemIdentifier ||
@@ -318,43 +337,38 @@ export const cartService = {
   },
 
   /**
-   * Clears the entire cart via live backend API.
+   * Clears the entire cart via backend (DELETE /api/cart) and local cache.
    */
   async clearCart(): Promise<void> {
     try {
       await apiClient.delete('/api/cart');
     } catch (err: any) {
-      console.warn('[CartService] Backend clearCart notice:', err?.message || err);
+      console.warn('Backend clearCart notice:', err.message);
     }
     this.saveLocalCart([]);
   },
 
   /**
-   * Syncs guest cart items into backend server cart after user logs in.
+   * Syncs / merges guest cart line items to the authenticated customer backend cart on login.
    */
   async syncLocalCartToServer(): Promise<CartItem[]> {
     const local = this.getLocalCart();
-    if (local.length === 0) {
-      const { items } = await this.getCart();
-      return items;
-    }
-
-    try {
-      for (const item of local) {
-        if (item.product.inStock) {
+    if (local.length > 0) {
+      try {
+        for (const item of local) {
           await apiClient.post('/api/cart/items', {
-            productId: item.product.id,
+            productId: item.product.id || item.product.slug,
             quantity: item.quantity,
             selectedRingSize: item.selectedRingSize ? String(item.selectedRingSize) : undefined,
             selectedScent: item.selectedSize,
           }).catch(() => {});
         }
+      } catch (err: any) {
+        console.warn('Cart items sync notice:', err.message);
       }
-    } catch {
-      // ignore
     }
 
-    const { items } = await this.getCart();
-    return items;
+    const fresh = await this.getCart();
+    return fresh.items;
   },
 };

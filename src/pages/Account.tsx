@@ -52,6 +52,12 @@ export const Account: React.FC<AccountProps> = ({
   const [internalTab, setInternalTab] = useState<AccountTab | null>(null);
   const [internalUser, setInternalUser] = useState<UserProfile | null>(null);
 
+  useEffect(() => {
+    if (initialTab) {
+      setInternalTab(initialTab);
+    }
+  }, [initialTab]);
+
   const activeTab = internalTab ?? initialTab;
   const currentUser = internalUser ?? user;
 
@@ -126,8 +132,8 @@ export const Account: React.FC<AccountProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // If user is not logged in: Show VIP Access prompt
-  if (!currentUser) {
+  // If user is not logged in AND not viewing wishlist: Show VIP Access prompt
+  if (!currentUser && activeTab !== 'wishlist') {
     return (
       <div className="min-h-[75vh] bg-[#fcf9fb] py-16 flex items-center justify-center">
         <div className="max-w-md w-full mx-auto px-4 text-center animate-in fade-in zoom-in-95 duration-200">
@@ -183,6 +189,23 @@ export const Account: React.FC<AccountProps> = ({
           </div>
         )}
 
+        {/* Guest Wishlist Notice Banner */}
+        {!currentUser && activeTab === 'wishlist' && (
+          <div className="p-4 rounded-[16px] bg-[#fff1f2] border border-[#fecdd3] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-bold text-[#141219]">
+            <div className="flex items-center gap-2">
+              <span className="text-base">💎</span>
+              <span>You are viewing items saved on this device. Sign in or create a VIP account to access your wishlist from any device!</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onOpenAuth('login')}
+              className="px-4 py-2 rounded-[10px] bg-[#D30915] hover:bg-[#b60711] text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap shadow-xs active:scale-95"
+            >
+              Sign In / Register
+            </button>
+          </div>
+        )}
+
         {/* 2-Column Responsive Account Layout (Sidebar + Main Content Area) */}
         <div className="flex flex-col lg:flex-row items-start gap-6 sm:gap-8">
           {/* Account Sidebar Navigation */}
@@ -200,7 +223,7 @@ export const Account: React.FC<AccountProps> = ({
           {/* Main Selected Tab Content */}
           <div className="flex-1 w-full min-w-0">
             {/* TAB 1: Profile */}
-            {activeTab === 'profile' && (
+            {activeTab === 'profile' && currentUser && (
               <ProfileSection
                 user={currentUser}
                 onUpdateUser={setInternalUser}
@@ -239,7 +262,7 @@ export const Account: React.FC<AccountProps> = ({
             )}
 
             {/* TAB 5: Settings */}
-            {activeTab === 'settings' && (
+            {activeTab === 'settings' && currentUser && (
               <SettingsSection
                 user={currentUser}
                 onShowToast={showToast}

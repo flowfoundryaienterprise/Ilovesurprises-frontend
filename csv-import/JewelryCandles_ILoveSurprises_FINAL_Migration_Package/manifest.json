@@ -1,0 +1,38 @@
+{
+  "package": "JewelryCandles -> ILoveSurprises Final Migration",
+  "source": {
+    "product_exports": [
+      "products_export_1.csv",
+      "products_export_2.csv",
+      "products_export_3.csv",
+      "products_export_4.csv",
+      "products_export_5.csv",
+      "products_export_6.csv"
+    ],
+    "matrixify_export": "Export_2026-09-11_202642.zip",
+    "matrixify_job_id": "743984685",
+    "matrixify_collections_exported": 460
+  },
+  "verified_counts": {
+    "products": 57479,
+    "images": 64700,
+    "variants": 1547749,
+    "product_options": 47788,
+    "product_option_values": 706291,
+    "product_metafield_values": 9664,
+    "collections": 460,
+    "collection_conditions": 43519,
+    "product_collection_links": 948607,
+    "collection_metafield_values": 100,
+    "collection_publication_rows": 6900
+  },
+  "qa": {
+    "unmatched_collection_product_handles": 0,
+    "duplicate_product_handles": 0,
+    "duplicate_product_collection_links": 0,
+    "products_without_images": 763,
+    "products_without_collection_snapshot": 1206,
+    "products_without_variants": 0,
+    "products_without_price": 0
+  }
+}

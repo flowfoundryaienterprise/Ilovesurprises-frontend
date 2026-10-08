@@ -21,13 +21,12 @@ import {
   ChevronDown,
   Flame,
   Ruler,
+  Heart,
 } from 'lucide-react';
 import { ProductGallery } from '../components/products/ProductGallery';
 import { ProductCard } from '../components/products/ProductCard';
 import { RingSizerModal } from '../components/products/RingSizerModal';
-import { productsData } from '../data/products';
 import { reviewsData } from '../data/reviews';
-import { deduplicateProducts } from '../utils/productUtils';
 import type { Product, CartItem, Review } from '../types';
 import { productService } from '../services/productService';
 import { representativeService, type PublicRepresentative } from '../services/representativeService';
@@ -99,6 +98,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
 }) => {
   const [quantity, setQuantity] = useState(1);
   const [selectedSize] = useState('Classic 14oz');
+  const isCurrentProductWishlisted = wishlistIds.includes(product.id);
 
   // Detect whether this is a jewelry surprise product
   const isJewelrySurprise = useMemo(() => {
@@ -262,14 +262,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     return allReviews;
   }, [allReviews, product]);
 
-  // Related products from the same category strictly deduplicated (Primary: productService, Fallback: productsData)
-  const fallbackRelatedProducts = useMemo(() => {
-    const filtered = productsData.filter(
-      (p) => p.category === product.category && p.id !== product.id && p.slug !== product.slug
-    );
-    return deduplicateProducts(filtered).slice(0, 4);
-  }, [product.category, product.id, product.slug]);
-
   const [liveRelatedProducts, setLiveRelatedProducts] = useState<Product[] | null>(null);
 
   useEffect(() => {
@@ -288,7 +280,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     };
   }, [product]);
 
-  const relatedProducts = liveRelatedProducts ?? fallbackRelatedProducts;
+  const relatedProducts = liveRelatedProducts ?? [];
 
   // Authentic alternate images strictly for THIS product (never cross-pollinating with different products)
   const alternateImages = useMemo(() => {
@@ -444,7 +436,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
       {/* Main Product Details Split View */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 xl:gap-10 mb-14 w-full max-w-full overflow-hidden items-start">
         {/* Left Column: Interactive Image Gallery with Hover Zoom & Lightbox */}
-        <div className="lg:col-span-6 xl:col-span-5 w-full max-w-full overflow-hidden lg:sticky lg:top-[110px]">
+        <div className="lg:col-span-6 xl:col-span-5 w-full max-w-full overflow-hidden lg:sticky lg:top-[110px] relative">
           <ProductGallery
             mainImage={product.image}
             productName={product.name}
@@ -452,6 +444,24 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             badge={product.badge}
             surpriseValue={product.surpriseValue}
           />
+          {/* Floating Wishlist Heart on Gallery */}
+          <button
+            type="button"
+            onClick={() => onWishlistToggle(product)}
+            className={`absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md active:scale-90 z-20 focus-visible:ring-2 focus-visible:ring-[#D30915]/50 focus-visible:outline-none ${
+              isCurrentProductWishlisted
+                ? 'bg-[#fff1f2] border border-[#fecdd3] text-[#D30915] shadow-[0_4px_16px_rgba(211,9,21,0.25)] scale-105'
+                : 'bg-white/95 hover:bg-white text-[#716d77] hover:text-[#D30915] hover:shadow-[0_4px_16px_rgba(211,9,21,0.2)] hover:scale-110 border border-[#eee7ed]'
+            }`}
+            title={isCurrentProductWishlisted ? 'Remove from Wishlist' : 'Save to Wishlist'}
+            aria-label={isCurrentProductWishlisted ? 'Remove from Wishlist' : 'Save to Wishlist'}
+          >
+            <Heart
+              className={`w-5 h-5 transition-all duration-200 ${
+                isCurrentProductWishlisted ? 'fill-[#D30915] text-[#D30915] scale-110' : 'text-[#716d77] hover:text-[#D30915]'
+              }`}
+            />
+          </button>
         </div>
 
         {/* Right Column: Product Info, Surprise Card & Purchase Controls */}
@@ -840,6 +850,28 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                     {isVariantInStock
                       ? `Add to Cart — $${(currentPrice * quantity).toFixed(2)}`
                       : 'Out of Stock'}
+                  </span>
+                </button>
+
+                {/* Wishlist Button for Current Product */}
+                <button
+                  type="button"
+                  onClick={() => onWishlistToggle(product)}
+                  className={`h-[48px] px-3.5 sm:px-4 rounded-[16px] border-2 transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0 ${
+                    isCurrentProductWishlisted
+                      ? 'bg-[#fff1f2] border-[#fecdd3] text-[#D30915] shadow-xs'
+                      : 'bg-white border-[#ebdce5] text-[#716d77] hover:border-[#D30915] hover:text-[#D30915] hover:bg-[#fffdfd]'
+                  }`}
+                  title={isCurrentProductWishlisted ? 'Remove from Wishlist' : 'Save to Wishlist'}
+                  aria-label={isCurrentProductWishlisted ? 'Remove from Wishlist' : 'Save to Wishlist'}
+                >
+                  <Heart
+                    className={`w-4 h-4 shrink-0 transition-transform ${
+                      isCurrentProductWishlisted ? 'fill-[#D30915] text-[#D30915] scale-110' : ''
+                    }`}
+                  />
+                  <span className="text-xs font-black uppercase tracking-wider hidden sm:inline">
+                    {isCurrentProductWishlisted ? 'Saved' : 'Wishlist'}
                   </span>
                 </button>
               </div>

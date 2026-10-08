@@ -36,8 +36,7 @@ import { MapLocationPickerModal, type MapAddressResult } from '../components/che
 import { COUNTRIES_DATA, getStatesByCountryName, getDistrictsByState } from '../data/geoData';
 import { CustomSearchableSelect, type SelectOption } from '../components/ui/CustomSearchableSelect';
 import { representativeService, type PublicRepresentative } from '../services/representativeService';
-import { paymentService } from '../services/paymentService';
-import { ApiError } from '../services/apiClient';
+import { paymentService, ApiError } from '../services/paymentService';
 
 interface CheckoutProps {
   cart: CartItem[];

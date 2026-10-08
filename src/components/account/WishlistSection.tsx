@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, ShoppingBag, Trash2, Star, ArrowRight } from 'lucide-react';
+import { Heart, ShoppingBag, Trash2, Sparkles, Star, ArrowRight } from 'lucide-react';
 import { ProductCardSkeleton } from '../ui/ProductCardSkeleton';
 import type { Product } from '../../types';
-import { productsData } from '../../data/products';
-import { deduplicateProducts } from '../../utils/productUtils';
 import { productService } from '../../services/productService';
 
 interface WishlistSectionProps {
@@ -21,9 +19,7 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
   onSelectProduct,
   onNavigateToShop,
 }) => {
-  const [liveProducts, setLiveProducts] = useState<Product[]>(() =>
-    deduplicateProducts(productsData.filter((p) => wishlistIds.includes(p.id)))
-  );
+  const [liveProducts, setLiveProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(() => wishlistIds.length > 0);
 
   useEffect(() => {
@@ -103,7 +99,7 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
               onClick={onNavigateToShop}
               className="h-[42px] px-7 rounded-[13px] bg-[#D30915] hover:bg-[#B60711] text-white font-black text-xs uppercase tracking-wider shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all active:scale-95"
             >
-              <ShoppingBag className="w-4 h-4" />
+              <Sparkles className="w-4 h-4" />
               <span>Explore Best-Selling Candles</span>
             </button>
           </div>

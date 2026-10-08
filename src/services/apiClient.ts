@@ -1,204 +1,235 @@
-import { accountService } from './accountService';
+/**
+ * Centralized Frontend API Client
+ * Routes all frontend data requests to the Nithish backend (http://localhost:3000)
+ * which communicates with Prisma and the authoritative Supabase PostgreSQL database.
+ */
 
-export const API_BASE_URL = (
+const RAW_BASE_URL =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-  (typeof globalThis !== 'undefined' && (globalThis as any).process?.env?.VITE_API_BASE_URL) ||
-  'https://api.ilovesurprises.com'
-).replace(/\/+$/, '');
+  'http://localhost:3000';
 
-export const TOKEN_STORAGE_KEY = 'ilovesurprises_jwt_token_v1';
+export const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
+
+const AUTH_TOKEN_KEY = 'ilovesurprises_jwt_token';
+const GUEST_CART_KEY = 'ilovesurprises_guest_cart_id';
+
+export interface ApiResponse<T> {
+  status: 'success' | 'error';
+  data?: T;
+  message?: string;
+  error?: string;
+  code?: string;
+}
 
 export class ApiError extends Error {
   statusCode: number;
   data?: any;
-  errors?: Array<{ field: string; message: string }>;
 
   constructor(message: string, statusCode: number, data?: any) {
     super(message);
     this.name = 'ApiError';
     this.statusCode = statusCode;
     this.data = data;
-    if (data?.errors && Array.isArray(data.errors)) {
-      this.errors = data.errors;
-    }
   }
 }
 
-export interface RequestOptions extends RequestInit {
-  skipAuth?: boolean;
+/**
+ * Builds a query string safely from an object of params.
+ * Drops null, undefined, or empty string values.
+ */
+function buildQueryString(params?: Record<string, any>): string {
+  if (!params) return '';
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      if (Array.isArray(value)) {
+        value.forEach((v) => searchParams.append(key, String(v)));
+      } else {
+        searchParams.append(key, String(value));
+      }
+    }
+  });
+
+  const qs = searchParams.toString();
+  return qs ? `?${qs}` : '';
 }
 
 /**
- * Retrieves the currently stored JWT bearer token.
+ * Token management functions
  */
-export function getAuthToken(): string | null {
+export function getStoredAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    return localStorage.getItem(TOKEN_STORAGE_KEY);
+    return localStorage.getItem(AUTH_TOKEN_KEY);
   } catch {
     return null;
   }
 }
 
-/**
- * Stores the JWT bearer token securely in localStorage.
- */
-export function setAuthToken(token: string): void {
+export function setStoredAuthToken(token: string | null): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
-  } catch (err) {
-    console.warn('Failed to persist auth token:', err);
+    if (token) {
+      localStorage.setItem(AUTH_TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+    }
+  } catch {
+    // ignore
   }
 }
 
 /**
- * Removes the stored JWT token.
+ * Guest cart session ID management
  */
-export function clearAuthToken(): void {
-  if (typeof window === 'undefined') return;
+export function getOrCreateGuestCartId(): string {
+  if (typeof window === 'undefined') return 'guest-cart-default';
   try {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-  } catch (err) {
-    console.warn('Failed to clear auth token:', err);
+    let cartId = localStorage.getItem(GUEST_CART_KEY);
+    if (!cartId) {
+      cartId = `guest_cart_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      localStorage.setItem(GUEST_CART_KEY, cartId);
+    }
+    return cartId;
+  } catch {
+    return 'guest-cart-fallback';
   }
 }
 
 /**
- * Centralized handling for 401 Unauthorized responses.
- * Clears invalid credentials and notifies UI listeners.
+ * Internal fetch wrapper with standardized error handling, JSON parsing,
+ * and automatic Bearer token / x-cart-id header injection.
  */
-export function handleUnauthorized(errorMessage?: string): void {
-  clearAuthToken();
-  accountService.updateStoredUser(null);
-
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(
-      new CustomEvent('ilovesurprises_unauthorized', {
-        detail: {
-          message:
-            errorMessage || 'Your session has expired. Please sign in again.',
-        },
-      })
-    );
-    window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
-  }
-}
-
-/**
- * Centralized API request client
- */
-export async function apiRequest<T>(
+async function request<T>(
   endpoint: string,
-  options: RequestOptions = {}
+  options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${API_BASE_URL}${cleanEndpoint}`;
 
   const headers = new Headers(options.headers || {});
-
-  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json');
-  }
   if (!headers.has('Accept')) {
     headers.set('Accept', 'application/json');
   }
+  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
 
-  // Attach Bearer token if available
-  const token = getAuthToken();
-  if (token && !options.skipAuth && !headers.has('Authorization')) {
+  // Attach JWT Bearer token if present
+  const token = getStoredAuthToken();
+  if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  let response: Response;
+  // Attach guest cart header
+  const guestCartId = getOrCreateGuestCartId();
+  if (guestCartId && !headers.has('x-cart-id')) {
+    headers.set('x-cart-id', guestCartId);
+  }
+
   try {
-    response = await fetch(url, {
+    const response = await fetch(url, {
       ...options,
       headers,
     });
-  } catch (networkError: any) {
+
+    const isJson = response.headers.get('content-type')?.includes('application/json');
+    const data = isJson ? await response.json() : await response.text();
+
+    if (!response.ok) {
+      // Clear token if server returns 401 Unauthorized for an authenticated endpoint
+      if (response.status === 401 && token && !endpoint.includes('/auth/login')) {
+        setStoredAuthToken(null);
+      }
+
+      const errorMessage =
+        (typeof data === 'object' && (data?.message || data?.error)) ||
+        `Backend request failed with status ${response.status}`;
+      throw new ApiError(errorMessage, response.status, data);
+    }
+
+    return data as T;
+  } catch (err: any) {
+    if (err instanceof ApiError) {
+      throw err;
+    }
     throw new ApiError(
-      'Unable to connect to the server. Please check your internet connection and ensure the backend is running.',
+      err?.message || 'Network connection to backend failed',
       0,
-      networkError
+      err
     );
   }
-
-  let responseData: any = null;
-  const contentType = response.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
-    try {
-      responseData = await response.json();
-    } catch {
-      responseData = null;
-    }
-  } else {
-    try {
-      const text = await response.text();
-      responseData = { message: text };
-    } catch {
-      responseData = null;
-    }
-  }
-
-  // Centralized 401 Unauthorized handling
-  if (response.status === 401) {
-    const errorMsg =
-      responseData?.message ||
-      responseData?.error ||
-      'Session expired or invalid credentials.';
-    handleUnauthorized(errorMsg);
-    throw new ApiError(errorMsg, 401, responseData);
-  }
-
-  if (!response.ok) {
-    let message = 'An error occurred while processing your request.';
-
-    if (responseData?.errors && Array.isArray(responseData.errors) && responseData.errors.length > 0) {
-      message = responseData.errors.map((e: any) => e.message).join('. ');
-    } else if (responseData?.message) {
-      message = responseData.message;
-    } else if (responseData?.error) {
-      message = typeof responseData.error === 'string' ? responseData.error : 'Request failed';
-    } else if (response.statusText) {
-      message = response.statusText;
-    }
-
-    throw new ApiError(message, response.status, responseData);
-  }
-
-  return responseData as T;
 }
 
 export const apiClient = {
-  get: <T>(endpoint: string, options?: RequestOptions) =>
-    apiRequest<T>(endpoint, { ...options, method: 'GET' }),
+  baseUrl: API_BASE_URL,
 
-  post: <T>(endpoint: string, body?: any, options?: RequestOptions) =>
-    apiRequest<T>(endpoint, {
+  /**
+   * Token getters and setters
+   */
+  getAuthToken: getStoredAuthToken,
+  setAuthToken: setStoredAuthToken,
+  getGuestCartId: getOrCreateGuestCartId,
+
+  /**
+   * HTTP GET
+   */
+  async get<T>(endpoint: string, params?: Record<string, any>, options?: RequestInit): Promise<T> {
+    const query = buildQueryString(params);
+    return request<T>(`${endpoint}${query}`, {
+      ...options,
+      method: 'GET',
+    });
+  },
+
+  /**
+   * HTTP POST
+   */
+  async post<T>(endpoint: string, body?: any, options?: RequestInit): Promise<T> {
+    return request<T>(endpoint, {
       ...options,
       method: 'POST',
       body: body !== undefined ? JSON.stringify(body) : undefined,
-    }),
+    });
+  },
 
-  patch: <T>(endpoint: string, body?: any, options?: RequestOptions) =>
-    apiRequest<T>(endpoint, {
+  /**
+   * HTTP PATCH
+   */
+  async patch<T>(endpoint: string, body?: any, options?: RequestInit): Promise<T> {
+    return request<T>(endpoint, {
       ...options,
       method: 'PATCH',
       body: body !== undefined ? JSON.stringify(body) : undefined,
-    }),
+    });
+  },
 
-  put: <T>(endpoint: string, body?: any, options?: RequestOptions) =>
-    apiRequest<T>(endpoint, {
+  /**
+   * HTTP PUT
+   */
+  async put<T>(endpoint: string, body?: any, options?: RequestInit): Promise<T> {
+    return request<T>(endpoint, {
       ...options,
       method: 'PUT',
       body: body !== undefined ? JSON.stringify(body) : undefined,
-    }),
+    });
+  },
 
-  delete: <T>(endpoint: string, options?: RequestOptions) =>
-    apiRequest<T>(endpoint, { ...options, method: 'DELETE' }),
+  /**
+   * HTTP DELETE
+   */
+  async delete<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    return request<T>(endpoint, {
+      ...options,
+      method: 'DELETE',
+    });
+  },
 
-  getAuthToken,
-  setAuthToken,
-  clearAuthToken,
-  handleUnauthorized,
+  /**
+   * Health check to test backend connection
+   */
+  async checkHealth(): Promise<{ status: string; uptimeSeconds?: number; services?: any }> {
+    return request('/health', { method: 'GET' });
+  },
 };

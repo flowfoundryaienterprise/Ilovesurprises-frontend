@@ -16,7 +16,6 @@ import { CollectionPage } from './pages/Collection';
 import type { AccountTab } from './pages/Account';
 import type { Product, CartItem, UserProfile, Order } from './types';
 import type { AdminTab } from './types/admin';
-import { productsData } from './data/products';
 import { productService } from './services/productService';
 import { cartService } from './services/cartService';
 import { accountService } from './services/accountService';
@@ -109,32 +108,23 @@ export const KNOWN_COLLECTION_HANDLES = new Set([
   'christmas-candles',
 ]);
 
-export function getCleanCollectionUrl(handle: string): string {
-  const clean = handle.replace(/^\/collections?\//, '').replace(/\/$/, '').trim().toLowerCase();
-  if (
-    clean === 'cash-candles' ||
-    clean === 'cash-money-candles' ||
-    clean === 'jewelry-candles' ||
-    clean === 'zodiac-cash-money-candles' ||
-    clean === 'funny-candle' ||
-    clean === 'candles'
-  ) {
-    return clean === 'candles' ? '/candles' : `/candles/${clean}`;
-  }
-  return `/${clean}`;
-}
+import { getCleanCollectionUrl } from './data/navigationCategories';
+export { getCleanCollectionUrl };
 
 export function parseCollectionPath(path: string): string | null {
-  if (path.startsWith('/collections/') || path.startsWith('/collection/')) {
-    return path.replace(/^\/collections?\//, '').replace(/\/$/, '').trim();
+  const cleanPath = (path || '').split('?')[0].split('#')[0].trim();
+  if (cleanPath.startsWith('/collections/') || cleanPath.startsWith('/collection/')) {
+    const raw = cleanPath.replace(/^\/collections?\//, '').replace(/\/$/, '').trim();
+    return raw || null;
   }
-  if (path === '/candles' || path === '/candles/') {
+  if (cleanPath === '/candles' || cleanPath === '/candles/') {
     return 'candles';
   }
-  if (path.startsWith('/candles/')) {
-    return path.replace('/candles/', '').replace(/\/$/, '').trim();
+  if (cleanPath.startsWith('/candles/')) {
+    const raw = cleanPath.replace('/candles/', '').replace(/\/$/, '').trim();
+    return raw || null;
   }
-  const directSlug = path.replace(/^\//, '').replace(/\/$/, '').trim().toLowerCase();
+  const directSlug = cleanPath.replace(/^\//, '').replace(/\/$/, '').trim().toLowerCase();
   if (KNOWN_COLLECTION_HANDLES.has(directSlug)) {
     return directSlug;
   }
@@ -242,7 +232,7 @@ export function App() {
     if (path.startsWith('/product/')) {
       const rawSlug = path.replace('/product/', '').trim();
       const slug = decodeURIComponent(rawSlug);
-      return productService.getCachedProduct(slug) || productsData.find((p) => p.slug === slug || p.id === slug) || null;
+      return productService.getCachedProduct(slug) || null;
     }
     return null;
   });
@@ -370,6 +360,31 @@ export function App() {
       }
     }
   }, [wishlistIds]);
+
+  useEffect(() => {
+    const handleWishlistStorageUpdate = () => {
+      try {
+        const stored = localStorage.getItem('ilovesurprises_wishlist_v1');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setWishlistIds((prev) => {
+              if (JSON.stringify(prev) !== JSON.stringify(parsed)) {
+                return parsed;
+              }
+              return prev;
+            });
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('ils_wishlist_updated', handleWishlistStorageUpdate);
+    return () => {
+      window.removeEventListener('ils_wishlist_updated', handleWishlistStorageUpdate);
+    };
+  }, []);
 
   const [appliedCheckoutPromo, setAppliedCheckoutPromo] = useState<string | null>(null);
 
@@ -1722,6 +1737,7 @@ export function App() {
           <Header
             searchQuery={searchQuery}
             cartCount={totalCartCount}
+            wishlistCount={wishlistIds.length}
             cartSubtotal={cartSubtotal}
             user={user}
             activeView={currentView}
