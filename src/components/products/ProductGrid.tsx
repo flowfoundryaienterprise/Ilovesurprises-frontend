@@ -24,13 +24,13 @@ interface ProductGridProps {
   searchQuery?: string;
 }
 
-// Default skeleton count is 15 (covers 3 complete 5-col rows on desktop or 5 complete 3-col rows on tablet)
+// Default skeleton count is 16 (covers 8 complete 2-col rows on mobile or 4 complete 4-col rows on desktop)
 export const ProductGrid: React.FC<ProductGridProps> = React.memo(({
   products,
   cart = [],
   wishlistIds = [],
   isLoading = false,
-  skeletonCount = 15,
+  skeletonCount = 16,
   onAddToCart,
   onUpdateQuantity,
   onWishlistToggle,

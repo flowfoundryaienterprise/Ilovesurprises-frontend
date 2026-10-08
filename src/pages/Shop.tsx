@@ -149,7 +149,7 @@ export const Shop: React.FC<ShopProps> = ({
     productService
       .getProducts({
         page: currentPage,
-        limit: 15,
+        limit: 16,
         category: appliedFilters.categories[0],
         searchQuery,
         minPrice: appliedFilters.minPrice,

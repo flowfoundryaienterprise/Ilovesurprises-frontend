@@ -62,7 +62,7 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
     productService
       .getProductsByCollection(collectionHandle, {
         page: currentPage,
-        limit: 15,
+        limit: 16,
         sort: sortBy,
       })
       .then((res) => {
@@ -222,7 +222,7 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
       {/* 4. Products Grid */}
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
-          {Array.from({ length: 15 }).map((_, i) => (
+          {Array.from({ length: 16 }).map((_, i) => (
             <ProductCardSkeleton key={i} />
           ))}
         </div>
