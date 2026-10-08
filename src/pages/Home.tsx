@@ -72,9 +72,14 @@ export const Home: React.FC<HomeProps> = ({
       {/* 3. Featured Curated Collections (Holiday & Signature Collections) */}
       <div className="transition-all duration-300">
         <FeaturedCollectionsSection
+          cart={cart}
+          wishlistIds={wishlistIds}
           onSelectCategory={onSelectCategory}
           onSelectCollection={onSelectCollection}
           onSelectProduct={onSelectProduct}
+          onAddToCart={onAddToCart}
+          onUpdateQuantity={onUpdateQuantity}
+          onWishlistToggle={onWishlistToggle}
         />
       </div>
 
