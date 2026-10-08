@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { MOCK_NOTIFICATIONS } from '../data/mockData';
 
 export interface UserNotificationItem {
   id: string;
@@ -10,40 +10,46 @@ export interface UserNotificationItem {
   createdAt: string;
 }
 
+const NOTIFICATIONS_STORAGE_KEY = 'ils_user_notifications_v1';
+
 export const notificationService = {
   async getNotifications(): Promise<UserNotificationItem[]> {
-    const token = apiClient.getAuthToken();
-    if (!token) return [];
+    if (typeof window === 'undefined') return MOCK_NOTIFICATIONS;
     try {
-      const response = await apiClient.get<{
-        success: boolean;
-        data: { notifications: UserNotificationItem[] };
-      }>('/api/notifications');
-      return response.data?.notifications || [];
+      const stored = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(MOCK_NOTIFICATIONS));
+      return MOCK_NOTIFICATIONS;
     } catch {
-      return [];
+      return MOCK_NOTIFICATIONS;
     }
   },
 
   async markAsRead(id: string): Promise<boolean> {
-    const token = apiClient.getAuthToken();
-    if (!token) return false;
-    try {
-      await apiClient.patch(`/api/notifications/${id}/read`);
-      return true;
-    } catch {
-      return false;
+    const list = await this.getNotifications();
+    const updated = list.map((n) => (n.id === id ? { ...n, isRead: true } : n));
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
     }
+    return true;
   },
 
   async markAllAsRead(): Promise<boolean> {
-    const token = apiClient.getAuthToken();
-    if (!token) return false;
-    try {
-      await apiClient.patch('/api/notifications/read-all');
-      return true;
-    } catch {
-      return false;
+    const list = await this.getNotifications();
+    const updated = list.map((n) => ({ ...n, isRead: true }));
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
     }
+    return true;
   },
 };

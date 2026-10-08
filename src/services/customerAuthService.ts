@@ -2,9 +2,9 @@ import { accountService } from './accountService';
 import { representativeService } from './representativeService';
 import { attributionService } from './attributionService';
 import { sponsorService } from './sponsorService';
-import { apiClient, ApiError } from './apiClient';
+import { apiClient } from './apiClient';
+import { cartService } from './cartService';
 import type { UserProfile, LoginPayload, RegisterPayload } from '../types';
-import { normalizeRole } from '../utils/roleUtils';
 
 export interface CustomerAuthResult {
   success: boolean;
@@ -12,68 +12,6 @@ export interface CustomerAuthResult {
   token?: string;
   error?: string;
   isAlreadyRegistered?: boolean;
-}
-
-export interface BackendUser {
-  id: string;
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-  role: 'CUSTOMER' | 'ADMIN' | 'AFFILIATE' | 'STAFF' | string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface BackendAuthResponse {
-  status: 'success';
-  message?: string;
-  data: {
-    user: BackendUser;
-    token: string;
-  };
-}
-
-export interface BackendMeResponse {
-  status: 'success';
-  data: {
-    user: BackendUser;
-  };
-}
-
-/**
- * Maps the backend user representation to the frontend UserProfile format.
- */
-export function mapBackendUserToUserProfile(
-  backendUser: BackendUser,
-  extra?: {
-    role?: 'customer' | 'representative' | 'admin' | 'staff';
-    repUsername?: string;
-    sponsorUsername?: string;
-    mobile?: string;
-    avatar?: string;
-  }
-): UserProfile {
-  const firstName = (backendUser.firstName || '').trim();
-  const lastName = (backendUser.lastName || '').trim();
-  const fullName =
-    [firstName, lastName].filter(Boolean).join(' ') ||
-    backendUser.email.split('@')[0];
-
-  const backendRole = normalizeRole(backendUser.role);
-  const role = extra?.role ? normalizeRole(extra.role) : backendRole;
-
-  return {
-    id: backendUser.id,
-    name: fullName,
-    email: backendUser.email,
-    role,
-    repUsername: extra?.repUsername,
-    sponsorUsername: extra?.sponsorUsername,
-    mobile: extra?.mobile,
-    avatar: extra?.avatar || '/assets/ilovesurprises/Profile/profile image.webp',
-    createdAt: backendUser.createdAt,
-  };
 }
 
 let isAuthInitialized = false;
@@ -100,43 +38,30 @@ export const customerAuthService = {
 
   /**
    * Initializes persistent customer auth state listener
-   * Verifies existing token against backend /api/auth/me
+   * Retrieves active profile from local storage and syncs with backend if token exists
    */
   initAuthStateListener(
     onUserChange?: (user: UserProfile | null) => void
   ): () => void {
-    const token = apiClient.getAuthToken();
     const storedUser = accountService.getStoredUser();
 
-    // Fast initial paint if cached session exists
-    if (token && storedUser) {
+    // Initial state notification
+    if (storedUser) {
       onUserChange?.(storedUser);
     }
 
-    if (token) {
-      // Validate session with Express backend API
-      this.getCurrentUser()
-        .then((verifiedUser) => {
-          if (verifiedUser) {
-            onUserChange?.(verifiedUser);
-          }
-        })
-        .catch((err) => {
-          if (err?.statusCode === 401) {
-            onUserChange?.(null);
-          }
-        })
-        .finally(() => {
-          isAuthInitialized = true;
-          if (authReadyResolve) {
-            authReadyResolve();
-          }
-        });
-    } else {
-      isAuthInitialized = true;
-      if (authReadyResolve) {
-        authReadyResolve();
-      }
+    // Background validation of token if present
+    if (apiClient.getAuthToken()) {
+      this.getCurrentUser().then((refreshed) => {
+        if (refreshed) {
+          onUserChange?.(refreshed);
+        }
+      }).catch(() => {});
+    }
+
+    isAuthInitialized = true;
+    if (authReadyResolve) {
+      authReadyResolve();
     }
 
     const handleStorageChange = () => {
@@ -154,7 +79,7 @@ export const customerAuthService = {
   },
 
   /**
-   * Log in with Email & Password via backend API POST /api/auth/login
+   * Log in with Email & Password via Nithish backend (POST /api/auth/login)
    */
   async loginWithEmailPassword(payload: LoginPayload): Promise<CustomerAuthResult> {
     const cleanEmail = payload.identifier.trim().toLowerCase();
@@ -168,62 +93,61 @@ export const customerAuthService = {
     }
 
     try {
-      const response = await apiClient.post<BackendAuthResponse>(
-        '/api/auth/login',
-        {
-          email: cleanEmail,
-          password: cleanPassword,
-        },
-        { skipAuth: true }
-      );
-
-      const { user: backendUser, token } = response.data;
-
-      // Securely store the JWT token returned by the backend
-      apiClient.setAuthToken(token);
-
-      // Preserve any existing local attributes (avatar, rep handle)
-      const existing = accountService.getStoredUser();
-      const userProfile = mapBackendUserToUserProfile(backendUser, {
-        avatar: existing?.avatar,
-        repUsername: existing?.repUsername,
-        sponsorUsername: existing?.sponsorUsername,
-        mobile: existing?.mobile,
+      const response = await apiClient.post<any>('/api/auth/login', {
+        email: cleanEmail,
+        password: cleanPassword,
       });
+
+      const data = response?.data;
+      const backendUser = data?.user;
+      const token = data?.token;
+
+      if (token) {
+        apiClient.setAuthToken(token);
+      }
+
+      const fullName = [backendUser?.firstName, backendUser?.lastName].filter(Boolean).join(' ').trim();
+      const derivedName = cleanEmail.split('@')[0]
+        .replace(/[._-]/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+
+      const userProfile: UserProfile = {
+        id: backendUser?.id || `usr_${Date.now()}`,
+        name: fullName || derivedName || 'Valued Customer',
+        email: backendUser?.email || cleanEmail,
+        role: (backendUser?.role || 'customer').toLowerCase() as any,
+        avatar: '/assets/ilovesurprises/Profile/profile image.webp',
+        createdAt: backendUser?.createdAt ? new Date(backendUser.createdAt).toISOString() : new Date().toISOString(),
+      };
 
       accountService.updateStoredUser(userProfile);
       window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
 
+      // Sync guest cart to authenticated user cart in backend
+      cartService.syncLocalCartToServer().catch((e) => console.warn('Cart sync notice on login:', e));
+
       return {
         success: true,
         user: userProfile,
-        token,
+        token: token || 'authenticated-token',
       };
     } catch (err: any) {
-      if (err instanceof ApiError) {
-        if (err.statusCode === 401) {
-          return {
-            success: false,
-            error:
-              'Invalid email or password. Please double-check your credentials and try again.',
-          };
-        }
+      console.warn('Backend login notice:', err.message);
+      if (err.statusCode === 401 || (err.message && err.message.toLowerCase().includes('invalid'))) {
         return {
           success: false,
-          error: err.message || 'Unable to log in. Please try again.',
+          error: 'Invalid email or password. Please verify your credentials and try again.',
         };
       }
       return {
         success: false,
-        error:
-          err?.message ||
-          'Unable to connect to the authentication server. Please try again.',
+        error: err.message || 'Unable to connect to authentication server. Please try again.',
       };
     }
   },
 
   /**
-   * Register with Email & Password via backend API POST /api/auth/register
+   * Register with Email & Password via Nithish backend (POST /api/auth/register)
    */
   async registerWithEmailPassword(
     payload: RegisterPayload
@@ -244,11 +168,6 @@ export const customerAuthService = {
         error: 'Password must be at least 6 characters.',
       };
     }
-
-    // Split name into firstName and lastName for backend API schema
-    const nameParts = cleanName.split(/\s+/);
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || undefined;
 
     const isRep = payload.role === 'representative';
     let cleanRepUsername: string | null = null;
@@ -292,31 +211,40 @@ export const customerAuthService = {
       }
     }
 
+    const nameParts = cleanName.split(' ');
+    const firstName = nameParts[0] || cleanName;
+    const lastName = nameParts.slice(1).join(' ') || undefined;
+
     try {
-      const response = await apiClient.post<BackendAuthResponse>(
-        '/api/auth/register',
-        {
-          email: cleanEmail,
-          password: payload.password,
-          firstName,
-          lastName,
-        },
-        { skipAuth: true }
-      );
+      const response = await apiClient.post<any>('/api/auth/register', {
+        email: cleanEmail,
+        password: payload.password,
+        firstName,
+        lastName,
+      });
 
-      const { user: backendUser, token } = response.data;
+      const data = response?.data;
+      const backendUser = data?.user;
+      const token = data?.token;
 
-      // Securely store the JWT token returned by the backend
-      apiClient.setAuthToken(token);
+      if (token) {
+        apiClient.setAuthToken(token);
+      }
 
-      const userProfile = mapBackendUserToUserProfile(backendUser, {
-        role: payload.role || 'customer',
+      const fullName = [backendUser?.firstName, backendUser?.lastName].filter(Boolean).join(' ').trim();
+
+      const userProfile: UserProfile = {
+        id: backendUser?.id || `usr_${Date.now()}`,
+        name: fullName || cleanName,
+        email: backendUser?.email || cleanEmail,
+        role: payload.role || (backendUser?.role || 'customer').toLowerCase() as any,
         repUsername: cleanRepUsername || undefined,
         sponsorUsername: sponsorUsername || undefined,
         mobile: payload.mobile?.trim(),
-      });
+        avatar: '/assets/ilovesurprises/Profile/profile image.webp',
+        createdAt: backendUser?.createdAt ? new Date(backendUser.createdAt).toISOString() : new Date().toISOString(),
+      };
 
-      // If registered as representative, record sponsor relationship
       if (isRep && cleanRepUsername && sponsorUsername) {
         try {
           await sponsorService.registerSponsorRelationship(
@@ -326,76 +254,78 @@ export const customerAuthService = {
             userProfile.id
           );
         } catch {
-          // ignore non-critical sponsor chain storage error
+          // ignore non-critical local sponsor storage
         }
       }
 
       accountService.updateStoredUser(userProfile);
       window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
 
+      // Sync guest cart to registered user cart
+      cartService.syncLocalCartToServer().catch((e) => console.warn('Cart sync notice on register:', e));
+
       return {
         success: true,
         user: userProfile,
-        token,
+        token: token || 'authenticated-token',
       };
     } catch (err: any) {
-      if (err instanceof ApiError) {
-        if (
-          err.statusCode === 409 ||
-          err.message?.toLowerCase().includes('already registered')
-        ) {
-          return {
-            success: false,
-            isAlreadyRegistered: true,
-            error: 'This email is already registered. Please log in instead.',
-          };
-        }
+      console.warn('Backend register notice:', err.message);
+      if (err.statusCode === 409 || (err.message && err.message.toLowerCase().includes('already registered'))) {
         return {
           success: false,
-          error: err.message || 'Registration failed. Please try again.',
+          error: 'This email is already registered. Please sign in instead.',
+          isAlreadyRegistered: true,
         };
       }
       return {
         success: false,
-        error:
-          err?.message ||
-          'Unable to connect to the authentication server. Please try again.',
+        error: err.message || 'Registration failed. Please check your details and try again.',
       };
     }
   },
 
   /**
-   * Fetches current authenticated user profile from backend GET /api/auth/me
+   * Fetches current authenticated user profile from backend (GET /api/auth/me) or local cache
    */
   async getCurrentUser(): Promise<UserProfile | null> {
     const token = apiClient.getAuthToken();
-    if (!token) return null;
+    const stored = accountService.getStoredUser();
 
-    try {
-      const response = await apiClient.get<BackendMeResponse>('/api/auth/me');
-      const backendUser = response.data.user;
-
-      const existing = accountService.getStoredUser();
-      const userProfile = mapBackendUserToUserProfile(backendUser, {
-        avatar: existing?.avatar,
-        repUsername: existing?.repUsername,
-        sponsorUsername: existing?.sponsorUsername,
-        mobile: existing?.mobile,
-      });
-
-      accountService.updateStoredUser(userProfile);
-      return userProfile;
-    } catch (err: any) {
-      if (err instanceof ApiError && err.statusCode === 401) {
-        return null;
+    if (token) {
+      try {
+        const response = await apiClient.get<any>('/api/auth/me');
+        const backendUser = response?.data?.user;
+        if (backendUser) {
+          const fullName = [backendUser.firstName, backendUser.lastName].filter(Boolean).join(' ').trim();
+          const refreshed: UserProfile = {
+            id: backendUser.id,
+            name: fullName || stored?.name || backendUser.email.split('@')[0],
+            email: backendUser.email,
+            role: (backendUser.role || 'customer').toLowerCase() as any,
+            avatar: stored?.avatar || '/assets/ilovesurprises/Profile/profile image.webp',
+            createdAt: backendUser.createdAt ? new Date(backendUser.createdAt).toISOString() : stored?.createdAt || new Date().toISOString(),
+            mobile: stored?.mobile,
+            repUsername: stored?.repUsername,
+            sponsorUsername: stored?.sponsorUsername,
+          };
+          accountService.updateStoredUser(refreshed);
+          return refreshed;
+        }
+      } catch (err: any) {
+        if (err.statusCode === 401) {
+          apiClient.setAuthToken(null);
+          accountService.updateStoredUser(null);
+          return null;
+        }
       }
-      // If backend temporarily unreachable, return cached user
-      return accountService.getStoredUser();
     }
+
+    return stored;
   },
 
   /**
-   * Request password reset via backend POST /api/auth/forgot-password
+   * Request password reset via backend (POST /api/auth/forgot-password)
    */
   async forgotPassword(
     email: string
@@ -410,30 +340,22 @@ export const customerAuthService = {
     }
 
     try {
-      const response = await apiClient.post<{
-        status: string;
-        message: string;
-        resetToken?: string;
-      }>('/api/auth/forgot-password', { email: cleanEmail });
-
+      const res = await apiClient.post<any>('/api/auth/forgot-password', { email: cleanEmail });
       return {
         success: true,
-        message:
-          response.message ||
-          `Password reset instructions have been sent to ${cleanEmail}. Please follow the link to reset your password.`,
+        message: res?.message || `Password reset instructions have been sent to ${cleanEmail}.`,
       };
     } catch (err: any) {
       return {
         success: false,
         message: '',
-        error:
-          err?.message || 'Failed to dispatch password reset. Please try again.',
+        error: err.message || 'Unable to process password reset request. Please try again.',
       };
     }
   },
 
   /**
-   * Reset password with token via backend POST /api/auth/reset-password
+   * Reset password with token via backend (POST /api/auth/reset-password)
    */
   async resetPassword(
     token: string,
@@ -447,42 +369,35 @@ export const customerAuthService = {
     }
 
     try {
-      const response = await apiClient.post<{ status: string; message: string }>(
-        '/api/auth/reset-password',
-        { token, newPassword }
-      );
-
+      const res = await apiClient.post<any>('/api/auth/reset-password', {
+        token,
+        newPassword,
+      });
       return {
         success: true,
-        message:
-          response.message ||
-          'Password has been reset successfully. You can now log in with your new password.',
+        message: res?.message || 'Password has been reset successfully. You can now log in with your new password.',
       };
     } catch (err: any) {
       return {
         success: false,
-        error:
-          err?.message ||
-          'Invalid or expired reset token. Please request a new link.',
+        error: err.message || 'Failed to reset password. Token may be invalid or expired.',
       };
     }
   },
 
   /**
-   * Signs current user out via backend POST /api/auth/logout and clears credentials
+   * Signs current user out and clears credentials
    */
   async logout(): Promise<void> {
-    const token = apiClient.getAuthToken();
-    if (token) {
-      try {
-        await apiClient.post('/api/auth/logout', {});
-      } catch {
-        // Discard client token even if network fails
+    try {
+      if (apiClient.getAuthToken()) {
+        await apiClient.post('/api/auth/logout').catch(() => {});
       }
+    } finally {
+      apiClient.setAuthToken(null);
+      accountService.updateStoredUser(null);
+      window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
     }
-    apiClient.clearAuthToken();
-    accountService.updateStoredUser(null);
-    window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
   },
 
   /**

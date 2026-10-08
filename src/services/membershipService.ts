@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { MOCK_MEMBERSHIP_PLANS } from '../data/mockData';
 
 export interface MembershipPlanItem {
   id: string;
@@ -24,39 +24,48 @@ export interface UserMembershipStatus {
   };
 }
 
+const MEMBERSHIP_STORAGE_KEY = 'ils_user_membership_v1';
+
 export const membershipService = {
   async getPlans(): Promise<MembershipPlanItem[]> {
-    try {
-      const response = await apiClient.get<{
-        success: boolean;
-        data: { plans: MembershipPlanItem[] };
-      }>('/api/memberships/plans', { skipAuth: true });
-      return response.data?.plans || [];
-    } catch {
-      return [];
-    }
+    return MOCK_MEMBERSHIP_PLANS;
   },
 
   async getMyMembership(): Promise<UserMembershipStatus | null> {
-    const token = apiClient.getAuthToken();
-    if (!token) return null;
+    if (typeof window === 'undefined') return null;
     try {
-      const response = await apiClient.get<{
-        success: boolean;
-        data: UserMembershipStatus;
-      }>('/api/memberships/my');
-      return response.data;
+      const stored = localStorage.getItem(MEMBERSHIP_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
     } catch {
-      return null;
+      // fallback
     }
+    return null;
   },
 
   async subscribe(planId: string): Promise<boolean> {
-    try {
-      await apiClient.post('/api/memberships/subscribe', { planId });
-      return true;
-    } catch (err: any) {
-      throw err;
+    const plan = MOCK_MEMBERSHIP_PLANS.find((p) => p.id === planId) || MOCK_MEMBERSHIP_PLANS[0];
+    const status: UserMembershipStatus = {
+      hasActiveMembership: true,
+      membership: {
+        id: `mem-${Date.now()}`,
+        plan,
+        status: 'active',
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        autoRenew: true,
+      },
+    };
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(MEMBERSHIP_STORAGE_KEY, JSON.stringify(status));
+        window.dispatchEvent(new CustomEvent('ils_consultant_subscribed'));
+      } catch {
+        // ignore
+      }
     }
+    return true;
   },
 };

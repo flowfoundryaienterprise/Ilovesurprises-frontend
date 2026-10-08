@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { MOCK_COUPONS } from '../data/mockData';
 
 export interface CouponValidationResult {
   valid: boolean;
@@ -14,50 +14,58 @@ export interface CouponValidationResult {
 }
 
 export const couponService = {
+  /**
+   * Validates promotional coupon codes locally.
+   */
   async validateCoupon(code: string, orderAmount: number): Promise<CouponValidationResult> {
-    try {
-      const response = await apiClient.post<{
-        success: boolean;
-        data: {
-          valid: boolean;
-          discountAmount: number;
-          finalAmount: number;
-          coupon: {
-            code: string;
-            discountType: 'percentage' | 'fixed';
-            discountValue: number;
-          };
-        };
-        message?: string;
-      }>('/api/coupons/validate', {
-        code: code.trim().toUpperCase(),
-        orderAmount,
-      });
+    const cleanCode = code.trim().toUpperCase();
 
-      if (response.data && response.data.valid) {
-        const discountPercent =
-          response.data.coupon.discountType === 'percentage'
-            ? response.data.coupon.discountValue
-            : Math.round((response.data.discountAmount / orderAmount) * 100);
-
-        return {
-          valid: true,
-          discountPercent,
-          discountAmount: response.data.discountAmount,
-          finalAmount: response.data.finalAmount,
-          coupon: response.data.coupon,
-        };
-      }
-
+    if (!cleanCode) {
       return {
         valid: false,
-        message: response.message || 'Invalid coupon code.',
-      };
-    } catch (err: any) {
-      return {
-        valid: false,
-        message: err?.message || 'Invalid or expired coupon code.',
+        message: 'Please enter a coupon code.',
       };
     }
+
+    const matched = MOCK_COUPONS[cleanCode];
+
+    if (!matched) {
+      return {
+        valid: false,
+        message: 'Invalid or expired coupon code.',
+      };
+    }
+
+    if (matched.minOrderAmount && orderAmount < matched.minOrderAmount) {
+      return {
+        valid: false,
+        message: `This coupon requires a minimum purchase of $${matched.minOrderAmount.toFixed(2)}.`,
+      };
+    }
+
+    let discountAmount = 0;
+    let discountPercent = 0;
+
+    if (matched.discountType === 'percentage') {
+      discountPercent = matched.discountValue;
+      discountAmount = Number(((orderAmount * matched.discountValue) / 100).toFixed(2));
+    } else {
+      discountAmount = Math.min(orderAmount, matched.discountValue);
+      discountPercent = orderAmount > 0 ? Math.round((discountAmount / orderAmount) * 100) : 0;
+    }
+
+    const finalAmount = Math.max(0, Number((orderAmount - discountAmount).toFixed(2)));
+
+    return {
+      valid: true,
+      discountPercent,
+      discountAmount,
+      finalAmount,
+      coupon: {
+        code: matched.code,
+        discountType: matched.discountType,
+        discountValue: matched.discountValue,
+      },
+    };
   },
 };

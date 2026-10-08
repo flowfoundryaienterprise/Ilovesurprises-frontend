@@ -2,10 +2,7 @@
  * I Love Surprises - Production Service Worker
  * Standalone frontend asset pre-caching & offline fallback
  * 
- * STRICT SECURITY RULES:
- * - NEVER cache API responses (/api/*, api.ilovesurprises.com).
- * - NEVER cache Authorization headers or authenticated sessions.
- * - Cache only safe, public, static frontend assets (HTML shell, CSS, JS bundles, images, icons, fonts).
+ * Cache only safe, public, static frontend assets (HTML shell, CSS, JS bundles, images, icons, fonts).
  */
 
 const CACHE_NAME = 'ils-static-v1';
@@ -30,10 +27,9 @@ function isSafeStaticRequest(request) {
     return false;
   }
 
-  // 2. Never cache Express REST API endpoints or external API domains
+  // 2. Bypass API calls or geocoding
   if (
     url.pathname.startsWith('/api/') ||
-    url.hostname.includes('api.ilovesurprises.com') ||
     url.hostname.includes('nominatim.openstreetmap.org')
   ) {
     return false;

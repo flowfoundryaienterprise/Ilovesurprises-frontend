@@ -50,12 +50,13 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     id: 'candles',
     name: 'Candles',
     slug: 'candles',
-    href: '/shop?category=candles',
+    href: '/collections/candles',
     badge: 'POPULAR',
     columns: [
       {
         heading: 'Cash & Novelty Candles',
         items: [
+          { id: 'cash-money-candles', name: 'Cash Money Candles', slug: 'cash-money-candles', badge: '💵 Up to $2,500', isPopular: true },
           { id: 'cash-candles', name: 'Cash Candles', slug: 'cash-candles', badge: '💵 Real Cash', isPopular: true },
           { id: 'jewelry-candles', name: 'Jewelry Candles', slug: 'jewelry-candles', badge: '💎 Real Jewelry', isPopular: true },
           { id: 'funny-cash-candles', name: 'Funny Cash Candles', slug: 'funny-candle' },
@@ -99,7 +100,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     id: 'wax-melts',
     name: 'Wax Melts',
     slug: 'wax-melts',
-    href: '/shop?category=wax-melts',
+    href: '/collections/wax-melts',
     columns: [
       {
         heading: 'Scented Wax Melts',
@@ -127,7 +128,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     id: 'bath-bombs',
     name: 'Bath + Bombs',
     slug: 'bath-bombs',
-    href: '/shop?category=bath-bombs',
+    href: '/collections/bath-bombs',
     columns: [
       {
         heading: 'Bath Bombs & Bundles',
@@ -164,7 +165,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     id: 'soaps',
     name: 'Soaps',
     slug: 'soap',
-    href: '/shop?category=soap',
+    href: '/collections/soap',
     columns: [
       {
         heading: 'Handmade Artisan Soaps',
@@ -192,7 +193,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     id: 'jewelry',
     name: 'Jewelry',
     slug: 'jewelry',
-    href: '/shop?category=jewelry',
+    href: '/collections/jewelry',
     badge: 'REAL GEMS',
     columns: [
       {
@@ -207,10 +208,10 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
       {
         heading: 'Surprise Reveals',
         items: [
-          { id: 'cash-jewelry', name: 'Cash Jewelry', slug: 'jewelry', badge: '💵 Win Cash' },
+          { id: 'cash-jewelry', name: 'Cash Jewelry', slug: 'cash-jewelry', badge: '💵 Win Cash' },
           { id: 'zodiac-birthstone-jewelry', name: 'Zodiac & Birthstone Jewelry', slug: 'zodiac-candles' },
-          { id: 'mens-jewelry', name: 'Men’s Jewelry', slug: 'jewelry' },
-          { id: 'surprise-jewelry-bundles', name: 'Surprise Jewelry Bundles', slug: 'cash-wax-melt-surprise-bundles', badge: 'Top Value' },
+          { id: 'mens-jewelry', name: 'Men’s Jewelry', slug: 'mens-jewelry' },
+          { id: 'surprise-jewelry-bundles', name: 'Surprise Jewelry Bundles', slug: 'jewelry-surprise-mystery-boxes', badge: 'Top Value' },
         ],
       },
     ],
@@ -231,15 +232,15 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     id: 'candy',
     name: 'Candy',
     slug: 'candy',
-    href: '/shop?category=candy',
+    href: '/collections/candy',
     columns: [
       {
         heading: 'Sweet Surprise Candy',
         items: [
           { id: 'cash-candy', name: 'Cash Candy', slug: 'cash-candy', badge: '💵 Real Cash', isPopular: true },
           { id: 'jewelry-candy', name: 'Jewelry Candy', slug: 'jewelry-candy', badge: '💎 Real Jewelry' },
-          { id: 'gummy-surprise-pouches', name: 'Gummy Surprise Pouches', slug: 'giant-gummy-bear-wax-melts' },
-          { id: 'sweet-treat-bundles', name: 'Sweet Treat Bundles', slug: 'sweets-candies-confectionery' },
+          { id: 'gummy-surprise-pouches', name: 'Gummy Surprise Pouches', slug: 'gummy-surprise-pouches' },
+          { id: 'sweet-treat-bundles', name: 'Sweet Treat Bundles', slug: 'sweet-treat-bundles' },
         ],
       },
     ],
@@ -259,7 +260,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     id: 'chocolates',
     name: 'Chocolates',
     slug: 'chocolates',
-    href: '/shop?category=chocolates',
+    href: '/collections/chocolates',
     columns: [
       {
         heading: 'Gourmet Chocolates',
@@ -267,7 +268,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
           { id: 'cash-chocolates', name: 'Cash Chocolates', slug: 'cash-chocolates', badge: '💵 Cash Inside', isPopular: true },
           { id: 'jewelry-chocolate', name: 'Jewelry Chocolate', slug: 'jewelry-chocolates', badge: '💎 Real Jewelry' },
           { id: 'gourmet-chocolate-bars', name: 'Gourmet Chocolate Bars', slug: 'city-cash-chocolates' },
-          { id: 'luxury-reveal-gift-boxes', name: 'Luxury Reveal Gift Boxes', slug: 'cash-wax-melt-surprise-bundles', badge: 'Gift Ready' },
+          { id: 'luxury-reveal-gift-boxes', name: 'Luxury Reveal Gift Boxes', slug: 'luxury-reveal-gift-boxes', badge: 'Gift Ready' },
         ],
       },
     ],
@@ -287,7 +288,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     id: 'slimes',
     name: 'Slimes',
     slug: 'slimes',
-    href: '/shop?category=slimes',
+    href: '/collections/slimes',
     columns: [
       {
         heading: 'Sensory Gourmet Slimes',
@@ -315,7 +316,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     id: 'cards',
     name: 'Cards',
     slug: 'greeting-cards',
-    href: '/shop?category=greeting-cards',
+    href: '/collections/greeting-cards',
     columns: [
       {
         heading: 'Surprise Greeting Cards',
@@ -363,3 +364,15 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     hideInDesktopNav: true,
   },
 ];
+
+export function getCleanCollectionUrl(handle: string): string {
+  if (!handle) return '/collections';
+  const clean = handle
+    .replace(/^\/collections?\//i, '')
+    .replace(/^\/candles\//i, '')
+    .replace(/^\//, '')
+    .replace(/\/$/, '')
+    .trim()
+    .toLowerCase();
+  return clean ? `/collections/${clean}` : '/collections';
+}

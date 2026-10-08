@@ -1,39 +1,47 @@
-import { apiClient } from './apiClient';
+const WISHLIST_STORAGE_KEY = 'ilovesurprises_wishlist_v1';
 
 export const wishlistService = {
   async getWishlist(): Promise<string[]> {
-    const token = apiClient.getAuthToken();
-    if (!token) return [];
+    if (typeof window === 'undefined') return [];
     try {
-      const response = await apiClient.get<{
-        success: boolean;
-        data: { productIds: string[] };
-      }>('/api/wishlist');
-      return response.data?.productIds || [];
+      const stored = localStorage.getItem(WISHLIST_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed : [];
+      }
     } catch {
-      return [];
+      // fallback
     }
+    return [];
   },
 
   async addToWishlist(productId: string): Promise<boolean> {
-    const token = apiClient.getAuthToken();
-    if (!token) return false;
-    try {
-      await apiClient.post('/api/wishlist', { productId });
-      return true;
-    } catch {
-      return false;
+    const list = await this.getWishlist();
+    if (!list.includes(productId)) {
+      const updated = [...list, productId];
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(updated));
+          window.dispatchEvent(new CustomEvent('ils_wishlist_updated'));
+        } catch {
+          // ignore
+        }
+      }
     }
+    return true;
   },
 
   async removeFromWishlist(productId: string): Promise<boolean> {
-    const token = apiClient.getAuthToken();
-    if (!token) return false;
-    try {
-      await apiClient.delete(`/api/wishlist/${productId}`);
-      return true;
-    } catch {
-      return false;
+    const list = await this.getWishlist();
+    const updated = list.filter((id) => id !== productId);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('ils_wishlist_updated'));
+      } catch {
+        // ignore
+      }
     }
+    return true;
   },
 };

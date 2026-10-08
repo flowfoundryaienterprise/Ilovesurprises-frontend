@@ -17,7 +17,7 @@ import { isAffiliateRole } from '../../types';
 export type AccountTab = 'profile' | 'orders' | 'wishlist' | 'addresses' | 'settings' | 'affiliate';
 
 interface AccountSidebarProps {
-  user: UserProfile;
+  user: UserProfile | null;
   activeTab: AccountTab;
   ordersCount: number;
   wishlistCount: number;
@@ -37,7 +37,7 @@ export const AccountSidebar: React.FC<AccountSidebarProps> = ({
   onLogout,
   onNavigateToAffiliate,
 }) => {
-  const isRep = isAffiliateRole(user.role);
+  const isRep = user ? isAffiliateRole(user.role) : false;
 
   const navItems: {
     id: AccountTab;
@@ -97,53 +97,71 @@ export const AccountSidebar: React.FC<AccountSidebarProps> = ({
         {/* Soft Pink Ambient Glow */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-[#D30915]/5 rounded-full blur-2xl pointer-events-none" />
 
-        <div className="flex items-center gap-3.5 relative z-10">
-          <div className="relative shrink-0">
-            <img
-              src={user.avatar || '/assets/ilovesurprises/Profile/profile%20image.webp'}
-              alt={user.name}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#D30915] shadow-xs"
-            />
-            <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] border-2 border-white shadow-2xs">
-              ✓
-            </span>
-          </div>
+        {user ? (
+          <div className="flex items-center gap-3.5 relative z-10">
+            <div className="relative shrink-0">
+              <img
+                src={user.avatar || '/assets/ilovesurprises/Profile/profile%20image.webp'}
+                alt={user.name}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#D30915] shadow-xs"
+              />
+              <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] border-2 border-white shadow-2xs">
+                ✓
+              </span>
+            </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <h2 className="text-base font-black text-[#141219] m-0 truncate font-display">
-                {user.name}
-              </h2>
-            </div>
-            <p className="text-[11px] text-[#716d77] m-0 truncate mt-0.5 font-medium">
-              {user.email}
-            </p>
-            <div className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#fff1f2] border border-[#fecdd3] text-[#D30915] text-[9px] font-black uppercase tracking-wider">
-              {isRep ? (
-                <>
-                  <Star className="w-2.5 h-2.5 fill-[#D30915]" />
-                  <span>20% Rep Partner</span>
-                </>
-              ) : (
-                <>
-                  <Star className="w-2.5 h-2.5" />
-                  <span>VIP Club Member</span>
-                </>
-              )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-base font-black text-[#141219] m-0 truncate font-display">
+                  {user.name}
+                </h2>
+              </div>
+              <p className="text-[11px] text-[#716d77] m-0 truncate mt-0.5 font-medium">
+                {user.email}
+              </p>
+              <div className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#fff1f2] border border-[#fecdd3] text-[#D30915] text-[9px] font-black uppercase tracking-wider">
+                {isRep ? (
+                  <>
+                    <Star className="w-2.5 h-2.5 fill-[#D30915]" />
+                    <span>20% Rep Partner</span>
+                  </>
+                ) : (
+                  <>
+                    <Star className="w-2.5 h-2.5" />
+                    <span>VIP Club Member</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center gap-3.5 relative z-10">
+            <div className="w-12 h-12 rounded-full bg-[#fff1f2] border border-[#fecdd3] flex items-center justify-center text-[#D30915] shrink-0">
+              <User className="w-6 h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-black text-[#141219] m-0 font-display">
+                Guest Shopper
+              </h2>
+              <p className="text-[11px] text-[#716d77] m-0 mt-0.5 font-medium">
+                Viewing saved wishlist
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Cashback Balance Badge */}
-        <div className="mt-4 pt-3.5 border-t border-[#f7eff4] flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5 text-[#716d77] font-semibold text-[11px]">
-            <Gift className="w-3.5 h-3.5 text-[#D30915]" />
-            <span>Surprise VIP Rewards</span>
+        {user && (
+          <div className="mt-4 pt-3.5 border-t border-[#f7eff4] flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5 text-[#716d77] font-semibold text-[11px]">
+              <Gift className="w-3.5 h-3.5 text-[#D30915]" />
+              <span>Surprise VIP Rewards</span>
+            </div>
+            <strong className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+              $24.50 Available
+            </strong>
           </div>
-          <strong className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-            $24.50 Available
-          </strong>
-        </div>
+        )}
       </div>
 
       {/* 2. Desktop Navigation Menu Card */}
@@ -229,18 +247,20 @@ export const AccountSidebar: React.FC<AccountSidebarProps> = ({
           );
         })}
 
-        <div className="pt-2 mt-2 border-t border-[#f5eaf1]">
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full p-2.5 px-3 rounded-[14px] text-left text-xs font-black text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 cursor-pointer"
-          >
-            <div className="w-8 h-8 rounded-[10px] bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-100">
-              <LogOut className="w-3.5 h-3.5" />
-            </div>
-            <span>Sign Out of Account</span>
-          </button>
-        </div>
+        {user && (
+          <div className="pt-2 mt-2 border-t border-[#f5eaf1]">
+            <button
+              type="button"
+              onClick={onLogout}
+              className="w-full p-2.5 px-3 rounded-[14px] text-left text-xs font-black text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 cursor-pointer"
+            >
+              <div className="w-8 h-8 rounded-[10px] bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-100">
+                <LogOut className="w-3.5 h-3.5" />
+              </div>
+              <span>Sign Out of Account</span>
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* 3. Mobile / Tablet Horizontal Navigation Tabs Bar */}
