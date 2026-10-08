@@ -583,7 +583,7 @@ export const productService = {
    */
   async getProducts(params: GetProductsParams = {}): Promise<PaginatedProductsResult> {
     const page = Math.max(1, params.page || 1);
-    const limit = params.limit || 16;
+    const limit = params.limit || (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 15 : 16);
 
     const cacheKey = JSON.stringify({
       page,
@@ -1009,7 +1009,7 @@ export const productService = {
     totalPages: number;
   }> {
     const page = Math.max(1, params.page || 1);
-    const limit = params.limit || 16;
+    const limit = params.limit || (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 15 : 16);
 
     const col =
       typeof handleOrId === 'object' && handleOrId !== null

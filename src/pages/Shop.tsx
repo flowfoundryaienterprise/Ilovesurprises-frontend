@@ -132,6 +132,22 @@ export const Shop: React.FC<ShopProps> = ({
     setRetryCount((prev) => prev + 1);
   }, []);
 
+  // Responsive limit: 15 on Laptop/Desktop (3 complete rows of 5), 16 on Mobile/Tablet (8 complete rows of 2)
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth >= 1024 : true;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const desktop = window.innerWidth >= 1024;
+      setIsDesktop(desktop);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const pageLimit = isDesktop ? 15 : 16;
+
   useEffect(() => {
     let isCancelled = false;
 
@@ -149,7 +165,7 @@ export const Shop: React.FC<ShopProps> = ({
     productService
       .getProducts({
         page: currentPage,
-        limit: 16,
+        limit: pageLimit,
         category: appliedFilters.categories[0],
         searchQuery,
         minPrice: appliedFilters.minPrice,
@@ -181,15 +197,19 @@ export const Shop: React.FC<ShopProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [currentPage, appliedFilters, searchQuery, retryCount]);
+  }, [currentPage, appliedFilters, searchQuery, retryCount, pageLimit]);
 
-  // Active applied products shown in the grid
+  // Active applied products shown in the grid (capped at 15 on laptop to prevent lonely row 4)
   const activeProducts = useMemo(() => {
     if (serverProducts !== null) {
-      return deduplicateProducts(serverProducts);
+      const prods = deduplicateProducts(serverProducts);
+      if (isDesktop && prods.length > 15) {
+        return prods.slice(0, 15);
+      }
+      return prods;
     }
     return [];
-  }, [serverProducts]);
+  }, [serverProducts, isDesktop]);
 
   const totalPages = serverProducts !== null ? serverTotalPages : 1;
 

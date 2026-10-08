@@ -45,6 +45,22 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
   const [sortBy, setSortBy] = useState<SortOption>('featured');
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState<boolean>(false);
 
+  // Responsive limit: 15 on Laptop/Desktop (3 complete rows of 5), 16 on Mobile/Tablet (8 complete rows of 2)
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth >= 1024 : true;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const desktop = window.innerWidth >= 1024;
+      setIsDesktop(desktop);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const pageLimit = isDesktop ? 15 : 16;
+
   // Cart quantity map
   const cartQuantityMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -54,7 +70,16 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
     return map;
   }, [cart]);
 
-  // Load collection and products whenever handle, page, or sort changes
+  // Guarantee that on laptop/desktop screens, at most 15 products are displayed (3 full rows of 5)
+  // preventing a lonely single card on row 4.
+  const displayedProducts = useMemo(() => {
+    if (isDesktop && products.length > 15) {
+      return products.slice(0, 15);
+    }
+    return products;
+  }, [isDesktop, products]);
+
+  // Load collection and products whenever handle, page, sort, or pageLimit changes
   useEffect(() => {
     let isCancelled = false;
     setIsLoading(true);
@@ -62,7 +87,7 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
     productService
       .getProductsByCollection(collectionHandle, {
         page: currentPage,
-        limit: 16,
+        limit: pageLimit,
         sort: sortBy,
       })
       .then((res) => {
@@ -88,7 +113,7 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [collectionHandle, currentPage, sortBy]);
+  }, [collectionHandle, currentPage, sortBy, pageLimit]);
 
   // Reset page when collection handle changes
   useEffect(() => {
@@ -190,7 +215,7 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
       {/* 3. Toolbar: Product Count & Sorting */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-6 border-b border-[#f4edf2]">
         <div className="text-xs sm:text-sm text-[#716d77] font-medium">
-          Showing <span className="font-bold text-[#141219]">{products.length}</span> of{' '}
+          Showing <span className="font-bold text-[#141219]">{displayedProducts.length}</span> of{' '}
           <span className="font-bold text-[#141219]">{totalCount.toLocaleString()}</span> products
         </div>
 
@@ -222,13 +247,13 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
       {/* 4. Products Grid */}
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
-          {Array.from({ length: 16 }).map((_, i) => (
+          {Array.from({ length: pageLimit }).map((_, i) => (
             <ProductCardSkeleton key={i} />
           ))}
         </div>
-      ) : products.length > 0 ? (
+      ) : displayedProducts.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
-          {products.map((product) => (
+          {displayedProducts.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
@@ -236,7 +261,7 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
               onAddToCart={onAddToCart}
               onUpdateQuantity={onUpdateQuantity}
               onToggleWishlist={(productId) => {
-                const prod = products.find((p) => p.id === productId);
+                const prod = displayedProducts.find((p) => p.id === productId);
                 if (prod) onWishlistToggle(prod);
               }}
               onSelectProduct={onSelectProduct}
