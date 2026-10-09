@@ -6,6 +6,7 @@ import { deduplicateProducts } from '../../utils/productUtils';
 import { ProductCard } from '../products/ProductCard';
 import { ProductCardSkeleton } from '../ui/ProductCardSkeleton';
 import type { Product, CartItem } from '../../types';
+import { productsData } from '../../data/products';
 
 interface FeaturedCollectionsSectionProps {
   cart?: CartItem[];
@@ -100,6 +101,10 @@ const DEFAULT_CURATED_CARDS: Record<string, CuratedCollectionConfig> = {
   },
 };
 
+const ZODIAC_FALLBACK_PRODUCTS: Product[] = productsData
+  .filter((p) => p.name.toLowerCase().includes('zodiac'))
+  .slice(0, 10);
+
 export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProps> = ({
   cart = [],
   wishlistIds = [],
@@ -118,7 +123,15 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
     ids.forEach((id) => {
       const cached = productService.getCachedCollectionProducts(id, 10);
       if (cached && cached.length > 0) {
-        initial[id] = { status: 'success', products: deduplicateProducts(cached).slice(0, 10) };
+        let prods = deduplicateProducts(cached).slice(0, 10);
+        if (id === 'zodiac-cash-money-candles' && prods.length < 10) {
+          const existingNames = new Set(prods.map((p) => p.name.toLowerCase().trim()));
+          const additional = ZODIAC_FALLBACK_PRODUCTS.filter((p) => !existingNames.has(p.name.toLowerCase().trim()));
+          prods = deduplicateProducts([...prods, ...additional]).slice(0, 10);
+        }
+        initial[id] = { status: 'success', products: prods };
+      } else if (id === 'zodiac-cash-money-candles') {
+        initial[id] = { status: 'success', products: ZODIAC_FALLBACK_PRODUCTS };
       } else {
         initial[id] = { status: 'loading', products: [] };
       }
@@ -211,7 +224,12 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
         sort: 'featured',
       })
       .then((res) => {
-        const prods = deduplicateProducts(res?.products || []).slice(0, 10);
+        let prods = deduplicateProducts(res?.products || []).slice(0, 10);
+        if (colId === 'zodiac-cash-money-candles' && prods.length < 10) {
+          const existingNames = new Set(prods.map((p) => p.name.toLowerCase().trim()));
+          const additional = ZODIAC_FALLBACK_PRODUCTS.filter((p) => !existingNames.has(p.name.toLowerCase().trim()));
+          prods = deduplicateProducts([...prods, ...additional]).slice(0, 10);
+        }
         setCollectionStates((prev) => ({
           ...prev,
           [colId]: {
@@ -222,6 +240,16 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
       })
       .catch((err) => {
         console.warn(`Error fetching products for collection ${colId}:`, err);
+        if (colId === 'zodiac-cash-money-candles') {
+          setCollectionStates((prev) => ({
+            ...prev,
+            [colId]: {
+              status: 'success',
+              products: ZODIAC_FALLBACK_PRODUCTS,
+            },
+          }));
+          return;
+        }
         setCollectionStates((prev) => ({
           ...prev,
           [colId]: {
@@ -269,8 +297,14 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
 
   const renderCollectionGrid = (col: CuratedCollectionConfig) => {
     const colState = collectionStates[col.id] || { status: 'loading', products: [] };
-    const { status, products: prods } = colState;
-    const isCardLoading = status === 'loading';
+    const { status } = colState;
+    let prods = colState.products;
+    if (col.id === 'zodiac-cash-money-candles' && prods.length < 10) {
+      const existingNames = new Set(prods.map((p) => p.name.toLowerCase().trim()));
+      const additional = ZODIAC_FALLBACK_PRODUCTS.filter((p) => !existingNames.has(p.name.toLowerCase().trim()));
+      prods = deduplicateProducts([...prods, ...additional]).slice(0, 10);
+    }
+    const isCardLoading = status === 'loading' && prods.length === 0;
     const BadgeIcon = col.badgeIcon;
     const testId = `featured-collection-${col.id}`;
 
