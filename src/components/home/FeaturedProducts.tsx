@@ -120,20 +120,26 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
 
       {/* Product Grid - Exactly max 10 products, responsive layout */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
-        {isCardLoading
-          ? Array.from({ length: 10 }).map((_, i) => <ProductCardSkeleton key={i} />)
-          : displayedProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                cartQuantity={getProductQuantity(product.id)}
-                onAddToCart={onAddToCart}
-                onUpdateQuantity={onUpdateQuantity}
-                onToggleWishlist={() => onWishlistToggle?.(product)}
-                onSelectProduct={onSelectProduct}
-                isWishlisted={wishlistSet.has(product.id)}
-              />
-            ))}
+        {isCardLoading ? (
+          Array.from({ length: 10 }).map((_, i) => <ProductCardSkeleton key={i} />)
+        ) : displayedProducts.length > 0 ? (
+          displayedProducts.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              cartQuantity={getProductQuantity(product.id)}
+              onAddToCart={onAddToCart}
+              onUpdateQuantity={onUpdateQuantity}
+              onToggleWishlist={() => onWishlistToggle?.(product)}
+              onSelectProduct={onSelectProduct}
+              isWishlisted={wishlistSet.has(product.id)}
+            />
+          ))
+        ) : (
+          <div className="col-span-full py-8 text-center text-sm text-[#716d77]">
+            No trending products currently available.
+          </div>
+        )}
       </div>
 
       {/* Bottom CTA to the exact collection page */}

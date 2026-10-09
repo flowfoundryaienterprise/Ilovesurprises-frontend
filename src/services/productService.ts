@@ -3,6 +3,7 @@ import type { Product, SurpriseType, Collection, ProductVariant, ProductOption }
 import { categoriesData } from '../data/categories';
 import { deduplicateProducts, rankProductsBySearch } from '../utils/productUtils';
 import { productsData } from '../data/products';
+import { getApprovedCollectionMeta } from '../data/approvedCollectionsData';
 
 /**
  * Authoritative production Supabase catalog query columns (retained for backward compatibility).
@@ -755,13 +756,15 @@ export const productService = {
   async getProductsByIds(ids: string[]): Promise<Product[]> {
     if (!ids || ids.length === 0) return [];
 
-    const resolved: Product[] = [];
+    const productMap = new Map<string, Product>();
     const missingIds: string[] = [];
 
     ids.forEach((id) => {
       const cached = getCachedProduct(id);
       if (cached) {
-        resolved.push(cached);
+        productMap.set(id.toLowerCase(), cached);
+        if (cached.slug) productMap.set(cached.slug.toLowerCase(), cached);
+        if (cached.id) productMap.set(cached.id.toLowerCase(), cached);
       } else {
         missingIds.push(id);
       }
@@ -769,26 +772,53 @@ export const productService = {
 
     if (missingIds.length > 0) {
       try {
-        const fetchPromises = missingIds.map(async (id) => {
-          try {
-            const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
-            const p = res?.data?.product;
-            return p ? mapRowToProduct(p) : null;
-          } catch {
-            return null;
-          }
-        });
+        const chunkSize = 12;
+        for (let i = 0; i < missingIds.length; i += chunkSize) {
+          const chunk = missingIds.slice(i, i + chunkSize);
+          const fetchPromises = chunk.map(async (id) => {
+            try {
+              const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
+              const p = res?.data?.product;
+              return p ? mapRowToProduct(p) : null;
+            } catch {
+              // Check offline fallback dataset
+              const fallback = productsData.find(
+                (p) => p.slug.toLowerCase() === id.toLowerCase() || p.id.toLowerCase() === id.toLowerCase()
+              );
+              if (fallback) {
+                cacheProduct(fallback);
+                return fallback;
+              }
+              return null;
+            }
+          });
 
-        const fetched = await Promise.all(fetchPromises);
-        fetched.filter(Boolean).forEach((p) => {
-          if (p) resolved.push(p);
-        });
+          const fetched = await Promise.all(fetchPromises);
+          fetched.forEach((p) => {
+            if (p) {
+              productMap.set(p.slug.toLowerCase(), p);
+              productMap.set(p.id.toLowerCase(), p);
+            }
+          });
+        }
       } catch (err) {
         console.warn('Error fetching products by IDs from backend:', err);
       }
     }
 
-    return deduplicateProducts(resolved);
+    // Preserve exact ordering of input IDs
+    const resolved: Product[] = [];
+    const seen = new Set<string>();
+    ids.forEach((id) => {
+      const cleanId = id.toLowerCase();
+      const prod = productMap.get(cleanId);
+      if (prod && !seen.has(prod.id)) {
+        seen.add(prod.id);
+        resolved.push(prod);
+      }
+    });
+
+    return resolved;
   },
 
   /**
@@ -856,7 +886,13 @@ export const productService = {
       console.warn(`Error fetching homepage collection ${collection}:`, err);
     }
 
-    return [];
+    // Graceful offline fallback to static dataset
+    if (collection === 'cash-candles') {
+      return productsData.filter((p) => p.surpriseType === 'cash').slice(0, limit);
+    } else if (collection === 'zodiac') {
+      return productsData.filter((p) => p.badge?.toLowerCase().includes('zodiac') || p.name.toLowerCase().includes('zodiac')).slice(0, limit);
+    }
+    return productsData.filter((p) => p.isBestSeller).slice(0, limit);
   },
 
   /**
@@ -894,6 +930,25 @@ export const productService = {
   async getCollectionByHandle(handle: string): Promise<Collection | null> {
     if (!handle) return null;
     const clean = decodeURIComponent(handle).trim().toLowerCase();
+
+    // 1. Check authoritative approved collections first
+    const approvedMeta = getApprovedCollectionMeta(clean);
+    if (approvedMeta) {
+      const fallbackImg =
+        approvedMeta.imageUrl ||
+        SIGNATURE_COLLECTION_IMAGES[approvedMeta.canonicalHandle] ||
+        SIGNATURE_COLLECTION_IMAGES['cash-candles'] ||
+        '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg';
+
+      return {
+        id: approvedMeta.collectionId,
+        handle: approvedMeta.canonicalHandle,
+        title: approvedMeta.name,
+        bodyHtml: approvedMeta.description,
+        productsCount: approvedMeta.actualCount,
+        imageUrl: fallbackImg,
+      };
+    }
 
     // Comprehensive map from navigation slugs to collection handles & keywords
     const ALIAS_MAP: Record<string, string> = {
@@ -1026,10 +1081,145 @@ export const productService = {
       };
     }
 
-    const cacheKey = `col_prods_${col.handle}_${page}_${limit}_${params.sort || 'featured'}`;
+    const sortOption = params.sort || 'featured';
+    const cacheKey = `col_prods_${col.handle}_${page}_${limit}_${sortOption}`;
     const cached = queryCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < QUERY_CACHE_TTL_MS) {
       return cached.result as any;
+    }
+
+    // Check if this is an approved collection with authoritative product mapping
+    const handleStr = typeof handleOrId === 'string' ? handleOrId : col.handle;
+    const approvedMeta = getApprovedCollectionMeta(col.handle) || getApprovedCollectionMeta(handleStr);
+
+    if (approvedMeta) {
+      const allHandles = approvedMeta.productHandles;
+      const total = allHandles.length;
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      let prods: Product[] = [];
+
+      if (sortOption === 'featured' || sortOption === 'best-sellers') {
+        const skip = (page - 1) * limit;
+        const pageHandles = allHandles.slice(skip, skip + limit);
+        prods = await this.getProductsByIds(pageHandles);
+
+        // Warm cache for next page asynchronously
+        if (page < totalPages) {
+          const nextSlice = allHandles.slice(skip + limit, skip + 2 * limit);
+          if (nextSlice.length > 0) {
+            setTimeout(() => {
+              this.getProductsByIds(nextSlice).catch(() => {});
+            }, 200);
+          }
+        }
+      } else {
+        // Price or Newest sort
+        if (total <= 200) {
+          const allProds = await this.getProductsByIds(allHandles);
+          const sorted = [...allProds];
+          if (sortOption === 'price-asc') {
+            sorted.sort((a, b) => a.price - b.price);
+          } else if (sortOption === 'price-desc') {
+            sorted.sort((a, b) => b.price - a.price);
+          } else if (sortOption === 'newest') {
+            sorted.reverse();
+          }
+          const skip = (page - 1) * limit;
+          prods = sorted.slice(skip, skip + limit);
+        } else {
+          // Large collection
+          const skip = (page - 1) * limit;
+          const pageHandles = allHandles.slice(skip, skip + limit);
+          prods = await this.getProductsByIds(pageHandles);
+          if (sortOption === 'price-asc') {
+            prods.sort((a, b) => a.price - b.price);
+          } else if (sortOption === 'price-desc') {
+            prods.sort((a, b) => b.price - a.price);
+          }
+        }
+      }
+
+      if (prods.length < Math.min(limit, total)) {
+        // 1. Backfill with live backend search if needed
+        try {
+          const searchKeyword =
+            col.handle.includes('cash') || col.handle.includes('money')
+              ? 'cash candle'
+              : col.handle.replace(/-/g, ' ');
+          const searchRes = await apiClient.get<any>('/api/products', {
+            search: searchKeyword,
+            limit,
+          });
+          const rawProds = searchRes?.data?.products || [];
+          if (rawProds.length > 0) {
+            const mapped = rawProds.map(mapRowToProduct);
+            const seenIds = new Set(prods.map((p) => p.id.toLowerCase()));
+            const seenSlugs = new Set(prods.map((p) => p.slug.toLowerCase()));
+            for (const item of mapped) {
+              if (!seenIds.has(item.id.toLowerCase()) && !seenSlugs.has(item.slug.toLowerCase())) {
+                prods.push(item);
+                seenIds.add(item.id.toLowerCase());
+                seenSlugs.add(item.slug.toLowerCase());
+                if (prods.length >= limit) break;
+              }
+            }
+          }
+        } catch {
+          // Ignore backend search error and proceed to offline fallback
+        }
+      }
+
+      if (prods.length < Math.min(limit, total)) {
+        // 2. Resilient offline fallback: backfill matching products from productsData
+        const handleLower = col.handle.toLowerCase();
+        let fallbackProds = productsData.filter((p) => {
+          const pCat = (p.category || '').toLowerCase();
+          const pName = (p.name || '').toLowerCase();
+          const pBadge = (p.badge || '').toLowerCase();
+          if (handleLower.includes('cash') || handleLower.includes('money')) {
+            return p.surpriseType === 'cash' || pName.includes('cash') || pCat.includes('cash') || pBadge.includes('cash');
+          }
+          if (handleLower.includes('zodiac')) {
+            return pName.includes('zodiac') || pBadge.includes('zodiac');
+          }
+          if (handleLower.includes('jewelry') || handleLower.includes('jewel')) {
+            return p.surpriseType === 'jewelry' || pName.includes('jewelry') || pCat.includes('jewelry');
+          }
+          return pCat.includes(handleLower) || pName.includes(handleLower);
+        });
+        if (fallbackProds.length === 0) {
+          fallbackProds = productsData.slice(0, limit);
+        }
+        const seenIds = new Set(prods.map((p) => p.id.toLowerCase()));
+        const seenSlugs = new Set(prods.map((p) => p.slug.toLowerCase()));
+        for (const item of fallbackProds) {
+          if (!seenIds.has(item.id.toLowerCase()) && !seenSlugs.has(item.slug.toLowerCase())) {
+            prods.push(item);
+            seenIds.add(item.id.toLowerCase());
+            seenSlugs.add(item.slug.toLowerCase());
+            if (prods.length >= limit) break;
+          }
+        }
+      }
+
+      if (!col.imageUrl && prods.length > 0 && prods[0].image) {
+        col.imageUrl = prods[0].image;
+      }
+      col.productsCount = total;
+
+      const result = {
+        collection: col,
+        products: prods,
+        total: Math.max(total, prods.length),
+        page,
+        totalPages,
+      };
+
+      // Only cache full result, never cache an incomplete list
+      if (prods.length >= Math.min(limit, total)) {
+        queryCache.set(cacheKey, { result, timestamp: Date.now() });
+      }
+      return result;
     }
 
     try {
@@ -1136,6 +1326,51 @@ export const productService = {
       return result;
     } catch (err) {
       console.warn(`Error fetching products for collection ${col.handle}:`, err);
+
+      // Graceful offline fallback to static dataset
+      const handleLower = col.handle.toLowerCase();
+      let fallbackProds = productsData.filter((p) => {
+        const pCat = (p.category || '').toLowerCase();
+        const pName = (p.name || '').toLowerCase();
+        const pSlug = (p.slug || '').toLowerCase();
+        const pBadge = (p.badge || '').toLowerCase();
+
+        if (handleLower.includes('cash') || handleLower.includes('money')) {
+          return p.surpriseType === 'cash' || pName.includes('cash') || pCat.includes('cash') || pBadge.includes('cash');
+        }
+        if (handleLower.includes('zodiac')) {
+          return pName.includes('zodiac') || pBadge.includes('zodiac') || pSlug.includes('zodiac');
+        }
+        if (handleLower.includes('halloween')) {
+          return pName.includes('halloween') || pCat.includes('halloween') || pBadge.includes('halloween');
+        }
+        if (handleLower.includes('christmas')) {
+          return pName.includes('christmas') || pCat.includes('christmas') || pBadge.includes('christmas') || pBadge.includes('holiday');
+        }
+        if (handleLower.includes('jewelry') || handleLower.includes('jewel')) {
+          return p.surpriseType === 'jewelry' || pName.includes('jewelry') || pCat.includes('jewelry');
+        }
+        if (handleLower.includes('melt')) {
+          return pCat.includes('melt') || pName.includes('melt');
+        }
+        return pCat.includes(handleLower) || pName.includes(handleLower) || pSlug.includes(handleLower);
+      });
+
+      if (fallbackProds.length === 0) {
+        fallbackProds = productsData.slice(0, 10);
+      }
+
+      const total = fallbackProds.length;
+      const skip = (page - 1) * limit;
+      const paginated = fallbackProds.slice(skip, skip + limit);
+
+      return {
+        collection: col,
+        products: paginated,
+        total,
+        page,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      };
     }
 
     return {
@@ -1174,7 +1409,13 @@ export const productService = {
       console.warn('Error fetching curated trending products from backend:', err);
     }
 
-    return [];
+    // Graceful offline fallback to best-sellers
+    const fallback = productsData
+      .filter((p) => p.isBestSeller && (p.surpriseType === 'cash' || p.category.toLowerCase().includes('cash')))
+      .concat(productsData.filter((p) => p.isBestSeller))
+      .slice(0, cappedLimit);
+
+    return fallback.length > 0 ? fallback : productsData.slice(0, cappedLimit);
   },
 
   /**

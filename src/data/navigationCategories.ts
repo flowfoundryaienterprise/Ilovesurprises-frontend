@@ -103,12 +103,22 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     href: '/collections/wax-melts',
     columns: [
       {
-        heading: 'Scented Wax Melts',
+        heading: 'Cash & Surprise Melts',
         items: [
-          { id: 'cereal-bowl-wax-melts', name: 'Cereal Bowl Wax Melts', slug: 'cereal-bowl-wax-melts', isPopular: true },
-          { id: 'cash-wax-melts', name: 'Cash Wax Melts', slug: 'cash-wax-melts', badge: '💵 Cash Inside' },
-          { id: 'jewelry-wax-melts', name: 'Jewelry Wax Melts', slug: 'jewelry-wax-melts', badge: '💎 Jewelry' },
+          { id: 'cereal-bowl-wax-melts-cash', name: 'Cereal Bowl Wax Melts (Cash Inside)', slug: 'cereal-bowl-wax-melts', badge: '💵 Cash Inside', isPopular: true },
+          { id: 'giant-cash-mega-melts', name: 'Giant Cash Mega Melts', slug: 'cash-wax-melts' },
+          { id: 'cash-wax-melts', name: 'Cash Wax Melts', slug: 'cash-wax-melt' },
+          { id: 'happy-birthday-cash-wax-melts', name: 'Happy Birthday Cash Wax Melts', slug: 'happy-birthday-cash-wax-melts' },
           { id: 'wax-melt-bundles', name: 'Wax Melt Bundles', slug: 'cash-wax-melt-surprise-bundles', badge: 'Save 25%' },
+          { id: 'surprise-bears', name: 'Surprise Bears', slug: 'cash-surprise-bear-and-cash-wax-melt-bundles' },
+        ],
+      },
+      {
+        heading: 'Jewelry Wax Melts',
+        items: [
+          { id: 'cereal-bowl-wax-melts-jewelry', name: 'Cereal Bowl Wax Melts (Jewelry Inside)', slug: 'cereal-bowl-jewelry-wax-melts', badge: '💎 Jewelry' },
+          { id: 'jewelry-wax-melts', name: 'Jewelry Wax Melts', slug: 'jewelry-wax-melts' },
+          { id: 'giant-jewelry-mega-melts', name: 'Giant Jewelry Mega Melts', slug: 'giant-jewelry-wax-melts' },
         ],
       },
     ],
@@ -134,7 +144,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
         heading: 'Bath Bombs & Bundles',
         items: [
           { id: 'cash-bath-bombs', name: 'Cash Bath Bombs', slug: 'cash-bath-bombs', badge: '💵 Cash Inside', isPopular: true },
-          { id: 'surprise-rose-bear-bundle', name: 'Surprise Rose Bear / Cash Bath Bomb Bundle', slug: 'cash-surprise-bear-and-cash-wax-melt-bundles', badge: '🎁 Gift Set' },
+          { id: 'surprise-rose-bear-bundle', name: 'Surprise Rose Bear / Cash Bath Bomb Bundle', slug: 'rose-cash-surprise-bear-jumbo-cash-bath-bomb-collection', badge: '🎁 Gift Set' },
           { id: 'astrology-cash-bath-bombs', name: 'Astrology Cash Bath Bombs', slug: 'astrology-cash-bath-bombs' },
           { id: 'cash-bath-bomb-tube-bundles', name: 'Cash Bath Bomb Tube Bundles', slug: 'cash-bath-bombs-bundles' },
           { id: 'jewelry-bath-bombs', name: 'Jewelry Bath Bombs', slug: 'jewelry-bath-bombs', badge: '💎 Jewelry' },
@@ -211,7 +221,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
           { id: 'cash-jewelry', name: 'Cash Jewelry', slug: 'cash-jewelry', badge: '💵 Win Cash' },
           { id: 'zodiac-birthstone-jewelry', name: 'Zodiac & Birthstone Jewelry', slug: 'zodiac-candles' },
           { id: 'mens-jewelry', name: 'Men’s Jewelry', slug: 'mens-jewelry' },
-          { id: 'surprise-jewelry-bundles', name: 'Surprise Jewelry Bundles', slug: 'jewelry-surprise-mystery-boxes', badge: 'Top Value' },
+          { id: 'jewelry-surprise-mystery-boxes', name: 'Jewelry Surprise Mystery Boxes', slug: 'jewelry-surprise-mystery-boxes', badge: '🎁 8 Curated' },
         ],
       },
     ],
@@ -293,10 +303,11 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
       {
         heading: 'Sensory Gourmet Slimes',
         items: [
-          { id: 'cash-slimes', name: 'Cash Slimes', slug: 'mental-health-cash-slimes', badge: '💵 Real Cash', isPopular: true },
-          { id: 'cereal-bowl-slimes', name: 'Cereal Bowl Slimes', slug: 'cash-cereal-slimes', isPopular: true },
+          { id: 'cash-slimes', name: 'Cash Slimes', slug: 'cash-slimes', badge: '💵 Real Cash', isPopular: true },
+          { id: 'cash-cereal-slimes', name: 'Cash Cereal Slimes', slug: 'cash-cereal-slimes', isPopular: true },
+          { id: 'jewelry-cereal-slimes', name: 'Jewelry Cereal Slimes', slug: 'jewelry-cereal-slimes' },
           { id: 'astrology-cash-slimes', name: 'Astrology Cash Slimes', slug: 'astrology-cash-slimes' },
-          { id: 'jewelry-slimes', name: 'Jewelry Slimes', slug: 'mental-health-jewelry-slimes', badge: '💎 Jewelry' },
+          { id: 'jewelry-slimes', name: 'Jewelry Slimes', slug: 'jewelry-slimes', badge: '💎 Jewelry' },
         ],
       },
     ],
@@ -322,9 +333,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
         heading: 'Surprise Greeting Cards',
         items: [
           { id: 'funny-cash-greeting-cards', name: 'Funny Cash Greeting Cards', slug: 'funny-cash-greeting-cards', badge: '💵 Real Cash', isPopular: true },
-          { id: 'jewelry-greeting-cards', name: 'Jewelry Greeting Cards', slug: 'jewelry-cash-greeting-cards', badge: '💎 Jewelry' },
-          { id: 'birthday-surprise-cards', name: 'Birthday Surprise Cards', slug: 'funny-greeting-cards' },
-          { id: 'holiday-celebration-cards', name: 'Holiday & Celebration Cards', slug: 'greeting-cards' },
+          { id: 'jewelry-greeting-cards', name: 'Jewelry Greeting Cards', slug: 'jewelry-greeting-cards-1', badge: '💎 Jewelry' },
         ],
       },
     ],

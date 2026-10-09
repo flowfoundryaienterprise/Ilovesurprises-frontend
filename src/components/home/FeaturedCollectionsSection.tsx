@@ -171,10 +171,36 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
                 limit: 10,
                 sort: 'featured',
               });
-              const prods = deduplicateProducts(res?.products || []).slice(0, 10);
+              let prods = deduplicateProducts(res?.products || []).slice(0, 10);
+
+              // Guaranteed safeguard for Cash Candles: ensure 10 products are always populated
+              if (col.id === 'cash-candles' && prods.length < 10) {
+                try {
+                  const fallbackList = await productService.getHomepageCollectionProducts('cash-candles', 10);
+                  const seenIds = new Set(prods.map((p) => p.id));
+                  for (const item of fallbackList) {
+                    if (!seenIds.has(item.id)) {
+                      prods.push(item);
+                      seenIds.add(item.id);
+                      if (prods.length >= 10) break;
+                    }
+                  }
+                } catch {
+                  // Ignore
+                }
+              }
+
               return { id: col.id, products: prods };
             } catch (err) {
               console.warn(`Error fetching products for collection ${col.id}:`, err);
+              if (col.id === 'cash-candles') {
+                try {
+                  const fallbackList = await productService.getHomepageCollectionProducts('cash-candles', 10);
+                  return { id: col.id, products: fallbackList.slice(0, 10) };
+                } catch {
+                  return { id: col.id, products: [] };
+                }
+              }
               return { id: col.id, products: [] };
             }
           })
@@ -277,20 +303,26 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
 
         {/* Product Grid - Exactly max 10 products, responsive layout identical to Trending */}
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
-          {isCardLoading || prods.length === 0
-            ? Array.from({ length: 10 }).map((_, i) => <ProductCardSkeleton key={i} />)
-            : prods.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  cartQuantity={getProductQuantity(product.id)}
-                  onAddToCart={handleAddToCart}
-                  onUpdateQuantity={onUpdateQuantity}
-                  onToggleWishlist={() => onWishlistToggle?.(product)}
-                  onSelectProduct={onSelectProduct}
-                  isWishlisted={wishlistSet.has(product.id)}
-                />
-              ))}
+          {isCardLoading ? (
+            Array.from({ length: 10 }).map((_, i) => <ProductCardSkeleton key={i} />)
+          ) : prods.length > 0 ? (
+            prods.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                cartQuantity={getProductQuantity(product.id)}
+                onAddToCart={handleAddToCart}
+                onUpdateQuantity={onUpdateQuantity}
+                onToggleWishlist={() => onWishlistToggle?.(product)}
+                onSelectProduct={onSelectProduct}
+                isWishlisted={wishlistSet.has(product.id)}
+              />
+            ))
+          ) : (
+            <div className="col-span-full py-8 text-center text-sm text-[#716d77]">
+              No products found in this collection.
+            </div>
+          )}
         </div>
 
         {/* COLLECTION NAME UNDERNEATH & COLLECTION LINK/VIEW ALL */}

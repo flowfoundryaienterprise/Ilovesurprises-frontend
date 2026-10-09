@@ -128,11 +128,17 @@ async function request<T>(
     headers.set('x-cart-id', guestCartId);
   }
 
+  const controller = new AbortController();
+  const timeoutMs = 8000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch(url, {
       ...options,
       headers,
+      signal: options.signal || controller.signal,
     });
+    clearTimeout(timeoutId);
 
     const isJson = response.headers.get('content-type')?.includes('application/json');
     const data = isJson ? await response.json() : await response.text();

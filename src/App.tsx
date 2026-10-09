@@ -109,6 +109,7 @@ export const KNOWN_COLLECTION_HANDLES = new Set([
 ]);
 
 import { getCleanCollectionUrl } from './data/navigationCategories';
+import { getApprovedCollectionMeta } from './data/approvedCollectionsData';
 export { getCleanCollectionUrl };
 
 export function parseCollectionPath(path: string): string | null {
@@ -125,7 +126,7 @@ export function parseCollectionPath(path: string): string | null {
     return raw || null;
   }
   const directSlug = cleanPath.replace(/^\//, '').replace(/\/$/, '').trim().toLowerCase();
-  if (KNOWN_COLLECTION_HANDLES.has(directSlug)) {
+  if (KNOWN_COLLECTION_HANDLES.has(directSlug) || getApprovedCollectionMeta(directSlug)) {
     return directSlug;
   }
   return null;
