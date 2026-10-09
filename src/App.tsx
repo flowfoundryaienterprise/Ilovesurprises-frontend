@@ -255,6 +255,7 @@ export function App() {
           }
 
           setIsProductLoading(true);
+          setSelectedProduct(null);
           productService.getProductBySlug(slug).then((prod) => {
             if (prod) {
               setSelectedProduct(prod);
@@ -831,10 +832,23 @@ export function App() {
             ) {
               return current;
             }
+            setIsProductLoading(true);
+            setProductLoadingError(false);
             productService.getProductBySlug(identifier).then((prod) => {
-              if (prod) setSelectedProduct(prod);
+              if (prod) {
+                setSelectedProduct(prod);
+                setProductLoadingError(false);
+              } else {
+                setSelectedProduct(null);
+                setProductLoadingError(true);
+              }
+            }).catch(() => {
+              setSelectedProduct(null);
+              setProductLoadingError(true);
+            }).finally(() => {
+              setIsProductLoading(false);
             });
-            return current;
+            return null;
           });
         }
         if (eventState.orderId) {
@@ -1009,7 +1023,7 @@ export function App() {
                 setIsProductLoading(false);
               });
 
-            return current;
+            return null;
           });
         } else {
           setSelectedCategory('All Surprises');

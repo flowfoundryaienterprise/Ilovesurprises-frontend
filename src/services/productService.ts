@@ -1,8 +1,7 @@
 import { apiClient } from './apiClient';
 import type { Product, SurpriseType, Collection, ProductVariant, ProductOption } from '../types';
 import { categoriesData } from '../data/categories';
-import { deduplicateProducts, rankProductsBySearch } from '../utils/productUtils';
-import { productsData } from '../data/products';
+import { deduplicateProducts } from '../utils/productUtils';
 import { getApprovedCollectionMeta } from '../data/approvedCollectionsData';
 
 /**
@@ -23,20 +22,76 @@ const queryCache = new Map<string, QueryCacheEntry>();
 const QUERY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
+ * Session storage cache helpers for instant (< 5ms) restores on page reload and navigation.
+ */
+const SESSION_CACHE_PREFIX = 'ils_prod_qcache_';
+
+function getSessionCache<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(SESSION_CACHE_PREFIX + key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.timestamp === 'number' && Date.now() - parsed.timestamp < QUERY_CACHE_TTL_MS) {
+      return parsed.data as T;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function setSessionCache<T>(key: string, data: T): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(
+      SESSION_CACHE_PREFIX + key,
+      JSON.stringify({
+        data,
+        timestamp: Date.now(),
+      })
+    );
+  } catch {
+    // ignore quota errors
+  }
+}
+
+/**
  * In-memory single product cache by slug & ID for instant product details navigation.
  */
 const productSlugCache = new Map<string, Product>();
 
 export function cacheProduct(product: Product) {
   if (!product) return;
-  if (product.slug) productSlugCache.set(product.slug.toLowerCase(), product);
-  if (product.id) productSlugCache.set(product.id.toLowerCase(), product);
+  if (product.slug) {
+    const cleanSlug = product.slug.toLowerCase();
+    productSlugCache.set(cleanSlug, product);
+    setSessionCache(`prod_slug_${cleanSlug}`, product);
+  }
+  if (product.id) {
+    const cleanId = product.id.toLowerCase();
+    productSlugCache.set(cleanId, product);
+    setSessionCache(`prod_id_${cleanId}`, product);
+  }
 }
 
 export function getCachedProduct(identifier: string): Product | null {
   if (!identifier) return null;
   const clean = decodeURIComponent(identifier).trim().toLowerCase();
-  return productSlugCache.get(clean) || null;
+  const mem = productSlugCache.get(clean);
+  if (mem) return mem;
+
+  const sessSlug = getSessionCache<Product>(`prod_slug_${clean}`);
+  if (sessSlug) {
+    productSlugCache.set(clean, sessSlug);
+    return sessSlug;
+  }
+  const sessId = getSessionCache<Product>(`prod_id_${clean}`);
+  if (sessId) {
+    productSlugCache.set(clean, sessId);
+    return sessId;
+  }
+  return null;
 }
 
 /**
@@ -601,6 +656,11 @@ export const productService = {
     if (cached && Date.now() - cached.timestamp < QUERY_CACHE_TTL_MS) {
       return cached.result;
     }
+    const sessCached = getSessionCache<PaginatedProductsResult>(cacheKey);
+    if (sessCached) {
+      queryCache.set(cacheKey, { result: sessCached, timestamp: Date.now() });
+      return sessCached;
+    }
 
     try {
       // Map sort param to backend sortBy enum: newest, price-asc, price-desc, rating, bestseller
@@ -657,28 +717,11 @@ export const productService = {
       };
 
       queryCache.set(cacheKey, { result, timestamp: Date.now() });
+      setSessionCache(cacheKey, result);
       return result;
     } catch (err: any) {
-      console.warn('Backend API getProducts error, falling back to static dataset:', err.message);
-
-      // Graceful offline fallback
-      let filtered = [...productsData];
-      if (params.category && params.category !== 'All Surprises') {
-        filtered = filtered.filter((p) => p.category === params.category);
-      }
-      if (params.searchQuery?.trim()) {
-        filtered = rankProductsBySearch(filtered, params.searchQuery.trim());
-      }
-      const total = filtered.length;
-      const skip = (page - 1) * limit;
-      const paginated = filtered.slice(skip, skip + limit);
-
-      return {
-        products: paginated,
-        total,
-        page,
-        totalPages: Math.max(1, Math.ceil(total / limit)),
-      };
+      console.warn('Backend API getProducts error:', err?.message || err);
+      throw err;
     }
   },
 
@@ -705,9 +748,8 @@ export const productService = {
       queryCache.set(cacheKey, { result: products, timestamp: Date.now() });
       return products;
     } catch (err) {
-      console.warn('Backend API searchProducts error, falling back to static:', err);
-      const fallback = rankProductsBySearch(productsData, q).slice(0, limit);
-      return fallback;
+      console.warn('Backend API searchProducts error:', err);
+      return [];
     }
   },
 
@@ -729,15 +771,6 @@ export const productService = {
       }
     } catch (err) {
       console.warn(`Backend API getProductBySlug error for slug ${cleanSlug}:`, err);
-    }
-
-    // Static fallback if backend does not find product
-    const fallback = productsData.find(
-      (p) => p.slug.toLowerCase() === cleanSlug || p.id.toLowerCase() === cleanSlug
-    );
-    if (fallback) {
-      cacheProduct(fallback);
-      return fallback;
     }
 
     return null;
@@ -781,14 +814,6 @@ export const productService = {
               const p = res?.data?.product;
               return p ? mapRowToProduct(p) : null;
             } catch {
-              // Check offline fallback dataset
-              const fallback = productsData.find(
-                (p) => p.slug.toLowerCase() === id.toLowerCase() || p.id.toLowerCase() === id.toLowerCase()
-              );
-              if (fallback) {
-                cacheProduct(fallback);
-                return fallback;
-              }
               return null;
             }
           });
@@ -844,10 +869,10 @@ export const productService = {
         return products;
       }
     } catch (err) {
-      console.warn('Backend getFeaturedProducts error, using static dataset:', err);
+      console.warn('Backend getFeaturedProducts error:', err);
     }
 
-    return productsData.filter((p) => p.isBestSeller).slice(0, limit);
+    return [];
   },
 
   /**
@@ -886,13 +911,7 @@ export const productService = {
       console.warn(`Error fetching homepage collection ${collection}:`, err);
     }
 
-    // Graceful offline fallback to static dataset
-    if (collection === 'cash-candles') {
-      return productsData.filter((p) => p.surpriseType === 'cash').slice(0, limit);
-    } else if (collection === 'zodiac') {
-      return productsData.filter((p) => p.badge?.toLowerCase().includes('zodiac') || p.name.toLowerCase().includes('zodiac')).slice(0, limit);
-    }
-    return productsData.filter((p) => p.isBestSeller).slice(0, limit);
+    return [];
   },
 
   /**
@@ -920,8 +939,7 @@ export const productService = {
       console.warn('Error fetching diverse home products:', err);
     }
 
-    const fallback = await this.getProducts({ limit });
-    return fallback.products;
+    return [];
   },
 
   /**
@@ -1082,10 +1100,19 @@ export const productService = {
     }
 
     const sortOption = params.sort || 'featured';
-    const cacheKey = `col_prods_${col.handle}_${page}_${limit}_${sortOption}`;
-    const cached = queryCache.get(cacheKey);
+    const inputHandle = typeof handleOrId === 'string' ? handleOrId.toLowerCase().trim() : col.handle.toLowerCase();
+    const cacheKey = `col_prods_${col.handle.toLowerCase()}_${page}_${limit}_${sortOption}`;
+    const altCacheKey = `col_prods_${inputHandle}_${page}_${limit}_${sortOption}`;
+
+    const cached = queryCache.get(cacheKey) || queryCache.get(altCacheKey);
     if (cached && Date.now() - cached.timestamp < QUERY_CACHE_TTL_MS) {
       return cached.result as any;
+    }
+    const sessCached = getSessionCache<any>(cacheKey) || getSessionCache<any>(altCacheKey);
+    if (sessCached) {
+      queryCache.set(cacheKey, { result: sessCached, timestamp: Date.now() });
+      queryCache.set(altCacheKey, { result: sessCached, timestamp: Date.now() });
+      return sessCached;
     }
 
     // Check if this is an approved collection with authoritative product mapping
@@ -1139,68 +1166,7 @@ export const productService = {
         }
       }
 
-      if (prods.length < Math.min(limit, total)) {
-        // 1. Backfill with live backend search if needed
-        try {
-          const searchKeyword =
-            col.handle.includes('cash') || col.handle.includes('money')
-              ? 'cash candle'
-              : col.handle.replace(/-/g, ' ');
-          const searchRes = await apiClient.get<any>('/api/products', {
-            search: searchKeyword,
-            limit,
-          });
-          const rawProds = searchRes?.data?.products || [];
-          if (rawProds.length > 0) {
-            const mapped = rawProds.map(mapRowToProduct);
-            const seenIds = new Set(prods.map((p) => p.id.toLowerCase()));
-            const seenSlugs = new Set(prods.map((p) => p.slug.toLowerCase()));
-            for (const item of mapped) {
-              if (!seenIds.has(item.id.toLowerCase()) && !seenSlugs.has(item.slug.toLowerCase())) {
-                prods.push(item);
-                seenIds.add(item.id.toLowerCase());
-                seenSlugs.add(item.slug.toLowerCase());
-                if (prods.length >= limit) break;
-              }
-            }
-          }
-        } catch {
-          // Ignore backend search error and proceed to offline fallback
-        }
-      }
-
-      if (prods.length < Math.min(limit, total)) {
-        // 2. Resilient offline fallback: backfill matching products from productsData
-        const handleLower = col.handle.toLowerCase();
-        let fallbackProds = productsData.filter((p) => {
-          const pCat = (p.category || '').toLowerCase();
-          const pName = (p.name || '').toLowerCase();
-          const pBadge = (p.badge || '').toLowerCase();
-          if (handleLower.includes('cash') || handleLower.includes('money')) {
-            return p.surpriseType === 'cash' || pName.includes('cash') || pCat.includes('cash') || pBadge.includes('cash');
-          }
-          if (handleLower.includes('zodiac')) {
-            return pName.includes('zodiac') || pBadge.includes('zodiac');
-          }
-          if (handleLower.includes('jewelry') || handleLower.includes('jewel')) {
-            return p.surpriseType === 'jewelry' || pName.includes('jewelry') || pCat.includes('jewelry');
-          }
-          return pCat.includes(handleLower) || pName.includes(handleLower);
-        });
-        if (fallbackProds.length === 0) {
-          fallbackProds = productsData.slice(0, limit);
-        }
-        const seenIds = new Set(prods.map((p) => p.id.toLowerCase()));
-        const seenSlugs = new Set(prods.map((p) => p.slug.toLowerCase()));
-        for (const item of fallbackProds) {
-          if (!seenIds.has(item.id.toLowerCase()) && !seenSlugs.has(item.slug.toLowerCase())) {
-            prods.push(item);
-            seenIds.add(item.id.toLowerCase());
-            seenSlugs.add(item.slug.toLowerCase());
-            if (prods.length >= limit) break;
-          }
-        }
-      }
+      prods = deduplicateProducts(prods);
 
       if (!col.imageUrl && prods.length > 0 && prods[0].image) {
         col.imageUrl = prods[0].image;
@@ -1215,10 +1181,10 @@ export const productService = {
         totalPages,
       };
 
-      // Only cache full result, never cache an incomplete list
-      if (prods.length >= Math.min(limit, total)) {
-        queryCache.set(cacheKey, { result, timestamp: Date.now() });
-      }
+      queryCache.set(cacheKey, { result, timestamp: Date.now() });
+      queryCache.set(altCacheKey, { result, timestamp: Date.now() });
+      setSessionCache(cacheKey, result);
+      setSessionCache(altCacheKey, result);
       return result;
     }
 
@@ -1323,54 +1289,13 @@ export const productService = {
       };
 
       queryCache.set(cacheKey, { result, timestamp: Date.now() });
+      queryCache.set(altCacheKey, { result, timestamp: Date.now() });
+      setSessionCache(cacheKey, result);
+      setSessionCache(altCacheKey, result);
       return result;
-    } catch (err) {
+    } catch (err: any) {
       console.warn(`Error fetching products for collection ${col.handle}:`, err);
-
-      // Graceful offline fallback to static dataset
-      const handleLower = col.handle.toLowerCase();
-      let fallbackProds = productsData.filter((p) => {
-        const pCat = (p.category || '').toLowerCase();
-        const pName = (p.name || '').toLowerCase();
-        const pSlug = (p.slug || '').toLowerCase();
-        const pBadge = (p.badge || '').toLowerCase();
-
-        if (handleLower.includes('cash') || handleLower.includes('money')) {
-          return p.surpriseType === 'cash' || pName.includes('cash') || pCat.includes('cash') || pBadge.includes('cash');
-        }
-        if (handleLower.includes('zodiac')) {
-          return pName.includes('zodiac') || pBadge.includes('zodiac') || pSlug.includes('zodiac');
-        }
-        if (handleLower.includes('halloween')) {
-          return pName.includes('halloween') || pCat.includes('halloween') || pBadge.includes('halloween');
-        }
-        if (handleLower.includes('christmas')) {
-          return pName.includes('christmas') || pCat.includes('christmas') || pBadge.includes('christmas') || pBadge.includes('holiday');
-        }
-        if (handleLower.includes('jewelry') || handleLower.includes('jewel')) {
-          return p.surpriseType === 'jewelry' || pName.includes('jewelry') || pCat.includes('jewelry');
-        }
-        if (handleLower.includes('melt')) {
-          return pCat.includes('melt') || pName.includes('melt');
-        }
-        return pCat.includes(handleLower) || pName.includes(handleLower) || pSlug.includes(handleLower);
-      });
-
-      if (fallbackProds.length === 0) {
-        fallbackProds = productsData.slice(0, 10);
-      }
-
-      const total = fallbackProds.length;
-      const skip = (page - 1) * limit;
-      const paginated = fallbackProds.slice(skip, skip + limit);
-
-      return {
-        collection: col,
-        products: paginated,
-        total,
-        page,
-        totalPages: Math.max(1, Math.ceil(total / limit)),
-      };
+      throw err;
     }
 
     return {
@@ -1392,6 +1317,11 @@ export const productService = {
     if (cached && Date.now() - cached.timestamp < QUERY_CACHE_TTL_MS) {
       return cached.result as Product[];
     }
+    const sessCached = getSessionCache<Product[]>(cacheKey);
+    if (sessCached && Array.isArray(sessCached)) {
+      queryCache.set(cacheKey, { result: sessCached, timestamp: Date.now() });
+      return sessCached;
+    }
 
     try {
       const colRes = await this.getProductsByCollection('cash-candles', {
@@ -1403,19 +1333,70 @@ export const productService = {
       if (colRes && colRes.products.length > 0) {
         const products = colRes.products.slice(0, cappedLimit);
         queryCache.set(cacheKey, { result: products, timestamp: Date.now() });
+        setSessionCache(cacheKey, products);
+        return products;
+      }
+
+      // Fallback to bestseller products if cash-candles collection was empty
+      const featured = await this.getFeaturedProducts(cappedLimit);
+      if (featured && featured.length > 0) {
+        const products = featured.slice(0, cappedLimit);
+        queryCache.set(cacheKey, { result: products, timestamp: Date.now() });
+        setSessionCache(cacheKey, products);
         return products;
       }
     } catch (err) {
       console.warn('Error fetching curated trending products from backend:', err);
     }
 
-    // Graceful offline fallback to best-sellers
-    const fallback = productsData
-      .filter((p) => p.isBestSeller && (p.surpriseType === 'cash' || p.category.toLowerCase().includes('cash')))
-      .concat(productsData.filter((p) => p.isBestSeller))
-      .slice(0, cappedLimit);
+    return [];
+  },
 
-    return fallback.length > 0 ? fallback : productsData.slice(0, cappedLimit);
+  /**
+   * Synchronously retrieves cached products for a homepage collection if already in memory or sessionStorage.
+   * Returns immediately (< 1ms), allowing instant paint with zero loading shimmer when cached.
+   */
+  getCachedCollectionProducts(handleOrId: string, limit = 10): Product[] | null {
+    if (!handleOrId) return null;
+    const clean = String(handleOrId).trim().toLowerCase();
+    const keysToCheck = [
+      `col_prods_${clean}_1_${limit}_featured`,
+      clean === 'cash-candles' ? `col_prods_cash-money-candles_1_${limit}_featured` : '',
+      clean === 'cash-money-candles' ? `col_prods_cash-candles_1_${limit}_featured` : '',
+      clean === 'zodiac-cash-money-candles' ? `col_prods_zodiac-cash-candles_1_${limit}_featured` : '',
+      clean === 'christmas-candles-1' ? `col_prods_christmas_1_${limit}_featured` : '',
+    ].filter(Boolean);
+
+    for (const key of keysToCheck) {
+      const cached = queryCache.get(key);
+      if (cached && Date.now() - cached.timestamp < QUERY_CACHE_TTL_MS) {
+        return cached.result?.products || null;
+      }
+      const sess = getSessionCache<any>(key);
+      if (sess?.products && Array.isArray(sess.products)) {
+        queryCache.set(key, { result: sess, timestamp: Date.now() });
+        return sess.products;
+      }
+    }
+    return null;
+  },
+
+  /**
+   * Synchronously retrieves cached trending products if already in memory or sessionStorage.
+   */
+  getCachedTrendingProducts(limit = 10): Product[] | null {
+    const cappedLimit = Math.min(10, Math.max(1, limit));
+    const cacheKey = `curated_trending_home_${cappedLimit}`;
+    const cached = queryCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < QUERY_CACHE_TTL_MS) {
+      return cached.result as Product[];
+    }
+    const sess = getSessionCache<Product[]>(cacheKey);
+    if (sess && Array.isArray(sess)) {
+      queryCache.set(cacheKey, { result: sess, timestamp: Date.now() });
+      return sess;
+    }
+    return null;
   },
 
   /**

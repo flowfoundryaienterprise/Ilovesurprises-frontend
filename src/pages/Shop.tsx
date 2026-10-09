@@ -150,6 +150,8 @@ export const Shop: React.FC<ShopProps> = ({
 
   useEffect(() => {
     let isCancelled = false;
+    setIsFetchingProducts(true);
+    setFetchError(null);
 
     const sortParam =
       appliedFilters.sortBy === 'price-asc'
@@ -175,7 +177,7 @@ export const Shop: React.FC<ShopProps> = ({
       })
       .then((res) => {
         if (!isCancelled && res) {
-          setServerProducts(res.products);
+          setServerProducts(deduplicateProducts(res.products));
           setServerTotal(res.total);
           setServerTotalPages(res.totalPages);
           setIsFetchingProducts(false);
@@ -188,6 +190,7 @@ export const Shop: React.FC<ShopProps> = ({
         if (!isCancelled) {
           setIsFetchingProducts(false);
           setIsRetrying(false);
+          setServerProducts([]);
           setFetchError(
             err?.message || 'Unable to connect to the product catalog service. Please check your internet connection and try again.'
           );
@@ -402,7 +405,7 @@ export const Shop: React.FC<ShopProps> = ({
       {/* Product Grid Area (Full width with stable layout) */}
       <div id="shop-product-grid" className="w-full">
         <ProductGrid
-          isLoading={isFetchingProducts && !serverProducts && !fetchError}
+          isLoading={isFetchingProducts && !fetchError}
           products={activeProducts}
           searchQuery={searchQuery}
           cart={cart}

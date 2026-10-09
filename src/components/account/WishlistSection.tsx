@@ -4,6 +4,8 @@ import { ProductCardSkeleton } from '../ui/ProductCardSkeleton';
 import type { Product } from '../../types';
 import { productService } from '../../services/productService';
 
+import { deduplicateProducts } from '../../utils/productUtils';
+
 interface WishlistSectionProps {
   wishlistIds: string[];
   onWishlistToggle: (product: Product) => void;
@@ -28,7 +30,7 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
     if (wishlistIds.length > 0) {
       productService.getProductsByIds(wishlistIds).then((resolved) => {
         if (!isCancelled && resolved.length > 0) {
-          setLiveProducts(resolved);
+          setLiveProducts(deduplicateProducts(resolved));
         }
       }).finally(() => {
         if (!isCancelled) setIsLoading(false);

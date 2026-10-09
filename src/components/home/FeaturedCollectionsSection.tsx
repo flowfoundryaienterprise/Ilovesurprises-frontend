@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowRight, DollarSign, Flame, Gift, Gem } from 'lucide-react';
 import { adminService } from '../../services/adminService';
 import { productService } from '../../services/productService';
@@ -31,6 +31,14 @@ interface CuratedCollectionConfig {
   highlights: string[];
   eyebrow: string;
   theme: 'amber' | 'red' | 'emerald' | 'purple';
+}
+
+type CollectionStatus = 'loading' | 'success' | 'empty' | 'error';
+
+interface CollectionItemState {
+  status: CollectionStatus;
+  products: Product[];
+  errorMessage?: string;
 }
 
 const DEFAULT_CURATED_CARDS: Record<string, CuratedCollectionConfig> = {
@@ -103,18 +111,32 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
   onWishlistToggle,
 }) => {
   const [homepageConfig, setHomepageConfig] = useState(() => adminService.getHomepageContent());
-  const [collectionProducts, setCollectionProducts] = useState<Record<string, Product[]>>({});
-  const [isFetching, setIsFetching] = useState<boolean>(true);
+  const [collectionStates, setCollectionStates] = useState<Record<string, CollectionItemState>>(() => {
+    // Initial check for synchronous cache hit
+    const initial: Record<string, CollectionItemState> = {};
+    const ids = ['halloween', 'christmas-candles-1', 'cash-candles', 'zodiac-cash-money-candles'];
+    ids.forEach((id) => {
+      const cached = productService.getCachedCollectionProducts(id, 10);
+      if (cached && cached.length > 0) {
+        initial[id] = { status: 'success', products: deduplicateProducts(cached).slice(0, 10) };
+      } else {
+        initial[id] = { status: 'loading', products: [] };
+      }
+    });
+    return initial;
+  });
 
   const wishlistSet = useMemo(() => new Set(wishlistIds), [wishlistIds]);
 
   useEffect(() => {
-    // 1. Fetch live storefront configuration from backend API
-    adminService.fetchLiveStorefrontContent().then((content) => {
-      if (content) {
-        setHomepageConfig(content);
-      }
-    }).catch(() => {});
+    // 1. Fetch live storefront configuration from backend API if available
+    if (typeof (adminService as any).fetchLiveStorefrontContent === 'function') {
+      (adminService as any).fetchLiveStorefrontContent().then((content: any) => {
+        if (content) {
+          setHomepageConfig(content);
+        }
+      }).catch(() => {});
+    }
 
     // 2. Listen to updates
     const handleUpdate = () => {
@@ -156,78 +178,67 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
     };
   }, [homepageConfig]);
 
-  // Fetch products for all featured collections (max 10 products per collection)
+  const loadSingleCollection = useCallback((colId: string) => {
+    // Check synchronous cache first
+    const cached = productService.getCachedCollectionProducts(colId, 10);
+    if (cached && cached.length > 0) {
+      setCollectionStates((prev) => ({
+        ...prev,
+        [colId]: {
+          status: 'success',
+          products: deduplicateProducts(cached).slice(0, 10),
+        },
+      }));
+    } else {
+      setCollectionStates((prev) => {
+        if (prev[colId]?.status === 'success' && prev[colId]?.products.length > 0) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [colId]: {
+            status: 'loading',
+            products: [],
+          },
+        };
+      });
+    }
+
+    productService
+      .getProductsByCollection(colId, {
+        page: 1,
+        limit: 10,
+        sort: 'featured',
+      })
+      .then((res) => {
+        const prods = deduplicateProducts(res?.products || []).slice(0, 10);
+        setCollectionStates((prev) => ({
+          ...prev,
+          [colId]: {
+            status: prods.length > 0 ? 'success' : 'empty',
+            products: prods,
+          },
+        }));
+      })
+      .catch((err) => {
+        console.warn(`Error fetching products for collection ${colId}:`, err);
+        setCollectionStates((prev) => ({
+          ...prev,
+          [colId]: {
+            status: 'error',
+            products: [],
+            errorMessage: err?.message || 'Failed to load products',
+          },
+        }));
+      });
+  }, []);
+
+  // Fetch products for each collection independently in parallel
   useEffect(() => {
-    let isCancelled = false;
-    setIsFetching(true);
-
-    const fetchAllCollections = async () => {
-      try {
-        const results = await Promise.all(
-          allFeaturedCards.map(async (col) => {
-            try {
-              const res = await productService.getProductsByCollection(col.id, {
-                page: 1,
-                limit: 10,
-                sort: 'featured',
-              });
-              let prods = deduplicateProducts(res?.products || []).slice(0, 10);
-
-              // Guaranteed safeguard for Cash Candles: ensure 10 products are always populated
-              if (col.id === 'cash-candles' && prods.length < 10) {
-                try {
-                  const fallbackList = await productService.getHomepageCollectionProducts('cash-candles', 10);
-                  const seenIds = new Set(prods.map((p) => p.id));
-                  for (const item of fallbackList) {
-                    if (!seenIds.has(item.id)) {
-                      prods.push(item);
-                      seenIds.add(item.id);
-                      if (prods.length >= 10) break;
-                    }
-                  }
-                } catch {
-                  // Ignore
-                }
-              }
-
-              return { id: col.id, products: prods };
-            } catch (err) {
-              console.warn(`Error fetching products for collection ${col.id}:`, err);
-              if (col.id === 'cash-candles') {
-                try {
-                  const fallbackList = await productService.getHomepageCollectionProducts('cash-candles', 10);
-                  return { id: col.id, products: fallbackList.slice(0, 10) };
-                } catch {
-                  return { id: col.id, products: [] };
-                }
-              }
-              return { id: col.id, products: [] };
-            }
-          })
-        );
-
-        if (!isCancelled) {
-          const map: Record<string, Product[]> = {};
-          results.forEach((r) => {
-            map[r.id] = r.products;
-          });
-          setCollectionProducts(map);
-          setIsFetching(false);
-        }
-      } catch (err) {
-        console.warn('Error fetching featured collection products:', err);
-        if (!isCancelled) {
-          setIsFetching(false);
-        }
-      }
-    };
-
-    fetchAllCollections();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [allFeaturedCards]);
+    allFeaturedCards.forEach((col) => {
+      loadSingleCollection(col.id);
+    });
+  }, [allFeaturedCards, loadSingleCollection]);
 
   const handleViewCollection = (handle: string, categoryKey?: string) => {
     if (onSelectCollection) {
@@ -257,8 +268,9 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
   const handleAddToCart = onAddToCart || ((product: Product) => onSelectProduct?.(product));
 
   const renderCollectionGrid = (col: CuratedCollectionConfig) => {
-    const prods = collectionProducts[col.id] || [];
-    const isCardLoading = isFetching;
+    const colState = collectionStates[col.id] || { status: 'loading', products: [] };
+    const { status, products: prods } = colState;
+    const isCardLoading = status === 'loading';
     const BadgeIcon = col.badgeIcon;
     const testId = `featured-collection-${col.id}`;
 
@@ -305,7 +317,7 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
           {isCardLoading ? (
             Array.from({ length: 10 }).map((_, i) => <ProductCardSkeleton key={i} />)
-          ) : prods.length > 0 ? (
+          ) : status === 'success' && prods.length > 0 ? (
             prods.map((product) => (
               <ProductCard
                 key={product.id}
@@ -318,6 +330,17 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
                 isWishlisted={wishlistSet.has(product.id)}
               />
             ))
+          ) : status === 'error' ? (
+            <div className="col-span-full py-8 text-center text-sm text-[#716d77] flex flex-col items-center justify-center gap-3">
+              <p className="m-0 text-[#716d77]">Unable to load products for this collection right now.</p>
+              <button
+                type="button"
+                onClick={() => loadSingleCollection(col.id)}
+                className="px-4 py-2 rounded-lg bg-[#141219] hover:bg-[#D30915] text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Retry
+              </button>
+            </div>
           ) : (
             <div className="col-span-full py-8 text-center text-sm text-[#716d77]">
               No products found in this collection.
@@ -326,7 +349,7 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
         </div>
 
         {/* COLLECTION NAME UNDERNEATH & COLLECTION LINK/VIEW ALL */}
-        {!isCardLoading && prods.length > 0 && (
+        {!isCardLoading && status === 'success' && prods.length > 0 && (
           <div className="mt-8 sm:mt-12 text-center flex flex-col items-center justify-center">
             <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#716d77] mb-2">
               {col.title}

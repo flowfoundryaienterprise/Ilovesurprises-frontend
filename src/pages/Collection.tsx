@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ChevronDown,
   ChevronUp,
   PackageX,
   ArrowRight,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { productService } from '../services/productService';
+import { deduplicateProducts } from '../utils/productUtils';
 import { ProductCard } from '../components/products/ProductCard';
 import { ProductCardSkeleton } from '../components/ui/ProductCardSkeleton';
 import type { Product, Collection, CartItem } from '../types';
@@ -42,8 +45,18 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState<boolean>(false);
+  const [retryCount, setRetryCount] = useState<number>(0);
   const [sortBy, setSortBy] = useState<SortOption>('featured');
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState<boolean>(false);
+
+  const handleRetry = useCallback(() => {
+    setIsRetrying(true);
+    setFetchError(null);
+    setIsLoading(true);
+    setRetryCount((prev) => prev + 1);
+  }, []);
 
   // Responsive limit: 15 on Laptop/Desktop (3 complete rows of 5), 16 on Mobile/Tablet (8 complete rows of 2)
   const [isDesktop, setIsDesktop] = useState<boolean>(() => {
@@ -73,16 +86,18 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
   // Guarantee that on laptop/desktop screens, at most 15 products are displayed (3 full rows of 5)
   // preventing a lonely single card on row 4.
   const displayedProducts = useMemo(() => {
-    if (isDesktop && products.length > 15) {
-      return products.slice(0, 15);
+    const unique = deduplicateProducts(products);
+    if (isDesktop && unique.length > 15) {
+      return unique.slice(0, 15);
     }
-    return products;
+    return unique;
   }, [isDesktop, products]);
 
   // Load collection and products whenever handle, page, sort, or pageLimit changes
   useEffect(() => {
     let isCancelled = false;
     setIsLoading(true);
+    setFetchError(null);
 
     productService
       .getProductsByCollection(collectionHandle, {
@@ -93,10 +108,12 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
       .then((res) => {
         if (!isCancelled) {
           setCollection(res.collection);
-          setProducts(res.products);
+          setProducts(deduplicateProducts(res.products));
           setTotalCount(res.total);
           setTotalPages(res.totalPages);
           setIsLoading(false);
+          setIsRetrying(false);
+          setFetchError(null);
 
           if (res.collection) {
             document.title = `${res.collection.title} | I Love Surprises`;
@@ -107,13 +124,18 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
         console.warn('Error loading collection:', err);
         if (!isCancelled) {
           setIsLoading(false);
+          setIsRetrying(false);
+          setProducts([]);
+          setFetchError(
+            err?.message || 'Unable to connect to the product catalog service. Please check your internet connection and try again.'
+          );
         }
       });
 
     return () => {
       isCancelled = true;
     };
-  }, [collectionHandle, currentPage, sortBy, pageLimit]);
+  }, [collectionHandle, currentPage, sortBy, pageLimit, retryCount]);
 
   // Reset page when collection handle changes
   useEffect(() => {
@@ -250,6 +272,36 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
           {Array.from({ length: pageLimit }).map((_, i) => (
             <ProductCardSkeleton key={i} />
           ))}
+        </div>
+      ) : fetchError && products.length === 0 ? (
+        <div className="w-full py-14 px-4 text-center rounded-[24px] bg-[#fff8f8] border border-[#fecdd3] my-6 shadow-xs animate-in fade-in duration-300">
+          <div className="w-14 h-14 rounded-full bg-[#ffe4e6] text-[#D30915] border border-[#fca5a5] flex items-center justify-center mx-auto mb-3 shadow-xs">
+            <AlertTriangle className="w-6 h-6 stroke-[2.2]" />
+          </div>
+          <h3 className="text-base sm:text-lg font-black text-[#141219] mb-1 font-display">
+            Unable to Load Collection Products
+          </h3>
+          <p className="text-xs sm:text-sm text-[#716d77] max-w-md mx-auto mb-5 font-medium leading-relaxed">
+            {fetchError}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-[12px] bg-[#D30915] hover:bg-[#B60711] disabled:bg-gray-400 text-white text-xs font-black uppercase tracking-wider shadow-[0_8px_20px_rgba(211,9,21,0.25)] hover:shadow-[0_12px_24px_rgba(211,9,21,0.35)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
+              <span>{isRetrying ? 'Retrying Catalog...' : 'Retry Loading Products'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onNavigateToShop}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[12px] bg-white border border-[#eedbe6] text-[#141219] hover:bg-gray-50 text-xs font-bold transition-all cursor-pointer"
+            >
+              <span>Explore All Products</span>
+            </button>
+          </div>
         </div>
       ) : displayedProducts.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">

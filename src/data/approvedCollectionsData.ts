@@ -124,8 +124,8 @@ export const APPROVED_COLLECTIONS_MAP: Record<string, ApprovedCollectionMeta> = 
       "zodiac"
     ],
     "category": "Candles",
-    "referenceCount": 12,
-    "actualCount": 12,
+    "referenceCount": 15,
+    "actualCount": 15,
     "title": "Zodiac Cash Money Candles",
     "description": "<p data-start=\"177\" data-end=\"445\">Celebrate astrology in a bold, unforgettable way with our <strong data-start=\"235\" data-end=\"268\">Zodiac Cash Candle Collection</strong> — personalized cash candles created for true zodiac lovers. Each candle features a <strong data-start=\"352\" data-end=\"388\">beautifully designed zodiac sign</strong>, making it a meaningful and memorable gift for any sign.</p>\n<p data-start=\"447\" data-end=\"660\">Every Zodiac Cash Candle includes a <strong data-start=\"483\" data-end=\"510\">guaranteed real $2 bill</strong> hidden inside. Select <strong data-start=\"533\" data-end=\"616\">randomized Cash Candles may also reveal a second cash prize valued up to $2,500</strong>, adding an exciting surprise to every burn.</p>\n<p data-start=\"662\" data-end=\"933\">These are <strong data-start=\"672\" data-end=\"698\">huge 2.5-pound candles</strong>, crafted from <strong data-start=\"713\" data-end=\"739\">highly scented soy wax</strong> and infused with <strong data-start=\"757\" data-end=\"789\">premium essential oil blends</strong> for an incredible fragrance experience. Each candle delivers <strong data-start=\"851\" data-end=\"881\">over 80 hours of burn time</strong> and fills your space with rich, long-lasting scent.</p>\n<p data-start=\"935\" data-end=\"1108\">Every candle in the collection comes in a <strong data-start=\"977\" data-end=\"1023\">luxurious 21 oz apothecary-style glass jar</strong> designed to complement <strong data-start=\"1047\" data-end=\"1065\">any home décor</strong>, making it as stylish as it is functional.</p>\n<p data-start=\"1110\" data-end=\"1394\">Customize your Zodiac Cash Candle by <strong data-start=\"1147\" data-end=\"1179\">choosing your favorite scent</strong> from our best-selling fragrance lineup using the dropdown menu. With personalization, premium craftsmanship, and a surprise element, these candles make the perfect <strong data-start=\"1344\" data-end=\"1393\">zodiac gift, astrology gift, or birthday gift</strong>.</p>\n<p data-start=\"1396\" data-end=\"1552\" data-is-last-node=\"\" data-is-only-node=\"\">Celebrate your sign. Choose your scent. Light your candle.<br data-start=\"1454\" data-end=\"1457\"><strong data-start=\"1457\" data-end=\"1550\">Shop the Zodiac Cash Candle Collection today and give a gift that’s written in the stars.</strong></p>",
     "productHandles": [
@@ -140,7 +140,10 @@ export const APPROVED_COLLECTIONS_MAP: Record<string, ApprovedCollectionMeta> = 
       "libra-zodiac-cash-money-candle",
       "scorpio-zodiac-cash-money-candle",
       "virgo-zodiac-cash-money-candle",
-      "sagittarius-zodiac-cash-money-candle"
+      "sagittarius-zodiac-cash-money-candle",
+      "aquarius-astrology-birthday-cash-candles",
+      "aries-astrology-birthday-cash-candles",
+      "cancer-astrology-birthday-cash-candles"
     ]
   },
   "cereal-candles-cereal-cash-candles": {

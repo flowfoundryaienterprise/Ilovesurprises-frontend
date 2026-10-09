@@ -4,11 +4,24 @@
  * which communicates with Prisma and the authoritative Supabase PostgreSQL database.
  */
 
+const REMOTE_PRODUCTION_API = 'https://api.ilovesurprises.com';
+
+const isBrowser = typeof window !== 'undefined';
+const isLocalhost =
+  isBrowser &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
 const RAW_BASE_URL =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-  'http://localhost:3000';
+  (isLocalhost ? '' : REMOTE_PRODUCTION_API);
 
-export const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
+let activeBaseUrl = RAW_BASE_URL ? RAW_BASE_URL.replace(/\/+$/, '') : '';
+
+export const API_BASE_URL = activeBaseUrl;
+
+export function getApiBaseUrl(): string {
+  return activeBaseUrl;
+}
 
 const AUTH_TOKEN_KEY = 'ilovesurprises_jwt_token';
 const GUEST_CART_KEY = 'ilovesurprises_guest_cart_id';
@@ -98,15 +111,19 @@ export function getOrCreateGuestCartId(): string {
 }
 
 /**
- * Internal fetch wrapper with standardized error handling, JSON parsing,
- * and automatic Bearer token / x-cart-id header injection.
+ * In-flight GET request deduplication cache to prevent redundant concurrent fetches.
  */
-async function request<T>(
-  endpoint: string,
+const inFlightGetRequests = new Map<string, Promise<any>>();
+
+/**
+ * Single-attempt fetch runner with headers, timeout, and response parsing.
+ */
+async function executeFetch<T>(
+  baseUrl: string,
+  cleanEndpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const url = `${API_BASE_URL}${cleanEndpoint}`;
+  const url = `${baseUrl}${cleanEndpoint}`;
 
   const headers = new Headers(options.headers || {});
   if (!headers.has('Accept')) {
@@ -129,7 +146,7 @@ async function request<T>(
   }
 
   const controller = new AbortController();
-  const timeoutMs = 8000;
+  const timeoutMs = 15000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
@@ -145,7 +162,7 @@ async function request<T>(
 
     if (!response.ok) {
       // Clear token if server returns 401 Unauthorized for an authenticated endpoint
-      if (response.status === 401 && token && !endpoint.includes('/auth/login')) {
+      if (response.status === 401 && token && !cleanEndpoint.includes('/auth/login')) {
         setStoredAuthToken(null);
       }
 
@@ -157,6 +174,7 @@ async function request<T>(
 
     return data as T;
   } catch (err: any) {
+    clearTimeout(timeoutId);
     if (err instanceof ApiError) {
       throw err;
     }
@@ -168,8 +186,74 @@ async function request<T>(
   }
 }
 
+/**
+ * Internal fetch wrapper with standardized error handling, JSON parsing,
+ * automatic Bearer token / x-cart-id header injection, and resilient live API failover.
+ */
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const method = (options.method || 'GET').toUpperCase();
+
+  // Deduplicate in-flight GET requests
+  if (method === 'GET') {
+    const dedupKey = `${activeBaseUrl}${cleanEndpoint}`;
+    if (inFlightGetRequests.has(dedupKey)) {
+      return inFlightGetRequests.get(dedupKey) as Promise<T>;
+    }
+
+    const promise = (async () => {
+      try {
+        return await executeFetch<T>(activeBaseUrl, cleanEndpoint, options);
+      } catch (err: any) {
+        const isNetworkError =
+          err instanceof ApiError && (err.statusCode === 0 || !err.statusCode);
+        const isLocalhost =
+          activeBaseUrl.includes('localhost') || activeBaseUrl.includes('127.0.0.1');
+
+        if (isNetworkError && isLocalhost && activeBaseUrl !== REMOTE_PRODUCTION_API) {
+          console.info(
+            `[apiClient] Localhost unavailable, failing over to live API (${REMOTE_PRODUCTION_API})`
+          );
+          activeBaseUrl = REMOTE_PRODUCTION_API;
+          return await executeFetch<T>(REMOTE_PRODUCTION_API, cleanEndpoint, options);
+        }
+        throw err;
+      }
+    })().finally(() => {
+      inFlightGetRequests.delete(dedupKey);
+    });
+
+    inFlightGetRequests.set(dedupKey, promise);
+    return promise;
+  }
+
+  // Non-GET requests (POST, PUT, DELETE, etc.)
+  try {
+    return await executeFetch<T>(activeBaseUrl, cleanEndpoint, options);
+  } catch (err: any) {
+    const isNetworkError =
+      err instanceof ApiError && (err.statusCode === 0 || !err.statusCode);
+    const isLocalhost =
+      activeBaseUrl.includes('localhost') || activeBaseUrl.includes('127.0.0.1');
+
+    if (isNetworkError && isLocalhost && activeBaseUrl !== REMOTE_PRODUCTION_API) {
+      console.info(
+        `[apiClient] Localhost unavailable, failing over to live API (${REMOTE_PRODUCTION_API})`
+      );
+      activeBaseUrl = REMOTE_PRODUCTION_API;
+      return await executeFetch<T>(REMOTE_PRODUCTION_API, cleanEndpoint, options);
+    }
+    throw err;
+  }
+}
+
 export const apiClient = {
-  baseUrl: API_BASE_URL,
+  get baseUrl() {
+    return activeBaseUrl;
+  },
 
   /**
    * Token getters and setters

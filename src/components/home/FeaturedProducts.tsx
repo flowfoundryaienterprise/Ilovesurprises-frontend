@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { productService } from '../../services/productService';
 import { deduplicateProducts } from '../../utils/productUtils';
@@ -23,10 +23,12 @@ interface FeaturedProductsProps {
 
 const FEATURED_COLLECTION_HANDLE = 'cash-candles';
 
+type SectionStatus = 'loading' | 'success' | 'empty' | 'error';
+
 export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
   cart = [],
   wishlistIds = [],
-  isLoading = false,
+  isLoading: _isLoading = false,
   onSelectCollection,
   onNavigateToShop,
   onAddToCart,
@@ -36,32 +38,39 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
 }) => {
   const wishlistSet = useMemo(() => new Set(wishlistIds), [wishlistIds]);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isFetching, setIsFetching] = useState<boolean>(true);
+  const [status, setStatus] = useState<SectionStatus>(() => {
+    const cached = productService.getCachedTrendingProducts(10);
+    return cached && cached.length > 0 ? 'success' : 'loading';
+  });
+  const [products, setProducts] = useState<Product[]>(() => {
+    const cached = productService.getCachedTrendingProducts(10);
+    return cached && cached.length > 0 ? deduplicateProducts(cached).slice(0, 10) : [];
+  });
 
-  useEffect(() => {
-    let isCancelled = false;
-    setIsFetching(true);
+  const loadTrending = useCallback(() => {
+    setStatus((prev) => (prev === 'success' && products.length > 0 ? prev : 'loading'));
 
     productService
       .getCuratedTrendingProducts(10)
       .then((items) => {
-        if (!isCancelled) {
-          setProducts(deduplicateProducts(items).slice(0, 10));
-          setIsFetching(false);
+        const dedupled = deduplicateProducts(items || []).slice(0, 10);
+        if (dedupled.length > 0) {
+          setProducts(dedupled);
+          setStatus('success');
+        } else {
+          setProducts([]);
+          setStatus('empty');
         }
       })
       .catch((err) => {
         console.warn('Error fetching curated trending products:', err);
-        if (!isCancelled) {
-          setIsFetching(false);
-        }
+        setStatus('error');
       });
+  }, [products.length]);
 
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
+  useEffect(() => {
+    loadTrending();
+  }, [loadTrending]);
 
   const handleViewAllClick = () => {
     if (onSelectCollection) {
@@ -80,7 +89,6 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
     return item ? item.quantity : 0;
   };
 
-  const isCardLoading = isLoading || isFetching;
   const displayedProducts = products.slice(0, 10);
 
   return (
@@ -120,9 +128,9 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
 
       {/* Product Grid - Exactly max 10 products, responsive layout */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
-        {isCardLoading ? (
+        {status === 'loading' ? (
           Array.from({ length: 10 }).map((_, i) => <ProductCardSkeleton key={i} />)
-        ) : displayedProducts.length > 0 ? (
+        ) : status === 'success' && displayedProducts.length > 0 ? (
           displayedProducts.map((product) => (
             <ProductCard
               key={product.id}
@@ -135,6 +143,17 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
               isWishlisted={wishlistSet.has(product.id)}
             />
           ))
+        ) : status === 'error' ? (
+          <div className="col-span-full py-8 text-center text-sm text-[#716d77] flex flex-col items-center justify-center gap-3">
+            <p className="m-0">Unable to load trending products right now.</p>
+            <button
+              type="button"
+              onClick={loadTrending}
+              className="px-4 py-2 rounded-lg bg-[#141219] hover:bg-[#D30915] text-white text-xs font-bold transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
         ) : (
           <div className="col-span-full py-8 text-center text-sm text-[#716d77]">
             No trending products currently available.
@@ -143,7 +162,7 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
       </div>
 
       {/* Bottom CTA to the exact collection page */}
-      {!isCardLoading && displayedProducts.length > 0 && (
+      {status === 'success' && displayedProducts.length > 0 && (
         <div className="mt-8 sm:mt-12 text-center">
           <button
             type="button"

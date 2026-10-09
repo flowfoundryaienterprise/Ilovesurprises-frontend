@@ -9,6 +9,14 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'https://api.ilovesurprises.com',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
     watch: {
       usePolling: true,
       interval: 1000,

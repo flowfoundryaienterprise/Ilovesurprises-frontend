@@ -2220,5 +2220,68 @@ export const productsData: Product[] = [
     "inStock": true,
     "scentNotes": [],
     "description": "**Very Berry Cereal Cash Slime** bursts with the juicy, sweet scent of a mix of **fresh strawberries**, **blueberries**, and **raspberries**, offering a vibrant and fruity experience. This delightful blend of berries creates a refreshing and fun sensory treat. The slime is designed to look like a bowl of cereal, complete with customizable toppings and charms, all served in a **16 oz glass cereal bowl with a spoon** that you can **repurpose** once the slime is done. Each bowl contains a real $2 bill, and some randomized bowls can include up to $2,500 in additional cash prizes, making this berry-inspired treat both fun and exciting!"
+  },
+  {
+    "id": "aquarius-astrology-birthday-cash-candles",
+    "name": "Aquarius | Astrology Birthday Cash Candles",
+    "slug": "aquarius-astrology-birthday-cash-candles",
+    "category": "Cash Candles",
+    "price": 44.99,
+    "originalPrice": 55.0,
+    "surpriseType": "cash",
+    "surpriseValue": "Real Cash inside up to $2,500",
+    "rating": 4.9,
+    "reviewCount": 94,
+    "image": "https://cdn.shopify.com/s/files/1/0172/4672/products/1_Mockup_JC_eaf24020-2825-4679-a1db-be1c36d6139d.jpg?v=1668105406",
+    "badge": "Zodiac Cash",
+    "isBestSeller": false,
+    "isNew": true,
+    "inStock": true,
+    "scentNotes": [
+      "BIRTHDAY CAKE"
+    ],
+    "description": "Celebrate with the Aquarius Astrology Birthday Cash Candle! Every candle includes a guaranteed real $2 bill hidden inside, with select candles revealing up to $2,500. A huge 2.5-pound candle crafted with highly scented soy wax."
+  },
+  {
+    "id": "aries-astrology-birthday-cash-candles",
+    "name": "Aries | Astrology Birthday Cash Candles",
+    "slug": "aries-astrology-birthday-cash-candles",
+    "category": "Cash Candles",
+    "price": 44.99,
+    "originalPrice": 55.0,
+    "surpriseType": "cash",
+    "surpriseValue": "Real Cash inside up to $2,500",
+    "rating": 4.9,
+    "reviewCount": 87,
+    "image": "https://cdn.shopify.com/s/files/1/0172/4672/products/1_Mockup_JC_15d37fc6-db23-4dfd-9e41-ceb1e3c75621.jpg?v=1668173529",
+    "badge": "Zodiac Cash",
+    "isBestSeller": false,
+    "isNew": true,
+    "inStock": true,
+    "scentNotes": [
+      "BIRTHDAY CAKE"
+    ],
+    "description": "Celebrate with the Aries Astrology Birthday Cash Candle! Every candle includes a guaranteed real $2 bill hidden inside, with select candles revealing up to $2,500. A huge 2.5-pound candle crafted with highly scented soy wax."
+  },
+  {
+    "id": "cancer-astrology-birthday-cash-candles",
+    "name": "Cancer | Astrology Birthday Cash Candles",
+    "slug": "cancer-astrology-birthday-cash-candles",
+    "category": "Cash Candles",
+    "price": 44.99,
+    "originalPrice": 55.0,
+    "surpriseType": "cash",
+    "surpriseValue": "Real Cash inside up to $2,500",
+    "rating": 4.9,
+    "reviewCount": 91,
+    "image": "https://cdn.shopify.com/s/files/1/0172/4672/products/1_Mockup_JC_d4447a2e-588c-4068-8020-5649cc41e77a.jpg?v=1668175871",
+    "badge": "Zodiac Cash",
+    "isBestSeller": false,
+    "isNew": true,
+    "inStock": true,
+    "scentNotes": [
+      "BIRTHDAY CAKE"
+    ],
+    "description": "Celebrate with the Cancer Astrology Birthday Cash Candle! Every candle includes a guaranteed real $2 bill hidden inside, with select candles revealing up to $2,500. A huge 2.5-pound candle crafted with highly scented soy wax."
   }
 ];

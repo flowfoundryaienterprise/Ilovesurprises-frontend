@@ -7,26 +7,32 @@ import type { Product } from '../types';
 export function deduplicateProducts(products: Product[]): Product[] {
   if (!products || products.length === 0) return [];
   const seenIds = new Set<string>();
-  const seenSlugs = new Set<string>();
+  const seenHandles = new Set<string>();
   const unique: Product[] = [];
 
   for (const product of products) {
     if (!product) continue;
-    const id = product.id?.trim();
-    const slug = product.slug?.trim();
+    const id = product.id !== undefined && product.id !== null ? String(product.id).trim().toLowerCase() : '';
+    const handle = product.slug !== undefined && product.slug !== null ? String(product.slug).trim().toLowerCase() : '';
 
-    // Check ID uniqueness if ID exists
-    if (id && seenIds.has(id)) {
-      continue;
+    if (id) {
+      if (seenIds.has(id)) {
+        continue;
+      }
+      seenIds.add(id);
+      if (handle) {
+        seenHandles.add(handle);
+      }
+      unique.push(product);
+    } else if (handle) {
+      if (seenHandles.has(handle)) {
+        continue;
+      }
+      seenHandles.add(handle);
+      unique.push(product);
+    } else {
+      unique.push(product);
     }
-    // Check slug uniqueness if slug exists
-    if (slug && seenSlugs.has(slug)) {
-      continue;
-    }
-
-    if (id) seenIds.add(id);
-    if (slug) seenSlugs.add(slug);
-    unique.push(product);
   }
 
   return unique;

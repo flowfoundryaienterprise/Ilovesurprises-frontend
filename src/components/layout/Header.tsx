@@ -1524,30 +1524,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <Search className="w-5 h-5 stroke-[2.2]" />
               </button>
 
-              {/* Mobile Only: Top Navbar Wishlist Icon */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onNavigateToAccount) {
-                    onNavigateToAccount('wishlist');
-                  } else {
-                    onNavigate?.('home');
-                  }
-                }}
-                className="lg:hidden relative w-[40px] h-[40px] rounded-full bg-[#fffafb] hover:bg-[#fff1f2] border border-[#f0e4ec] hover:border-[#D30915] text-[#141219] hover:text-[#D30915] active:scale-95 transition-all cursor-pointer flex items-center justify-center shadow-2xs shrink-0"
-                aria-label={`Wishlist with ${wishlistCount} items`}
-                title="My Wishlist"
-              >
-                <Heart className="w-5 h-5 text-[#D30915] shrink-0" />
-                {wishlistCount > 0 && (
-                  <span
-                    key={`mob-wishlist-${wishlistCount}`}
-                    className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#D30915] text-white text-[10px] font-black flex items-center justify-center shadow-xs animate-in zoom-in-75 duration-150"
-                  >
-                    {wishlistCount}
-                  </span>
-                )}
-              </button>
 
               {/* Mobile Only: Top Navbar Cart Icon between Search Icon and Navbar Lines */}
               <button
@@ -1607,30 +1583,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {/* Desktop Wishlist Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onNavigateToAccount) {
-                    onNavigateToAccount('wishlist');
-                  } else {
-                    onNavigate?.('home');
-                  }
-                }}
-                className="hidden lg:flex relative items-center justify-center h-[38px] px-2.5 min-[1240px]:px-3 xl:px-4 rounded-full bg-[#FFF0F3] hover:bg-[#FEEBF0] text-[#141219] hover:text-[#D30915] active:scale-95 transition-all cursor-pointer select-none shrink-0 gap-1.5"
-                aria-label={`Wishlist with ${wishlistCount} items`}
-                title="My Wishlist"
-              >
-                <Heart className="w-4 h-4 text-[#D30915] shrink-0" />
-                <span className="inline text-[12.5px] min-[1240px]:text-[13px] xl:text-[14px] font-bold tracking-tight text-[#141219]">
-                  Wishlist
-                </span>
-                {wishlistCount > 0 && (
-                  <span className="text-[12px] min-[1240px]:text-[12.5px] font-bold text-[#D30915] ml-0.5">
-                    {wishlistCount}
-                  </span>
-                )}
-              </button>
 
               {/* 3. Shopping Cart Button: Hidden on mobile navbar, visible on desktop (lg+) */}
               <button
