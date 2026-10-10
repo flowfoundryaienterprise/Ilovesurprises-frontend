@@ -631,7 +631,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                     <span>Pumpkin Spice is curated #1 holiday favorite for this item.</span>
                   </>
                 ) : (
-                  <span>✨ 20 signature scents hand-crafted with premium fragrance oils.</span>
+                  <span>20 signature scents hand-crafted with premium fragrance oils.</span>
                 )}
               </p>
             </div>

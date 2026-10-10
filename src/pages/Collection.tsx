@@ -7,11 +7,11 @@ import {
   AlertTriangle,
   RefreshCw,
 } from 'lucide-react';
-import { productService } from '../services/productService';
+import { useProductsByCollection } from '../hooks/useProducts';
 import { deduplicateProducts } from '../utils/productUtils';
 import { ProductCard } from '../components/products/ProductCard';
 import { ProductCardSkeleton } from '../components/ui/ProductCardSkeleton';
-import type { Product, Collection, CartItem } from '../types';
+import type { Product, CartItem } from '../types';
 
 interface CollectionPageProps {
   collectionHandle: string;
@@ -39,24 +39,10 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
   onNavigateToShop,
   onNavigateToHome,
 }) => {
-  const [collection, setCollection] = useState<Collection | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [totalCount, setTotalCount] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [isRetrying, setIsRetrying] = useState<boolean>(false);
-  const [retryCount, setRetryCount] = useState<number>(0);
   const [sortBy, setSortBy] = useState<SortOption>('featured');
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState<boolean>(false);
-
-  const handleRetry = useCallback(() => {
-    setIsRetrying(true);
-    setFetchError(null);
-    setIsLoading(true);
-    setRetryCount((prev) => prev + 1);
-  }, []);
+  const [isRetrying, setIsRetrying] = useState<boolean>(false);
 
   // Responsive limit: 15 on Laptop/Desktop (3 complete rows of 5), 16 on Mobile/Tablet (8 complete rows of 2)
   const [isDesktop, setIsDesktop] = useState<boolean>(() => {
@@ -73,6 +59,32 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
   }, []);
 
   const pageLimit = isDesktop ? 15 : 16;
+
+  // TanStack Query powered collection loading: instant (0ms) from cache, background refresh, zero lag
+  const {
+    collection,
+    products,
+    total: totalCount,
+    totalPages,
+    isLoading,
+    error: queryError,
+    refetch,
+  } = useProductsByCollection(collectionHandle, {
+    page: currentPage,
+    limit: pageLimit,
+    sort: sortBy,
+  });
+
+  const handleRetry = useCallback(async () => {
+    setIsRetrying(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [refetch]);
+
+  const fetchError = queryError ? (queryError.message || 'Unable to connect to the product catalog service. Please check your connection and try again.') : null;
 
   // Cart quantity map
   const cartQuantityMap = useMemo(() => {
@@ -93,49 +105,12 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
     return unique;
   }, [isDesktop, products]);
 
-  // Load collection and products whenever handle, page, sort, or pageLimit changes
+  // Set document title
   useEffect(() => {
-    let isCancelled = false;
-    setIsLoading(true);
-    setFetchError(null);
-
-    productService
-      .getProductsByCollection(collectionHandle, {
-        page: currentPage,
-        limit: pageLimit,
-        sort: sortBy,
-      })
-      .then((res) => {
-        if (!isCancelled) {
-          setCollection(res.collection);
-          setProducts(deduplicateProducts(res.products));
-          setTotalCount(res.total);
-          setTotalPages(res.totalPages);
-          setIsLoading(false);
-          setIsRetrying(false);
-          setFetchError(null);
-
-          if (res.collection) {
-            document.title = `${res.collection.title} | I Love Surprises`;
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn('Error loading collection:', err);
-        if (!isCancelled) {
-          setIsLoading(false);
-          setIsRetrying(false);
-          setProducts([]);
-          setFetchError(
-            err?.message || 'Unable to connect to the product catalog service. Please check your internet connection and try again.'
-          );
-        }
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [collectionHandle, currentPage, sortBy, pageLimit, retryCount]);
+    if (collection) {
+      document.title = `${collection.title} | I Love Surprises`;
+    }
+  }, [collection]);
 
   // Reset page when collection handle changes
   useEffect(() => {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Plus, Minus, Star, Gift } from 'lucide-react';
 import type { Product } from '../../types';
-import { resolveProductImage } from '../../services/productService';
+import { resolveProductImage, cacheProduct } from '../../services/productService';
 import { handleImageErrorSafely, getCategoryFallback } from '../../utils/imageUtils';
 
 interface ProductCardProps {
@@ -37,7 +37,12 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
     }
   };
 
+  const handleMouseEnter = () => {
+    cacheProduct(product);
+  };
+
   const handleCardClick = () => {
+    cacheProduct(product);
     onSelectProduct?.(product);
   };
 
@@ -78,6 +83,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
       role="button"
       tabIndex={0}
       onClick={handleCardClick}
+      onMouseEnter={handleMouseEnter}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();

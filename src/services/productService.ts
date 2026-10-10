@@ -3,6 +3,7 @@ import type { Product, SurpriseType, Collection, ProductVariant, ProductOption }
 import { categoriesData } from '../data/categories';
 import { deduplicateProducts } from '../utils/productUtils';
 import { getApprovedCollectionMeta } from '../data/approvedCollectionsData';
+import { seedProductCache, getProductFromQueryCache } from '../lib/queryClient';
 
 /**
  * Authoritative production Supabase catalog query columns (retained for backward compatibility).
@@ -19,12 +20,13 @@ interface QueryCacheEntry {
   timestamp: number;
 }
 const queryCache = new Map<string, QueryCacheEntry>();
-const QUERY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const QUERY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes fresh
 
 /**
- * Session storage cache helpers for instant (< 5ms) restores on page reload and navigation.
+ * Storage cache helpers for instant (< 5ms) restores on page reload and navigation.
  */
 const SESSION_CACHE_PREFIX = 'ils_prod_qcache_';
+const LOCAL_STORAGE_PREFIX = 'ils_prod_store_';
 
 function getSessionCache<T>(key: string): T | null {
   if (typeof window === 'undefined') return null;
@@ -56,6 +58,36 @@ function setSessionCache<T>(key: string, data: T): void {
   }
 }
 
+function getLocalProduct(key: string): Product | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_PREFIX + key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.timestamp === 'number' && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+      return parsed.data as Product;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function setLocalProduct(key: string, data: Product): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(
+      LOCAL_STORAGE_PREFIX + key,
+      JSON.stringify({
+        data,
+        timestamp: Date.now(),
+      })
+    );
+  } catch {
+    // ignore quota errors
+  }
+}
+
 /**
  * In-memory single product cache by slug & ID for instant product details navigation.
  */
@@ -63,24 +95,46 @@ const productSlugCache = new Map<string, Product>();
 
 export function cacheProduct(product: Product) {
   if (!product) return;
+  try {
+    seedProductCache(product);
+  } catch {
+    // ignore if query client not ready
+  }
+
   if (product.slug) {
-    const cleanSlug = product.slug.toLowerCase();
+    const cleanSlug = product.slug.toLowerCase().trim();
     productSlugCache.set(cleanSlug, product);
     setSessionCache(`prod_slug_${cleanSlug}`, product);
+    setLocalProduct(`prod_slug_${cleanSlug}`, product);
   }
   if (product.id) {
-    const cleanId = product.id.toLowerCase();
+    const cleanId = product.id.toLowerCase().trim();
     productSlugCache.set(cleanId, product);
     setSessionCache(`prod_id_${cleanId}`, product);
+    setLocalProduct(`prod_id_${cleanId}`, product);
   }
 }
 
 export function getCachedProduct(identifier: string): Product | null {
   if (!identifier) return null;
   const clean = decodeURIComponent(identifier).trim().toLowerCase();
+
+  // 1. Fast in-memory map (< 0.1ms)
   const mem = productSlugCache.get(clean);
   if (mem) return mem;
 
+  // 2. TanStack Query cache check (< 0.5ms)
+  try {
+    const qData = getProductFromQueryCache(clean);
+    if (qData) {
+      productSlugCache.set(clean, qData);
+      return qData;
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3. SessionStorage check
   const sessSlug = getSessionCache<Product>(`prod_slug_${clean}`);
   if (sessSlug) {
     productSlugCache.set(clean, sessSlug);
@@ -91,6 +145,19 @@ export function getCachedProduct(identifier: string): Product | null {
     productSlugCache.set(clean, sessId);
     return sessId;
   }
+
+  // 4. LocalStorage persistent store check (persists across reloads/restarts)
+  const localSlug = getLocalProduct(`prod_slug_${clean}`);
+  if (localSlug) {
+    productSlugCache.set(clean, localSlug);
+    return localSlug;
+  }
+  const localId = getLocalProduct(`prod_id_${clean}`);
+  if (localId) {
+    productSlugCache.set(clean, localId);
+    return localId;
+  }
+
   return null;
 }
 
@@ -708,6 +775,7 @@ export const productService = {
       const totalPages: number = response?.data?.pagination?.totalPages ?? Math.max(1, Math.ceil(total / limit));
 
       const products = deduplicateProducts(rawProducts.map(mapRowToProduct));
+      products.forEach((p) => cacheProduct(p));
 
       const result: PaginatedProductsResult = {
         products,
@@ -745,6 +813,7 @@ export const productService = {
       });
       const rawProducts: any[] = response?.data?.products || [];
       const products = deduplicateProducts(rawProducts.map(mapRowToProduct));
+      products.forEach((p) => cacheProduct(p));
       queryCache.set(cacheKey, { result: products, timestamp: Date.now() });
       return products;
     } catch (err) {
@@ -767,7 +836,9 @@ export const productService = {
       const response = await apiClient.get<any>(`/api/products/${encodeURIComponent(cleanSlug)}`);
       const rawProduct = response?.data?.product;
       if (rawProduct) {
-        return mapRowToProduct(rawProduct);
+        const prod = mapRowToProduct(rawProduct);
+        cacheProduct(prod);
+        return prod;
       }
     } catch (err) {
       console.warn(`Backend API getProductBySlug error for slug ${cleanSlug}:`, err);
@@ -784,7 +855,8 @@ export const productService = {
   },
 
   /**
-   * Retrieves products by a list of IDs.
+   * Retrieves products by a list of IDs or slugs.
+   * Runs concurrent fetching up to 16 in parallel and caches every product for 0ms subsequent views.
    */
   async getProductsByIds(ids: string[]): Promise<Product[]> {
     if (!ids || ids.length === 0) return [];
@@ -805,14 +877,20 @@ export const productService = {
 
     if (missingIds.length > 0) {
       try {
-        const chunkSize = 12;
+        // Fetch missing products in parallel chunks of 16 to avoid artificial queue delays
+        const chunkSize = 16;
         for (let i = 0; i < missingIds.length; i += chunkSize) {
           const chunk = missingIds.slice(i, i + chunkSize);
           const fetchPromises = chunk.map(async (id) => {
             try {
               const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
               const p = res?.data?.product;
-              return p ? mapRowToProduct(p) : null;
+              if (p) {
+                const prod = mapRowToProduct(p);
+                cacheProduct(prod);
+                return prod;
+              }
+              return null;
             } catch {
               return null;
             }
@@ -823,6 +901,7 @@ export const productService = {
             if (p) {
               productMap.set(p.slug.toLowerCase(), p);
               productMap.set(p.id.toLowerCase(), p);
+              cacheProduct(p);
             }
           });
         }
@@ -1167,6 +1246,7 @@ export const productService = {
       }
 
       prods = deduplicateProducts(prods);
+      prods.forEach((p) => cacheProduct(p));
 
       if (!col.imageUrl && prods.length > 0 && prods[0].image) {
         col.imageUrl = prods[0].image;
@@ -1275,6 +1355,8 @@ export const productService = {
         }
         return true;
       });
+
+      prods.forEach((p) => cacheProduct(p));
 
       if (!col.imageUrl && prods.length > 0 && prods[0].image) {
         col.imageUrl = prods[0].image;
