@@ -51,7 +51,7 @@ if (typeof window !== 'undefined') {
       queryClient,
       persister,
       maxAge: ONE_DAY_MS,
-      buster: 'v2.1', // Increment buster if schema changes
+      buster: 'v2.4', // Increment buster to flush old cached pagination and images
     });
   } catch (err) {
     console.warn('[TanStack Query] LocalStorage persistence unavailable, falling back to in-memory cache:', err);

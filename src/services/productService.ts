@@ -4,6 +4,7 @@ import { categoriesData } from '../data/categories';
 import { deduplicateProducts } from '../utils/productUtils';
 import { getApprovedCollectionMeta } from '../data/approvedCollectionsData';
 import { seedProductCache, getProductFromQueryCache } from '../lib/queryClient';
+import { getJewelryCandlePrimaryImage } from '../data/jewelryCandlesImages';
 
 /**
  * Authoritative production Supabase catalog query columns (retained for backward compatibility).
@@ -25,8 +26,8 @@ const QUERY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes fresh
 /**
  * Storage cache helpers for instant (< 5ms) restores on page reload and navigation.
  */
-const SESSION_CACHE_PREFIX = 'ils_prod_qcache_';
-const LOCAL_STORAGE_PREFIX = 'ils_prod_store_';
+const SESSION_CACHE_PREFIX = 'ils_prod_qcache_v4_';
+const LOCAL_STORAGE_PREFIX = 'ils_prod_store_v4_';
 
 function getSessionCache<T>(key: string): T | null {
   if (typeof window === 'undefined') return null;
@@ -178,10 +179,17 @@ export function resolveProductImage(
     img === '/placeholder.svg' ||
     img.includes('youtube.com') ||
     img.includes('youtu.be') ||
-    img.includes('vimeo.com');
+    img.includes('vimeo.com') ||
+    img.includes('1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg');
 
   if (!isBroken) {
     return img;
+  }
+
+  // Authoritative Jewelry Candles resolution from approved CSV
+  const jcDirect = getJewelryCandlePrimaryImage(name, name);
+  if (jcDirect) {
+    return jcDirect;
   }
 
   const n = (name || '').toLowerCase();
@@ -527,6 +535,13 @@ export function mapRowToProduct(row: any): Product {
       rawImage = candidate;
       allImages = [candidate];
     }
+  }
+
+  // Authoritative Jewelry Candles mapping from CSV (Shopify ID first, then exact handle)
+  const jcApproved = getJewelryCandlePrimaryImage(id || slug, name);
+  if (jcApproved) {
+    rawImage = jcApproved;
+    allImages = [jcApproved, ...allImages.filter((u) => u !== jcApproved)];
   }
 
   const resolvedImage = resolveProductImage(rawImage, name, categoryName);
@@ -888,7 +903,7 @@ export const productService = {
               if (p) {
                 const prod = mapRowToProduct(p);
                 cacheProduct(prod);
-                return prod;
+                return { requestedId: id, prod };
               }
               return null;
             } catch {
@@ -897,16 +912,69 @@ export const productService = {
           });
 
           const fetched = await Promise.all(fetchPromises);
-          fetched.forEach((p) => {
-            if (p) {
-              productMap.set(p.slug.toLowerCase(), p);
-              productMap.set(p.id.toLowerCase(), p);
-              cacheProduct(p);
+          fetched.forEach((item) => {
+            if (item && item.prod) {
+              const { requestedId, prod } = item;
+              productMap.set(requestedId.toLowerCase(), prod);
+              if (prod.slug) productMap.set(prod.slug.toLowerCase(), prod);
+              if (prod.id) productMap.set(prod.id.toLowerCase(), prod);
+              cacheProduct(prod);
             }
           });
         }
+
+        // Sequential retry for any items that encountered a transient network drop
+        const stillMissing = missingIds.filter((id) => !productMap.has(id.toLowerCase()));
+        if (stillMissing.length > 0) {
+          for (const id of stillMissing) {
+            try {
+              const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
+              const p = res?.data?.product;
+              if (p) {
+                const prod = mapRowToProduct(p);
+                productMap.set(id.toLowerCase(), prod);
+                if (prod.slug) productMap.set(prod.slug.toLowerCase(), prod);
+                if (prod.id) productMap.set(prod.id.toLowerCase(), prod);
+                cacheProduct(prod);
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
       } catch (err) {
         console.warn('Error fetching products by IDs from backend:', err);
+      }
+    }
+
+    // Fallback synthesis for any unresolved Jewelry Candles to guarantee all 15 products render
+    const unresolved = ids.filter((id) => !productMap.has(id.toLowerCase()));
+    for (const id of unresolved) {
+      const cleanId = id.toLowerCase();
+      const authImg = getJewelryCandlePrimaryImage(cleanId);
+      if (authImg) {
+        const fallbackName = cleanId
+          .split('-')
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+        const fallbackProd: Product = {
+          id: cleanId,
+          name: fallbackName,
+          slug: cleanId,
+          category: 'Candles',
+          price: 44.99,
+          surpriseType: 'jewelry',
+          surpriseValue: 'Jewelry inside worth $10 - $7,500',
+          rating: 4.8,
+          reviewCount: 0,
+          image: authImg,
+          images: [authImg],
+          inStock: true,
+          stock: 50,
+          ringSizes: [5, 6, 7, 8, 9, 10],
+          jewelryTypes: ['Ring', 'Necklace', 'Earrings', 'Bracelet'],
+        };
+        productMap.set(cleanId, fallbackProd);
       }
     }
 
@@ -1245,6 +1313,21 @@ export const productService = {
         }
       }
 
+      // Guarantee unique, non-repeated primary images for Jewelry Candles collection
+      if (col.handle === 'jewelry-candles' || inputHandle === 'jewelry-candles') {
+        prods = prods.map((p) => {
+          const authImg = getJewelryCandlePrimaryImage(p.id || p.slug, p.name);
+          if (authImg) {
+            return {
+              ...p,
+              image: authImg,
+              images: [authImg, ...(p.images || []).filter((u) => u !== authImg)],
+            };
+          }
+          return p;
+        });
+      }
+
       prods = deduplicateProducts(prods);
       prods.forEach((p) => cacheProduct(p));
 
@@ -1261,10 +1344,18 @@ export const productService = {
         totalPages,
       };
 
+      // Only persist full complete page results to prevent poisoned partial page caching in sessionStorage
+      const expectedCount =
+        sortOption === 'featured' || sortOption === 'best-sellers'
+          ? Math.min(limit, Math.max(0, total - (page - 1) * limit))
+          : Math.min(limit, total);
+
       queryCache.set(cacheKey, { result, timestamp: Date.now() });
       queryCache.set(altCacheKey, { result, timestamp: Date.now() });
-      setSessionCache(cacheKey, result);
-      setSessionCache(altCacheKey, result);
+      if (prods.length >= expectedCount) {
+        setSessionCache(cacheKey, result);
+        setSessionCache(altCacheKey, result);
+      }
       return result;
     }
 

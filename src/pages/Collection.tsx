@@ -121,6 +121,21 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
 
   const hasLongDescription = Boolean(collection?.bodyHtml && collection.bodyHtml.length > 350);
 
+  // Clean pagination items: shows all 1 to totalPages if <= 7, or elegant windowed ellipsis if > 7
+  const paginationItems = useMemo(() => {
+    if (totalPages <= 1) return [];
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, 'ellipsis', totalPages] as (number | 'ellipsis')[];
+    }
+    if (currentPage >= totalPages - 3) {
+      return [1, 'ellipsis', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages] as (number | 'ellipsis')[];
+    }
+    return [1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages] as (number | 'ellipsis')[];
+  }, [currentPage, totalPages]);
+
   return (
     <div className="w-full max-w-[1460px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 animate-in fade-in duration-300">
       {/* 1. Breadcrumb Navigation */}
@@ -344,16 +359,23 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
           </button>
 
           <div className="flex items-center gap-1">
-            {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
-              let pageNum = idx + 1;
-              if (totalPages > 5 && currentPage > 3) {
-                pageNum = currentPage - 2 + idx;
-                if (pageNum > totalPages) pageNum = totalPages - (4 - idx);
+            {paginationItems.map((item, idx) => {
+              if (item === 'ellipsis') {
+                return (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="w-8 h-8 flex items-center justify-center text-xs font-bold text-[#716d77]"
+                  >
+                    …
+                  </span>
+                );
               }
+
+              const pageNum = item as number;
               const isActive = pageNum === currentPage;
               return (
                 <button
-                  key={pageNum}
+                  key={`page-${pageNum}`}
                   type="button"
                   onClick={() => {
                     setCurrentPage(pageNum);
