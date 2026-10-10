@@ -892,58 +892,62 @@ export const productService = {
 
     if (missingIds.length > 0) {
       try {
-        // Fetch missing products in parallel chunks of 16 to avoid artificial queue delays
-        const chunkSize = 16;
-        for (let i = 0; i < missingIds.length; i += chunkSize) {
-          const chunk = missingIds.slice(i, i + chunkSize);
-          const fetchPromises = chunk.map(async (id) => {
-            try {
-              const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
-              const p = res?.data?.product;
-              if (p) {
-                const prod = mapRowToProduct(p);
-                cacheProduct(prod);
-                return { requestedId: id, prod };
+        // Fast single-request batch fetch
+        const batchRes = await apiClient.post<any>('/api/products/batch', { ids: missingIds });
+        const batchProducts: any[] = batchRes?.data?.products || [];
+
+        batchProducts.forEach((p) => {
+          if (p) {
+            const prod = mapRowToProduct(p);
+            if (prod.id) productMap.set(prod.id.toLowerCase(), prod);
+            if (prod.slug) productMap.set(prod.slug.toLowerCase(), prod);
+            cacheProduct(prod);
+          }
+        });
+      } catch (batchErr) {
+        console.warn('Batch fetch fallback to individual fetch:', batchErr);
+      }
+
+      // Check if any items are still missing
+      const stillMissing = missingIds.filter(
+        (id) => !productMap.has(id.toLowerCase())
+      );
+
+      if (stillMissing.length > 0) {
+        try {
+          // Fetch remaining missing products in parallel chunks of 16
+          const chunkSize = 16;
+          for (let i = 0; i < stillMissing.length; i += chunkSize) {
+            const chunk = stillMissing.slice(i, i + chunkSize);
+            const fetchPromises = chunk.map(async (id) => {
+              try {
+                const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
+                const p = res?.data?.product;
+                if (p) {
+                  const prod = mapRowToProduct(p);
+                  cacheProduct(prod);
+                  return { requestedId: id, prod };
+                }
+                return null;
+              } catch {
+                return null;
               }
-              return null;
-            } catch {
-              return null;
-            }
-          });
+            });
 
-          const fetched = await Promise.all(fetchPromises);
-          fetched.forEach((item) => {
-            if (item && item.prod) {
-              const { requestedId, prod } = item;
-              productMap.set(requestedId.toLowerCase(), prod);
-              if (prod.slug) productMap.set(prod.slug.toLowerCase(), prod);
-              if (prod.id) productMap.set(prod.id.toLowerCase(), prod);
-              cacheProduct(prod);
-            }
-          });
-        }
-
-        // Sequential retry for any items that encountered a transient network drop
-        const stillMissing = missingIds.filter((id) => !productMap.has(id.toLowerCase()));
-        if (stillMissing.length > 0) {
-          for (const id of stillMissing) {
-            try {
-              const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
-              const p = res?.data?.product;
-              if (p) {
-                const prod = mapRowToProduct(p);
-                productMap.set(id.toLowerCase(), prod);
+            const fetched = await Promise.all(fetchPromises);
+            fetched.forEach((item) => {
+              if (item && item.prod) {
+                const { requestedId, prod } = item;
+                productMap.set(requestedId.toLowerCase(), prod);
                 if (prod.slug) productMap.set(prod.slug.toLowerCase(), prod);
                 if (prod.id) productMap.set(prod.id.toLowerCase(), prod);
                 cacheProduct(prod);
               }
-            } catch {
-              // ignore
-            }
+            });
           }
+        } catch (err) {
+          console.warn('Error fetching missing products by IDs:', err);
         }
-      } catch (err) {
-        console.warn('Error fetching products by IDs from backend:', err);
       }
     }
 
