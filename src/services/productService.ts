@@ -1610,6 +1610,43 @@ export const productService = {
   },
 
   /**
+   * Proactively preloads all top navigation collections in the background.
+   * Ensures 0ms instant loading when the user clicks on any collection link.
+   */
+  prefetchCommonCollections(): void {
+    if (typeof window === 'undefined') return;
+    const topHandles = [
+      'halloween',
+      'christmas-candles-1',
+      'cash-candles',
+      'zodiac-cash-money-candles',
+      'candles',
+      'wax-melts',
+      'bath-bombs',
+      'soaps',
+      'jewelry',
+      'candy',
+      'chocolates',
+      'slimes',
+      'cards',
+    ];
+
+    const runPrefetch = () => {
+      topHandles.forEach((handle, idx) => {
+        setTimeout(() => {
+          this.getProductsByCollection(handle, { page: 1, limit: 10, sort: 'featured' }).catch(() => {});
+        }, idx * 100);
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(runPrefetch);
+    } else {
+      setTimeout(runPrefetch, 250);
+    }
+  },
+
+  /**
    * Clears the in-memory query cache.
    */
   clearCache() {

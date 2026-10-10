@@ -1728,7 +1728,12 @@ export const Header: React.FC<HeaderProps> = ({
                   <div
                     key={cat.id}
                     className="relative group shrink-0"
-                    onMouseEnter={() => (hasSub ? handleMegaEnter(cat.id) : handleMegaLeave())}
+                    onMouseEnter={() => {
+                      if (hasSub) handleMegaEnter(cat.id);
+                      else handleMegaLeave();
+                      // Proactively prefetch on hover for 0ms click transitions
+                      productService.getProductsByCollection(cat.slug, { page: 1, limit: 16, sort: 'featured' }).catch(() => {});
+                    }}
                     onMouseLeave={handleMegaLeave}
                   >
                     <a
