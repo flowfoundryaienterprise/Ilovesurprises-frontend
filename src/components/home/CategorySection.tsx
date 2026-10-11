@@ -3,6 +3,7 @@ import { ShieldCheck, Truck, RotateCcw, Lock } from 'lucide-react';
 import { categoriesData } from '../../data/categories';
 import { CategorySkeleton } from '../ui/CategorySkeleton';
 import { handleImageErrorSafely, getCategoryFallback } from '../../utils/imageUtils';
+import { productService } from '../../services/productService';
 import { FREE_SHIPPING_THRESHOLD, RETURN_POLICY_LABEL } from '../../config/policyConstants';
 
 interface CategorySectionProps {
@@ -86,6 +87,12 @@ export const CategorySection: React.FC<CategorySectionProps> = React.memo(({
                 key={category.id}
                 type="button"
                 onClick={() => handleCardClick(category)}
+                onMouseEnter={() => {
+                  productService.getProductsByCollection(category.slug, { page: 1, limit: 16, sort: 'featured' }).catch(() => {});
+                }}
+                onTouchStart={() => {
+                  productService.getProductsByCollection(category.slug, { page: 1, limit: 16, sort: 'featured' }).catch(() => {});
+                }}
                 className={`p-2 min-[375px]:p-2.5 sm:p-4 rounded-[16px] sm:rounded-[20px] border transition-all duration-300 flex flex-col items-center text-center cursor-pointer group hover:-translate-y-1.5 active:translate-y-0 active:scale-95 animate-in fade-in zoom-in-95 duration-200 ${isSelected
                   ? 'border-[#D30915] bg-[#fff1f2] shadow-[0_8px_24px_rgba(211,9,21,0.18)]'
                   : 'border-[#eee7ed] bg-white hover:border-[#f1b8cb] hover:bg-[#fff9fb] shadow-[0_4px_16px_rgba(50,31,63,0.03)] hover:shadow-[0_12px_28px_rgba(50,31,63,0.08)]'
