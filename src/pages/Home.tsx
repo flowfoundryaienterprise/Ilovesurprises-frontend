@@ -7,6 +7,7 @@ import { FeaturedProducts } from '../components/home/FeaturedProducts';
 import { ReviewsSection } from '../components/home/ReviewsSection';
 import { ValuePropositionSection } from '../components/home/ValuePropositionSection';
 import { sessionTracker } from '../utils/sessionTracker';
+import { productService } from '../services/productService';
 import type { Product, CartItem } from '../types';
 
 interface HomeProps {
@@ -50,6 +51,27 @@ export const Home: React.FC<HomeProps> = ({
     }, 450);
     return () => clearTimeout(timer);
   }, [isLoading]);
+
+  // Pre-warm primary catalog collections in browser idle time
+  useEffect(() => {
+    let idleId: number | null = null;
+    const timer = setTimeout(() => {
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        idleId = (window as any).requestIdleCallback(() => {
+          productService.getProductsByCollection('jewelry-candles', { page: 1, limit: 15, sort: 'featured' }).catch(() => { });
+        });
+      } else {
+        productService.getProductsByCollection('jewelry-candles', { page: 1, limit: 15, sort: 'featured' }).catch(() => { });
+      }
+    }, 1200);
+
+    return () => {
+      clearTimeout(timer);
+      if (idleId && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        (window as any).cancelIdleCallback(idleId);
+      }
+    };
+  }, []);
 
   return (
     <main className="w-full overflow-x-hidden animate-in fade-in duration-300">

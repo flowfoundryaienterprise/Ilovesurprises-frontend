@@ -148,7 +148,7 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
         if (content) {
           setHomepageConfig(content);
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     // 2. Listen to updates

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Menu,
-  ShieldCheck,
   ArrowLeft,
   ChevronRight,
   LogOut,
@@ -41,7 +40,6 @@ import { AdminSettings } from '../components/admin/AdminSettings';
 import { AdminPermissions } from '../components/admin/AdminPermissions';
 import { AdminPermissionDenied } from '../components/admin/AdminPermissionDenied';
 import { AdminKpiSkeleton, AdminTableSkeleton } from '../components/admin/AdminSkeleton';
-import { AdminCustomSelect } from '../components/admin/AdminCustomSelect';
 
 interface AdminDashboardProps {
   initialTab?: AdminTab;
@@ -323,23 +321,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {/* Right Header Badges */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Live Role Switcher Dropdown */}
-            <div className="hidden sm:block">
-              <AdminCustomSelect
-                options={[
-                  { value: 'super_admin', label: 'Super Admin', badge: 'All Access', badgeColor: 'bg-[#fff1f2] text-[#D30915]' },
-                  { value: 'store_manager', label: 'Store Manager', badge: 'Commerce', badgeColor: 'bg-emerald-50 text-emerald-700' },
-                  { value: 'affiliate_manager', label: 'Affiliate Director', badge: 'Reps', badgeColor: 'bg-purple-50 text-purple-700' },
-                  { value: 'support_rep', label: 'Support Rep', badge: 'Read Only', badgeColor: 'bg-gray-100 text-gray-700' },
-                ]}
-                value={currentRole}
-                onChange={(val) => handleSwitchRole(val as AdminRole)}
-                icon={<ShieldCheck className="w-3.5 h-3.5 text-[#D30915]" />}
-                size="sm"
-                variant="pill"
-                dropdownClassName="w-56 right-0 left-auto shadow-2xl"
-              />
-            </div>
 
             {/* Exit to Store Button */}
             <button

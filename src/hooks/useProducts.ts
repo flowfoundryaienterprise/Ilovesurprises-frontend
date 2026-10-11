@@ -23,6 +23,10 @@ export function useProducts(params: GetProductsParams = {}) {
     },
     placeholderData: keepPreviousData, // Keeps previous page data while new page loads, eliminating UI flicker
     staleTime: 10 * 60 * 1000, // 10 minutes fresh
+    initialData: () => {
+      const cached = productService.getCachedProducts(params);
+      return cached || undefined;
+    },
   });
 
   return {
@@ -114,6 +118,11 @@ export function useProductsByCollection(
     enabled: Boolean(cleanHandle),
     placeholderData: keepPreviousData,
     staleTime: 15 * 60 * 1000, // 15 minutes fresh
+    initialData: () => {
+      if (!cleanHandle) return undefined;
+      const cached = productService.getCachedCollectionResult(cleanHandle, params);
+      return cached || undefined;
+    },
   });
 
   return {
@@ -216,4 +225,39 @@ export function usePrefetchProduct() {
   );
 
   return { prefetchProduct };
+}
+
+/**
+ * Hook providing a background prefetch utility for collections.
+ * Use on hover or in background idle tasks to eliminate collection load time.
+ */
+export function usePrefetchCollection() {
+  const queryClient = useQueryClient();
+
+  const prefetchCollection = useCallback(
+    (handleOrId: string | null | undefined, params: UseProductsByCollectionParams = {}) => {
+      if (!handleOrId) return;
+      const clean = handleOrId.toLowerCase().trim();
+      const existing = queryClient.getQueryData(productKeys.collection(clean, params as any));
+      if (existing) return;
+
+      queryClient.prefetchQuery({
+        queryKey: productKeys.collection(clean, params as any),
+        queryFn: async () => {
+          const res = await productService.getProductsByCollection(clean, params);
+          if (res?.products?.length) {
+            res.products.forEach((p) => {
+              seedProductCache(p);
+              productService.cacheProduct(p);
+            });
+          }
+          return res;
+        },
+        staleTime: 15 * 60 * 1000,
+      });
+    },
+    [queryClient]
+  );
+
+  return { prefetchCollection };
 }

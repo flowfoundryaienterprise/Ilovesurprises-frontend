@@ -47,26 +47,26 @@ export interface HeaderProps {
   cartSubtotal?: number;
   user?: UserProfile | null;
   activeView?:
-    | 'home'
-    | 'shop'
-    | 'collection'
-    | 'categories'
-    | 'product-details'
-    | 'checkout'
-    | 'order-confirmation'
-    | 'account'
-    | 'affiliate'
-    | 'about'
-    | 'contact'
-    | 'rewards'
-    | 'admin'
-    | 'appraisal'
-    | 'refund-policy'
-    | 'terms'
-    | 'official-rules'
-    | 'shipping-policy'
-    | 'privacy'
-    | 'faqs';
+  | 'home'
+  | 'shop'
+  | 'collection'
+  | 'categories'
+  | 'product-details'
+  | 'checkout'
+  | 'order-confirmation'
+  | 'account'
+  | 'affiliate'
+  | 'about'
+  | 'contact'
+  | 'rewards'
+  | 'admin'
+  | 'appraisal'
+  | 'refund-policy'
+  | 'terms'
+  | 'official-rules'
+  | 'shipping-policy'
+  | 'privacy'
+  | 'faqs';
   onOpenCart?: () => void;
   wishlistCount?: number;
   onOpenAuth?: (mode?: 'login' | 'signup' | 'forgot') => void;
@@ -236,7 +236,7 @@ export const Header: React.FC<HeaderProps> = ({
       if (content?.announcementText) {
         setAnnouncementText(content.announcementText);
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     // 2. Listen to updates
     const handleUpdate = () => {
@@ -499,14 +499,19 @@ export const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     const q = searchQuery.trim();
     const searchId = ++activeSearchIdRef.current;
+    const isAnySearchActive = isSearchOpen || isDesktopSearchFocused || isMobileSearchFocused || isMobileSearchOpen;
 
     if (!q) {
-      productService.getFeaturedProducts(8).then((featured) => {
-        if (searchId === activeSearchIdRef.current) {
-          setMatchingProducts(featured);
-          setIsSearching(false);
-        }
-      });
+      if (isAnySearchActive) {
+        productService.getFeaturedProducts(8).then((featured) => {
+          if (searchId === activeSearchIdRef.current) {
+            setMatchingProducts(featured);
+            setIsSearching(false);
+          }
+        });
+      } else {
+        setIsSearching(false);
+      }
       return;
     }
 
@@ -531,7 +536,7 @@ export const Header: React.FC<HeaderProps> = ({
     return () => {
       clearTimeout(timer);
     };
-  }, [searchQuery]);
+  }, [searchQuery, isSearchOpen, isDesktopSearchFocused, isMobileSearchFocused, isMobileSearchOpen]);
 
   // Open Mobile Menu safely with smooth entry transition
   const openMobileMenu = () => {
@@ -1515,8 +1520,8 @@ export const Header: React.FC<HeaderProps> = ({
                   }
                 }}
                 className={`lg:hidden w-[40px] h-[40px] rounded-full border transition-all cursor-pointer flex items-center justify-center shadow-2xs shrink-0 active:scale-95 ${isMobileSearchOpen
-                    ? 'bg-[#fff0f3] border-[#D30915] text-[#D30915]'
-                    : 'bg-[#fffafb] border-[#f0e4ec] text-[#141219] hover:text-[#D30915] hover:border-[#D30915]'
+                  ? 'bg-[#fff0f3] border-[#D30915] text-[#D30915]'
+                  : 'bg-[#fffafb] border-[#f0e4ec] text-[#141219] hover:text-[#D30915] hover:border-[#D30915]'
                   }`}
                 aria-label="Search products"
                 title="Search"
@@ -1740,8 +1745,8 @@ export const Header: React.FC<HeaderProps> = ({
                         }
                       }}
                       className={`group flex items-center gap-0.5 min-[1180px]:gap-1 px-1 min-[1180px]:px-1.5 xl:px-2 py-0.5 rounded-full text-[11px] min-[1150px]:text-[11.5px] min-[1220px]:text-[12px] xl:text-[13px] 2xl:text-[13.5px] font-bold transition-all cursor-pointer whitespace-nowrap select-none shrink-0 ${isMegaActive
-                          ? 'text-[#D30915] bg-[#fff0f3]'
-                          : 'text-[#141219] hover:text-[#D30915] hover:bg-[#fff9fb]'
+                        ? 'text-[#D30915] bg-[#fff0f3]'
+                        : 'text-[#141219] hover:text-[#D30915] hover:bg-[#fff9fb]'
                         }`}
                       aria-expanded={isMegaActive}
                     >
@@ -1808,8 +1813,8 @@ export const Header: React.FC<HeaderProps> = ({
                       }
                     }}
                     className={`flex items-center gap-0.5 min-[1180px]:gap-1 xl:gap-1.5 px-1 min-[1180px]:px-1.5 xl:px-2 py-0.5 rounded-full text-[11px] min-[1150px]:text-[11.5px] min-[1220px]:text-[12px] xl:text-[13px] 2xl:text-[13.5px] font-bold transition-all cursor-pointer whitespace-nowrap select-none shrink-0 ${isRouteActive
-                        ? 'text-[#D30915] bg-[#fff0f3]'
-                        : 'text-[#141219] hover:text-[#D30915] hover:bg-[#fff9fb]'
+                      ? 'text-[#D30915] bg-[#fff0f3]'
+                      : 'text-[#141219] hover:text-[#D30915] hover:bg-[#fff9fb]'
                       }`}
                   >
                     {cat.slug === 'affiliate' && (
@@ -1836,289 +1841,288 @@ export const Header: React.FC<HeaderProps> = ({
               })}
             </div>
 
-          {/* Desktop Mega Menu Dropdown */}
-          {displayedMegaCategory && (() => {
-            const cat = NAVIGATION_CATEGORIES.find((c) => c.id === displayedMegaCategory);
-            if (!cat || !cat.columns || cat.columns.length === 0) return null;
-            const isMegaOpen = Boolean(activeMegaCategory);
+            {/* Desktop Mega Menu Dropdown */}
+            {displayedMegaCategory && (() => {
+              const cat = NAVIGATION_CATEGORIES.find((c) => c.id === displayedMegaCategory);
+              if (!cat || !cat.columns || cat.columns.length === 0) return null;
+              const isMegaOpen = Boolean(activeMegaCategory);
 
-            return (
-              <div
-                className="absolute left-0 right-0 top-full pt-1.5 z-50 pointer-events-none"
-                style={{
-                  transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
-                  opacity: isMegaOpen ? 1 : 0,
-                  transform: isMegaOpen ? 'translateY(0)' : 'translateY(12px)',
-                  pointerEvents: isMegaOpen ? 'auto' : 'none',
-                  overflow: 'visible',
-                  width: '100%',
-                }}
-                onMouseEnter={handleMegaMenuPanelEnter}
-                onMouseLeave={handleMegaLeave}
-              >
-                {/* Parent Mega Menu Container */}
+              return (
                 <div
-                  className="w-full bg-white rounded-b-[20px] border border-stone-200 border-t-0 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.1)] relative"
+                  className="absolute left-0 right-0 top-full pt-1.5 z-50 pointer-events-none"
                   style={{
+                    transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+                    opacity: isMegaOpen ? 1 : 0,
+                    transform: isMegaOpen ? 'translateY(0)' : 'translateY(12px)',
+                    pointerEvents: isMegaOpen ? 'auto' : 'none',
+                    overflow: 'visible',
                     width: '100%',
-                    maxWidth: 'min(1280px, 100%)',
-                    left: 0,
-                    right: 0,
-                    margin: '0 auto',
-                    padding: '16px 20px',
-                    boxSizing: 'border-box',
-                    overflow: 'hidden',
-                    borderRadius: '0 0 16px 16px',
                   }}
+                  onMouseEnter={handleMegaMenuPanelEnter}
+                  onMouseLeave={handleMegaLeave}
                 >
-                  {/* Top Bar: Clean, Straight Category Title & View All */}
-                  <div className="flex items-center justify-between gap-4 pb-2.5 mb-3 border-b border-stone-100">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#D30915]" />
-                      <span className="font-extrabold text-xs uppercase tracking-wider text-stone-900 whitespace-nowrap">
-                        {cat.name} Collections
-                      </span>
-                    </div>
-                    <a
-                      href={getCategoryHref(cat)}
-                      onClick={(e) => {
-                        if (!isModifiedEvent(e)) {
-                          e.preventDefault();
-                          handleCategoryClick(cat);
-                        }
-                      }}
-                      className="group/all inline-flex items-center gap-1.5 text-xs font-bold text-[#D30915] hover:text-[#B60711] transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      <span>{cat.viewAllLabel || `View All ${cat.name}`}</span>
-                      <ArrowRight className="w-3.5 h-3.5 group-hover/all:translate-x-1 transition-transform" />
-                    </a>
-                  </div>
-
-                  {/* Content Grid: 100% straight columns */}
+                  {/* Parent Mega Menu Container */}
                   <div
+                    className="w-full bg-white rounded-b-[20px] border border-stone-200 border-t-0 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.1)] relative"
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns:
-                        cat.columns && cat.columns.length === 3
-                          ? 'minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(160px, 240px)'
-                          : 'minmax(0, 1.2fr) minmax(0, 1fr) minmax(160px, 240px)',
-                      gap: '14px',
-                      alignItems: 'start',
+                      width: '100%',
+                      maxWidth: 'min(1280px, 100%)',
+                      left: 0,
+                      right: 0,
+                      margin: '0 auto',
+                      padding: '16px 20px',
+                      boxSizing: 'border-box',
+                      overflow: 'hidden',
+                      borderRadius: '0 0 16px 16px',
                     }}
                   >
-                    {/* Primary Subcategory Columns */}
-                    {cat.columns.map((col, idx) => (
-                      <div key={idx} className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-2 pb-2 mb-2.5 border-b border-stone-100 min-w-0">
-                          <div className="w-1.5 h-3 rounded-full bg-[#D30915] shrink-0" />
-                          <h4 className="text-stone-900 uppercase m-0 text-xs font-bold tracking-wider whitespace-nowrap">
-                            {col.heading}
-                          </h4>
+                    {/* Top Bar: Clean, Straight Category Title & View All */}
+                    <div className="flex items-center justify-between gap-4 pb-2.5 mb-3 border-b border-stone-100">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[#D30915]" />
+                        <span className="font-extrabold text-xs uppercase tracking-wider text-stone-900 whitespace-nowrap">
+                          {cat.name} Collections
+                        </span>
+                      </div>
+                      <a
+                        href={getCategoryHref(cat)}
+                        onClick={(e) => {
+                          if (!isModifiedEvent(e)) {
+                            e.preventDefault();
+                            handleCategoryClick(cat);
+                          }
+                        }}
+                        className="group/all inline-flex items-center gap-1.5 text-xs font-bold text-[#D30915] hover:text-[#B60711] transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        <span>{cat.viewAllLabel || `View All ${cat.name}`}</span>
+                        <ArrowRight className="w-3.5 h-3.5 group-hover/all:translate-x-1 transition-transform" />
+                      </a>
+                    </div>
+
+                    {/* Content Grid: 100% straight columns */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns:
+                          cat.columns && cat.columns.length === 3
+                            ? 'minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(160px, 240px)'
+                            : 'minmax(0, 1.2fr) minmax(0, 1fr) minmax(160px, 240px)',
+                        gap: '14px',
+                        alignItems: 'start',
+                      }}
+                    >
+                      {/* Primary Subcategory Columns */}
+                      {cat.columns.map((col, idx) => (
+                        <div key={idx} className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-2 pb-2 mb-2.5 border-b border-stone-100 min-w-0">
+                            <div className="w-1.5 h-3 rounded-full bg-[#D30915] shrink-0" />
+                            <h4 className="text-stone-900 uppercase m-0 text-xs font-bold tracking-wider whitespace-nowrap">
+                              {col.heading}
+                            </h4>
+                          </div>
+                          <ul className="space-y-0.5 p-0 m-0 list-none">
+                            {col.items.map((item) => (
+                              <li key={item.id}>
+                                <a
+                                  href={getSubCategoryHref(item)}
+                                  onClick={(e) => {
+                                    if (!isModifiedEvent(e)) {
+                                      e.preventDefault();
+                                      handleSubCategoryClick(cat, item);
+                                    }
+                                  }}
+                                  className="w-full text-left group/sub flex items-center justify-between gap-2 py-1 text-[13px] xl:text-[13.5px] font-medium text-stone-700 hover:text-[#D30915] transition-colors cursor-pointer min-w-0"
+                                >
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-stone-300 group-hover/sub:bg-[#D30915] group-hover/sub:scale-125 transition-all shrink-0" />
+                                    <span className="group-hover/sub:translate-x-0.5 transition-transform truncate">
+                                      {item.name}
+                                    </span>
+                                  </div>
+                                  {item.badge && (
+                                    <span className="text-[9.5px] xl:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-700 border border-stone-200 shrink-0 whitespace-nowrap">
+                                      {item.badge}
+                                    </span>
+                                  )}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                        <ul className="space-y-0.5 p-0 m-0 list-none">
-                          {col.items.map((item) => (
-                            <li key={item.id}>
+                      ))}
+
+                      {/* For 1-column categories: Clean straight "Shop by Surprise" column */}
+                      {cat.columns.length === 1 && (
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-2 pb-2 mb-2.5 border-b border-stone-100 min-w-0">
+                            <div className="w-1.5 h-3 rounded-full bg-amber-500 shrink-0" />
+                            <h4 className="text-stone-900 uppercase m-0 text-xs font-bold tracking-wider whitespace-nowrap">
+                              Shop by Surprise
+                            </h4>
+                          </div>
+                          <ul className="space-y-0.5 p-0 m-0 list-none">
+                            <li>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMegaCategory(null);
+                                  setDisplayedMegaCategory(null);
+                                  onSearch?.('Cash ' + cat.name);
+                                }}
+                                className="w-full text-left group/sub flex items-center justify-between gap-2 py-1 text-[13px] xl:text-[13.5px] font-medium text-stone-700 hover:text-[#D30915] transition-colors cursor-pointer min-w-0"
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 group-hover/sub:scale-125 transition-all shrink-0" />
+                                  <span className="group-hover/sub:translate-x-0.5 transition-transform truncate">
+                                    Cash Inside Reveals
+                                  </span>
+                                </div>
+                                <span className="text-[9.5px] xl:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0 whitespace-nowrap">
+                                  💵 Cash
+                                </span>
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMegaCategory(null);
+                                  setDisplayedMegaCategory(null);
+                                  onSearch?.('Jewelry ' + cat.name);
+                                }}
+                                className="w-full text-left group/sub flex items-center justify-between gap-2 py-1 text-[13px] xl:text-[13.5px] font-medium text-stone-700 hover:text-[#D30915] transition-colors cursor-pointer min-w-0"
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 group-hover/sub:scale-125 transition-all shrink-0" />
+                                  <span className="group-hover/sub:translate-x-0.5 transition-transform truncate">
+                                    Jewelry Inside Reveals
+                                  </span>
+                                </div>
+                                <span className="text-[9.5px] xl:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 shrink-0 whitespace-nowrap">
+                                  💎 Jewelry
+                                </span>
+                              </button>
+                            </li>
+                            <li>
                               <a
-                                href={getSubCategoryHref(item)}
+                                href={getCategoryHref(cat)}
                                 onClick={(e) => {
                                   if (!isModifiedEvent(e)) {
                                     e.preventDefault();
-                                    handleSubCategoryClick(cat, item);
+                                    handleCategoryClick(cat);
                                   }
                                 }}
                                 className="w-full text-left group/sub flex items-center justify-between gap-2 py-1 text-[13px] xl:text-[13.5px] font-medium text-stone-700 hover:text-[#D30915] transition-colors cursor-pointer min-w-0"
                               >
                                 <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-stone-300 group-hover/sub:bg-[#D30915] group-hover/sub:scale-125 transition-all shrink-0" />
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 group-hover/sub:scale-125 transition-all shrink-0" />
                                   <span className="group-hover/sub:translate-x-0.5 transition-transform truncate">
-                                    {item.name}
+                                    Best Seller Reveals
                                   </span>
                                 </div>
-                                {item.badge && (
-                                  <span className="text-[9.5px] xl:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-700 border border-stone-200 shrink-0 whitespace-nowrap">
-                                    {item.badge}
-                                  </span>
-                                )}
+                                <span className="text-[9.5px] xl:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0 whitespace-nowrap">
+                                  ★ Popular
+                                </span>
                               </a>
                             </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-
-                    {/* For 1-column categories: Clean straight "Shop by Surprise" column */}
-                    {cat.columns.length === 1 && (
-                      <div className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-2 pb-2 mb-2.5 border-b border-stone-100 min-w-0">
-                          <div className="w-1.5 h-3 rounded-full bg-amber-500 shrink-0" />
-                          <h4 className="text-stone-900 uppercase m-0 text-xs font-bold tracking-wider whitespace-nowrap">
-                            Shop by Surprise
-                          </h4>
+                            <li>
+                              <a
+                                href={getCategoryHref(cat)}
+                                onClick={(e) => {
+                                  if (!isModifiedEvent(e)) {
+                                    e.preventDefault();
+                                    handleCategoryClick(cat);
+                                  }
+                                }}
+                                className="w-full text-left group/sub flex items-center justify-between gap-3 py-1 text-[13.5px] font-medium text-stone-700 hover:text-[#D30915] transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400 group-hover/sub:scale-125 transition-all shrink-0" />
+                                  <span className="group-hover/sub:translate-x-0.5 transition-transform whitespace-nowrap">
+                                    Gift Sets &amp; Bundles
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 border border-stone-200 shrink-0 whitespace-nowrap">
+                                  🎁 Gift
+                                </span>
+                              </a>
+                            </li>
+                          </ul>
                         </div>
-                        <ul className="space-y-0.5 p-0 m-0 list-none">
-                          <li>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMegaCategory(null);
-                                setDisplayedMegaCategory(null);
-                                onSearch?.('Cash ' + cat.name);
-                              }}
-                              className="w-full text-left group/sub flex items-center justify-between gap-2 py-1 text-[13px] xl:text-[13.5px] font-medium text-stone-700 hover:text-[#D30915] transition-colors cursor-pointer min-w-0"
-                            >
-                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 group-hover/sub:scale-125 transition-all shrink-0" />
-                                <span className="group-hover/sub:translate-x-0.5 transition-transform truncate">
-                                  Cash Inside Reveals
-                                </span>
-                              </div>
-                              <span className="text-[9.5px] xl:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0 whitespace-nowrap">
-                                💵 Cash
-                              </span>
-                            </button>
-                          </li>
-                          <li>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMegaCategory(null);
-                                setDisplayedMegaCategory(null);
-                                onSearch?.('Jewelry ' + cat.name);
-                              }}
-                              className="w-full text-left group/sub flex items-center justify-between gap-2 py-1 text-[13px] xl:text-[13.5px] font-medium text-stone-700 hover:text-[#D30915] transition-colors cursor-pointer min-w-0"
-                            >
-                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 group-hover/sub:scale-125 transition-all shrink-0" />
-                                <span className="group-hover/sub:translate-x-0.5 transition-transform truncate">
-                                  Jewelry Inside Reveals
-                                </span>
-                              </div>
-                              <span className="text-[9.5px] xl:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 shrink-0 whitespace-nowrap">
-                                💎 Jewelry
-                              </span>
-                            </button>
-                          </li>
-                          <li>
-                            <a
-                              href={getCategoryHref(cat)}
-                              onClick={(e) => {
-                                if (!isModifiedEvent(e)) {
-                                  e.preventDefault();
-                                  handleCategoryClick(cat);
-                                }
-                              }}
-                              className="w-full text-left group/sub flex items-center justify-between gap-2 py-1 text-[13px] xl:text-[13.5px] font-medium text-stone-700 hover:text-[#D30915] transition-colors cursor-pointer min-w-0"
-                            >
-                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 group-hover/sub:scale-125 transition-all shrink-0" />
-                                <span className="group-hover/sub:translate-x-0.5 transition-transform truncate">
-                                  Best Seller Reveals
-                                </span>
-                              </div>
-                              <span className="text-[9.5px] xl:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0 whitespace-nowrap">
-                                ★ Popular
-                              </span>
-                            </a>
-                          </li>
-                          <li>
-                            <a
-                              href={getCategoryHref(cat)}
-                              onClick={(e) => {
-                                if (!isModifiedEvent(e)) {
-                                  e.preventDefault();
-                                  handleCategoryClick(cat);
-                                }
-                              }}
-                              className="w-full text-left group/sub flex items-center justify-between gap-3 py-1 text-[13.5px] font-medium text-stone-700 hover:text-[#D30915] transition-colors cursor-pointer whitespace-nowrap"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 group-hover/sub:scale-125 transition-all shrink-0" />
-                                <span className="group-hover/sub:translate-x-0.5 transition-transform whitespace-nowrap">
-                                  Gift Sets &amp; Bundles
-                                </span>
-                              </div>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 border border-stone-200 shrink-0 whitespace-nowrap">
-                                🎁 Gift
-                              </span>
-                            </a>
-                          </li>
-                        </ul>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Right Spotlight Promo Card (Displays Full Product Image on Clean White Background) */}
-                    {cat.spotlight && (
-                      <div className="flex flex-col min-w-0 shrink-0 w-full max-w-[240px]">
-                        <div
-                          onClick={() => {
-                            setActiveMegaCategory(null);
-                            setDisplayedMegaCategory(null);
-                            if (onSelectCategory) {
-                              onSelectCategory(cat.spotlight!.targetCategory);
-                            } else {
-                              onNavigate?.('shop');
-                            }
-                          }}
-                          className="group/promo relative flex flex-col bg-white border border-stone-200 hover:border-stone-400 transition-all duration-300 shadow-xs hover:shadow-md cursor-pointer w-full max-w-[240px] rounded-[12px] overflow-hidden box-border"
-                        >
-                          {/* Image Container: Pure white background, no pink gradient or overlay badges */}
+                      {/* Right Spotlight Promo Card (Displays Full Product Image on Clean White Background) */}
+                      {cat.spotlight && (
+                        <div className="flex flex-col min-w-0 shrink-0 w-full max-w-[240px]">
                           <div
-                            className="relative w-full flex items-center justify-center bg-white overflow-hidden"
-                            style={{
-                              width: '100%',
-                              height: '175px',
-                              maxHeight: '185px',
-                              borderRadius: '12px 12px 0 0',
-                              overflow: 'hidden',
-                              position: 'relative',
+                            onClick={() => {
+                              setActiveMegaCategory(null);
+                              setDisplayedMegaCategory(null);
+                              if (onSelectCategory) {
+                                onSelectCategory(cat.spotlight!.targetCategory);
+                              } else {
+                                onNavigate?.('shop');
+                              }
                             }}
+                            className="group/promo relative flex flex-col bg-white border border-stone-200 hover:border-stone-400 transition-all duration-300 shadow-xs hover:shadow-md cursor-pointer w-full max-w-[240px] rounded-[12px] overflow-hidden box-border"
                           >
-                            <img
-                              src={cat.spotlight.image}
-                              alt={cat.spotlight.title}
-                              className="transition-transform duration-500 group-hover/promo:scale-105"
+                            {/* Image Container: Pure white background, no pink gradient or overlay badges */}
+                            <div
+                              className="relative w-full flex items-center justify-center bg-white overflow-hidden"
                               style={{
                                 width: '100%',
-                                height: '100%',
-                                maxHeight: '175px',
-                                objectFit: 'contain',
-                                objectPosition: 'center',
-                                display: 'block',
-                                padding: '6px',
-                                boxSizing: 'border-box',
+                                height: '175px',
+                                maxHeight: '185px',
+                                borderRadius: '12px 12px 0 0',
+                                overflow: 'hidden',
+                                position: 'relative',
                               }}
-                            />
-                          </div>
+                            >
+                              <img
+                                src={cat.spotlight.image}
+                                alt={cat.spotlight.title}
+                                className="transition-transform duration-500 group-hover/promo:scale-105"
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  maxHeight: '175px',
+                                  objectFit: 'contain',
+                                  objectPosition: 'center',
+                                  display: 'block',
+                                  padding: '6px',
+                                  boxSizing: 'border-box',
+                                }}
+                              />
+                            </div>
 
-                          {/* Details below image: Only clean text */}
-                          <div className="p-2 flex items-center justify-between gap-1.5 bg-white border-t border-stone-100 min-w-0">
-                            <strong className="font-bold text-xs text-stone-900 group-hover/promo:text-[#D30915] transition-colors truncate">
-                              {cat.spotlight.title}
-                            </strong>
-                            <span className="text-[10.5px] font-bold text-[#D30915] flex items-center gap-1 shrink-0 whitespace-nowrap">
-                              Shop <ArrowRight className="w-3 h-3 group-hover/promo:translate-x-1 transition-transform" />
-                            </span>
+                            {/* Details below image: Only clean text */}
+                            <div className="p-2 flex items-center justify-between gap-1.5 bg-white border-t border-stone-100 min-w-0">
+                              <strong className="font-bold text-xs text-stone-900 group-hover/promo:text-[#D30915] transition-colors truncate">
+                                {cat.spotlight.title}
+                              </strong>
+                              <span className="text-[10.5px] font-bold text-[#D30915] flex items-center gap-1 shrink-0 whitespace-nowrap">
+                                Shop <ArrowRight className="w-3 h-3 group-hover/promo:translate-x-1 transition-transform" />
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })()}
-        </nav>
-      </div>
-    </header>
+              );
+            })()}
+          </nav>
+        </div>
+      </header>
 
       {/* 3. Full-Screen Mobile Navigation Drawer Portal */}
       {typeof document !== 'undefined' && (isMobileMenuOpen || isClosingMobileMenu) && createPortal(
         <div className="fixed inset-0 z-[99999] flex justify-end overflow-hidden">
           {/* Backdrop overlay with blur */}
           <div
-            className={`fixed inset-0 bg-black/60 backdrop-blur-xs transition-all ${
-              isClosingMobileMenu ? 'animate-backdrop-out' : 'animate-backdrop-in'
-            }`}
+            className={`fixed inset-0 bg-black/60 backdrop-blur-xs transition-all ${isClosingMobileMenu ? 'animate-backdrop-out' : 'animate-backdrop-in'
+              }`}
             onClick={() => closeMobileMenu()}
             aria-hidden="true"
           />
@@ -2128,299 +2132,212 @@ export const Header: React.FC<HeaderProps> = ({
             role="dialog"
             aria-modal="true"
             aria-label="Mobile Navigation Menu"
-            className={`relative w-[85%] max-w-[340px] h-full bg-white shadow-2xl z-10 flex flex-col justify-between overflow-y-auto border-l border-[#eee7ed] ${
-              isClosingMobileMenu ? 'animate-drawer-out' : 'animate-drawer-in'
-            }`}
+            className={`relative w-[85%] max-w-[340px] h-full bg-white shadow-2xl z-10 flex flex-col justify-between overflow-y-auto border-l border-[#eee7ed] ${isClosingMobileMenu ? 'animate-drawer-out' : 'animate-drawer-in'
+              }`}
           >
-          {/* Drawer Top Header */}
-          <div>
-            <div className="p-4 border-b border-[#f4edf2] flex items-center justify-between bg-gradient-to-r from-[#fff5f5] to-[#ffffff]">
-              <a
-                href="/"
-                onClick={(e) =>
-                  handleNavClick(e, {
-                    id: 'home',
-                    label: 'Home',
-                    href: '/',
-                    targetSectionId: 'hero',
-                    icon: HomeIcon,
-                  })
-                }
-                className="flex items-center shrink min-w-0"
-                aria-label="Home"
-              >
-                <img
-                  src="/assets/ilovesurprises/logo/logo-16k.png"
-                  alt="I Love Surprises Logo"
-                  width={8192}
-                  height={2728}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-[42px] min-[360px]:h-[46px] min-[390px]:h-[50px] min-[420px]:h-[52px] sm:h-[50px] w-auto max-w-[170px] min-[360px]:max-w-[195px] min-[390px]:max-w-[215px] min-[420px]:max-w-[230px] sm:max-w-[225px] object-contain"
-                  style={{
-                    imageRendering: '-webkit-optimize-contrast',
-                    WebkitBackfaceVisibility: 'hidden',
-                    backfaceVisibility: 'hidden',
-                    transform: 'translateZ(0)',
-                  }}
-                />
-              </a>
+            {/* Drawer Top Header */}
+            <div>
+              <div className="p-4 border-b border-[#f4edf2] flex items-center justify-between bg-gradient-to-r from-[#fff5f5] to-[#ffffff]">
+                <a
+                  href="/"
+                  onClick={(e) =>
+                    handleNavClick(e, {
+                      id: 'home',
+                      label: 'Home',
+                      href: '/',
+                      targetSectionId: 'hero',
+                      icon: HomeIcon,
+                    })
+                  }
+                  className="flex items-center shrink min-w-0"
+                  aria-label="Home"
+                >
+                  <img
+                    src="/assets/ilovesurprises/logo/logo-16k.png"
+                    alt="I Love Surprises Logo"
+                    width={8192}
+                    height={2728}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-[42px] min-[360px]:h-[46px] min-[390px]:h-[50px] min-[420px]:h-[52px] sm:h-[50px] w-auto max-w-[170px] min-[360px]:max-w-[195px] min-[390px]:max-w-[215px] min-[420px]:max-w-[230px] sm:max-w-[225px] object-contain"
+                    style={{
+                      imageRendering: '-webkit-optimize-contrast',
+                      WebkitBackfaceVisibility: 'hidden',
+                      backfaceVisibility: 'hidden',
+                      transform: 'translateZ(0)',
+                    }}
+                  />
+                </a>
 
-              <button
-                type="button"
-                onClick={() => closeMobileMenu()}
-                className="w-9 h-9 rounded-full bg-white border border-[#ecdbe6] hover:bg-[#fff1f2] hover:text-[#D30915] hover:border-[#fecdd3] text-[#716d77] flex items-center justify-center active:scale-90 transition-all cursor-pointer shadow-2xs"
-                aria-label="Close navigation menu"
-              >
-                <X className="w-4 h-4 stroke-[2.5]" />
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => closeMobileMenu()}
+                  className="w-9 h-9 rounded-full bg-white border border-[#ecdbe6] hover:bg-[#fff1f2] hover:text-[#D30915] hover:border-[#fecdd3] text-[#716d77] flex items-center justify-center active:scale-90 transition-all cursor-pointer shadow-2xs"
+                  aria-label="Close navigation menu"
+                >
+                  <X className="w-4 h-4 stroke-[2.5]" />
+                </button>
+              </div>
 
-            {/* Drawer Category Accordion Menu (JewelryCandles-style Mobile Architecture) */}
-            <div className="p-3">
-              <span className="block text-[10px] font-black uppercase tracking-wider text-[#8a858f] px-2 mb-2">
-                Categories &amp; Navigation
-              </span>
+              {/* Drawer Category Accordion Menu (JewelryCandles-style Mobile Architecture) */}
+              <div className="p-3">
+                <span className="block text-[10px] font-black uppercase tracking-wider text-[#8a858f] px-2 mb-2">
+                  Categories &amp; Navigation
+                </span>
 
-              <div className="space-y-1.5">
-                {NAVIGATION_CATEGORIES.map((cat) => {
-                  const isExpanded = expandedMobileCategory === cat.id;
-                  const hasSub = Boolean(cat.columns && cat.columns.length > 0);
+                <div className="space-y-1.5">
+                  {NAVIGATION_CATEGORIES.map((cat) => {
+                    const isExpanded = expandedMobileCategory === cat.id;
+                    const hasSub = Boolean(cat.columns && cat.columns.length > 0);
 
-                  if (!hasSub) {
-                    const isRouteActive =
-                      (cat.slug === 'home' && (activeView === 'home' || !activeView)) ||
-                      (cat.slug === 'affiliate' && activeView === 'affiliate') ||
-                      (cat.slug === 'contact' && activeView === 'contact') ||
-                      (cat.slug === 'appraise-your-jewelry' && activeView === 'appraisal');
-                    return (
-                      <a
-                        key={cat.id}
-                        href={getCategoryHref(cat)}
-                        onClick={(e) => {
-                          if (!isModifiedEvent(e)) {
-                            e.preventDefault();
-                            handleCategoryClick(cat);
-                          }
-                        }}
-                        className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-[13px] flex items-center justify-between text-left font-bold text-sm transition-all cursor-pointer ${isRouteActive
+                    if (!hasSub) {
+                      const isRouteActive =
+                        (cat.slug === 'home' && (activeView === 'home' || !activeView)) ||
+                        (cat.slug === 'affiliate' && activeView === 'affiliate') ||
+                        (cat.slug === 'contact' && activeView === 'contact') ||
+                        (cat.slug === 'appraise-your-jewelry' && activeView === 'appraisal');
+                      return (
+                        <a
+                          key={cat.id}
+                          href={getCategoryHref(cat)}
+                          onClick={(e) => {
+                            if (!isModifiedEvent(e)) {
+                              e.preventDefault();
+                              handleCategoryClick(cat);
+                            }
+                          }}
+                          className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-[13px] flex items-center justify-between text-left font-bold text-sm transition-all cursor-pointer ${isRouteActive
                             ? 'bg-[#fff1f2] text-[#D30915] border border-[#fecdd3] font-black shadow-2xs'
                             : 'text-[#141219] hover:bg-[#fff9fb] hover:text-[#D30915] border border-transparent'
-                          }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span>{cat.name}</span>
-                        </div>
-                        <ArrowRight className="w-3.5 h-3.5 text-[#beb8c2]" />
-                      </a>
-                    );
-                  }
-
-                  return (
-                    <div key={cat.id} className="rounded-[13px] overflow-hidden border border-[#f3e7ee] bg-white transition-all shadow-2xs">
-                      {/* Accordion Trigger */}
-                      <button
-                        type="button"
-                        onClick={() => setExpandedMobileCategory(isExpanded ? null : cat.id)}
-                        className={`w-full min-h-[46px] px-3.5 py-2.5 flex items-center justify-between text-left font-bold text-sm transition-colors cursor-pointer select-none ${isExpanded ? 'bg-[#fff1f4] text-[#D30915]' : 'text-[#141219] hover:bg-[#fff9fb]'
-                          }`}
-                        aria-expanded={isExpanded}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span>{cat.name}</span>
-                          {cat.badge && (
-                            <span className="text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full bg-[#D30915] text-white">
-                              {cat.badge}
-                            </span>
-                          )}
-                        </div>
-                        <ChevronDown
-                          className={`w-4 h-4 text-[#8a858f] transition-transform duration-200 ${isExpanded ? 'rotate-180 text-[#D30915]' : ''
                             }`}
-                        />
-                      </button>
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span>{cat.name}</span>
+                          </div>
+                          <ArrowRight className="w-3.5 h-3.5 text-[#beb8c2]" />
+                        </a>
+                      );
+                    }
 
-                      {/* Accordion Expanded Subcategories */}
-                      {isExpanded && (
-                        <div className="px-2.5 py-2 bg-[#fdfafb] border-t border-[#f5e6ee] space-y-1">
-                          {cat.columns?.flatMap((col) => col.items).map((sub) => (
+                    return (
+                      <div key={cat.id} className="rounded-[13px] overflow-hidden border border-[#f3e7ee] bg-white transition-all shadow-2xs">
+                        {/* Accordion Trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedMobileCategory(isExpanded ? null : cat.id)}
+                          className={`w-full min-h-[46px] px-3.5 py-2.5 flex items-center justify-between text-left font-bold text-sm transition-colors cursor-pointer select-none ${isExpanded ? 'bg-[#fff1f4] text-[#D30915]' : 'text-[#141219] hover:bg-[#fff9fb]'
+                            }`}
+                          aria-expanded={isExpanded}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span>{cat.name}</span>
+                            {cat.badge && (
+                              <span className="text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full bg-[#D30915] text-white">
+                                {cat.badge}
+                              </span>
+                            )}
+                          </div>
+                          <ChevronDown
+                            className={`w-4 h-4 text-[#8a858f] transition-transform duration-200 ${isExpanded ? 'rotate-180 text-[#D30915]' : ''
+                              }`}
+                          />
+                        </button>
+
+                        {/* Accordion Expanded Subcategories */}
+                        {isExpanded && (
+                          <div className="px-2.5 py-2 bg-[#fdfafb] border-t border-[#f5e6ee] space-y-1">
+                            {cat.columns?.flatMap((col) => col.items).map((sub) => (
+                              <a
+                                key={sub.id}
+                                href={getSubCategoryHref(sub)}
+                                onClick={(e) => {
+                                  if (!isModifiedEvent(e)) {
+                                    e.preventDefault();
+                                    handleSubCategoryClick(cat, sub);
+                                  }
+                                }}
+                                className="w-full min-h-[40px] px-3 py-1.5 rounded-[10px] flex items-center justify-between text-left text-xs font-semibold text-[#302936] hover:bg-[#fff0f3] hover:text-[#D30915] transition-colors cursor-pointer"
+                              >
+                                <span className="truncate">{sub.name}</span>
+                                {sub.badge && (
+                                  <span className="text-[8.5px] font-black px-1.5 py-0.2 rounded-full bg-[#fff0f3] text-[#D30915] border border-[#fecdd3] shrink-0 ml-1.5">
+                                    {sub.badge}
+                                  </span>
+                                )}
+                              </a>
+                            ))}
                             <a
-                              key={sub.id}
-                              href={getSubCategoryHref(sub)}
+                              href={getCategoryHref(cat)}
                               onClick={(e) => {
                                 if (!isModifiedEvent(e)) {
                                   e.preventDefault();
-                                  handleSubCategoryClick(cat, sub);
+                                  handleCategoryClick(cat);
                                 }
                               }}
-                              className="w-full min-h-[40px] px-3 py-1.5 rounded-[10px] flex items-center justify-between text-left text-xs font-semibold text-[#302936] hover:bg-[#fff0f3] hover:text-[#D30915] transition-colors cursor-pointer"
+                              className="w-full min-h-[40px] mt-1.5 px-3 py-1.5 rounded-[10px] flex items-center justify-center gap-1.5 text-xs font-black text-[#D30915] bg-[#fff0f3] hover:bg-[#fedde4] transition-colors cursor-pointer border border-[#fcd5df]"
                             >
-                              <span className="truncate">{sub.name}</span>
-                              {sub.badge && (
-                                <span className="text-[8.5px] font-black px-1.5 py-0.2 rounded-full bg-[#fff0f3] text-[#D30915] border border-[#fecdd3] shrink-0 ml-1.5">
-                                  {sub.badge}
-                                </span>
-                              )}
+                              <span>{cat.viewAllLabel || `View All ${cat.name}`}</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
                             </a>
-                          ))}
-                          <a
-                            href={getCategoryHref(cat)}
-                            onClick={(e) => {
-                              if (!isModifiedEvent(e)) {
-                                e.preventDefault();
-                                handleCategoryClick(cat);
-                              }
-                            }}
-                            className="w-full min-h-[40px] mt-1.5 px-3 py-1.5 rounded-[10px] flex items-center justify-center gap-1.5 text-xs font-black text-[#D30915] bg-[#fff0f3] hover:bg-[#fedde4] transition-colors cursor-pointer border border-[#fcd5df]"
-                          >
-                            <span>{cat.viewAllLabel || `View All ${cat.name}`}</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Express Shipping Hub Location */}
-            <div className="p-3 border-t border-[#f4edf2]">
-              <div className="p-2.5 rounded-[14px] bg-[#fff8fb] border border-[#f5e4ec]">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#D30915] flex items-center gap-1">
-                    <Truck className="w-3 h-3" />
-                    <span>Express Shipping Hub</span>
-                  </span>
-                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">
-                    {currentLoc.eta}
-                  </span>
-                </div>
-                <div className="text-xs font-black text-[#141219] truncate">
-                  {currentLoc.name}, {currentLoc.state} ({currentLoc.zip})
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Drawer Footer: Account Actions & Support */}
-          <div className="p-4 border-t border-[#f4edf2] bg-gradient-to-b from-[#fffafc] to-[#fff5f5] space-y-3">
-            {/* Account Status */}
-            {!user ? (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeMobileMenu();
-                    if (onOpenSubscription) {
-                      onOpenSubscription();
-                    } else if (onNavigateToAffiliate) {
-                      onNavigateToAffiliate();
-                    } else {
-                      onNavigate?.('affiliate');
-                    }
-                  }}
-                  className="w-full h-[42px] px-3.5 rounded-[12px] bg-[#D30915] hover:bg-[#b60711] text-white text-xs font-black shadow-md hover:shadow-lg active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 select-none"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>Join $20/month</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeMobileMenu();
-                    onOpenAuth?.('login');
-                  }}
-                  className="w-full h-[38px] px-3.5 rounded-[12px] bg-[#fff1f2] border border-[#fecdd3] hover:border-[#D30915] hover:bg-[#D30915] hover:text-white text-[#D30915] text-xs font-black shadow-2xs hover:shadow-xs active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 select-none"
-                >
-                  <User className="w-4 h-4" />
-                  <span>Login</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeMobileMenu();
-                    if (onNavigateToAccount) {
-                      onNavigateToAccount('wishlist');
-                    } else {
-                      onNavigate?.('home');
-                    }
-                  }}
-                  className="w-full h-[38px] px-3.5 rounded-[12px] bg-white border border-[#ebdce5] hover:border-[#D30915] hover:text-[#D30915] text-[#141219] text-xs font-black shadow-2xs active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 select-none"
-                >
-                  <Heart className="w-4 h-4 text-[#D30915]" />
-                  <span>My Wishlist ({wishlistCount})</span>
-                </button>
-              </div>
-            ) : (
-              <div className="p-2.5 bg-white rounded-[14px] border border-[#fecdd3] shadow-2xs space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <img
-                      src={user.avatar || '/assets/ilovesurprises/Profile/profile%20image.webp'}
-                      alt={user.name}
-                      className="w-8 h-8 rounded-full object-cover border border-[#D30915] shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <strong className="block text-xs font-black text-[#141219] truncate">
-                        {user.name}
-                      </strong>
-                      <span className="text-[10px] text-[#716d77] block truncate">{user.email}</span>
-                    </div>
+              {/* Express Shipping Hub Location */}
+              <div className="p-3 border-t border-[#f4edf2]">
+                <div className="p-2.5 rounded-[14px] bg-[#fff8fb] border border-[#f5e4ec]">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#D30915] flex items-center gap-1">
+                      <Truck className="w-3 h-3" />
+                      <span>Express Shipping Hub</span>
+                    </span>
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">
+                      {currentLoc.eta}
+                    </span>
                   </div>
-                  <span className="text-[9px] font-black uppercase text-[#D30915] bg-[#fff1f2] px-2 py-0.5 rounded-full border border-[#fecdd3] shrink-0">
-                    {isAffiliateRole(user.role) ? '20% Rep' : 'VIP'}
-                  </span>
+                  <div className="text-xs font-black text-[#141219] truncate">
+                    {currentLoc.name}, {currentLoc.state} ({currentLoc.zip})
+                  </div>
                 </div>
+              </div>
+            </div>
 
-                <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-[#f4edf2] text-[11px] font-bold text-[#55505a]">
+            {/* Drawer Footer: Account Actions & Support */}
+            <div className="p-4 border-t border-[#f4edf2] bg-gradient-to-b from-[#fffafc] to-[#fff5f5] space-y-3">
+              {/* Account Status */}
+              {!user ? (
+                <div className="space-y-2">
                   <button
                     type="button"
                     onClick={() => {
                       closeMobileMenu();
-                      if (onNavigateToAccount) {
-                        onNavigateToAccount('profile');
+                      if (onOpenSubscription) {
+                        onOpenSubscription();
+                      } else if (onNavigateToAffiliate) {
+                        onNavigateToAffiliate();
                       } else {
-                        onNavigate?.('home');
+                        onNavigate?.('affiliate');
                       }
                     }}
-                    className="p-1.5 rounded-[8px] bg-[#fffafc] hover:bg-[#fff1f2] hover:text-[#D30915] flex items-center gap-1.5 cursor-pointer text-left"
+                    className="w-full h-[42px] px-3.5 rounded-[12px] bg-[#D30915] hover:bg-[#b60711] text-white text-xs font-black shadow-md hover:shadow-lg active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 select-none"
                   >
-                    <User className="w-3 h-3 text-[#D30915]" />
-                    <span>Account</span>
+                    <Users className="w-4 h-4" />
+                    <span>Join $20/month</span>
                   </button>
-
                   <button
                     type="button"
                     onClick={() => {
                       closeMobileMenu();
-                      if (onNavigateToAccount) {
-                        onNavigateToAccount('orders');
-                      } else {
-                        onNavigate?.('home');
-                      }
+                      onOpenAuth?.('login');
                     }}
-                    className="p-1.5 rounded-[8px] bg-[#fffafc] hover:bg-[#fff1f2] hover:text-[#D30915] flex items-center gap-1.5 cursor-pointer text-left"
+                    className="w-full h-[38px] px-3.5 rounded-[12px] bg-[#fff1f2] border border-[#fecdd3] hover:border-[#D30915] hover:bg-[#D30915] hover:text-white text-[#D30915] text-xs font-black shadow-2xs hover:shadow-xs active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 select-none"
                   >
-                    <PackageCheck className="w-3 h-3 text-emerald-600" />
-                    <span>Orders</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      closeMobileMenu();
-                      if (onNavigateToAccount) {
-                        onNavigateToAccount('addresses');
-                      } else {
-                        onNavigate?.('home');
-                      }
-                    }}
-                    className="p-1.5 rounded-[8px] bg-[#fffafc] hover:bg-[#fff1f2] hover:text-[#D30915] flex items-center gap-1.5 cursor-pointer text-left"
-                  >
-                    <MapPin className="w-3 h-3 text-purple-600" />
-                    <span>Addresses</span>
+                    <User className="w-4 h-4" />
+                    <span>Login</span>
                   </button>
 
                   <button
@@ -2433,182 +2350,268 @@ export const Header: React.FC<HeaderProps> = ({
                         onNavigate?.('home');
                       }
                     }}
-                    className="p-1.5 rounded-[8px] bg-[#fffafc] hover:bg-[#fff1f2] hover:text-[#D30915] flex items-center gap-1.5 cursor-pointer text-left"
+                    className="w-full h-[38px] px-3.5 rounded-[12px] bg-white border border-[#ebdce5] hover:border-[#D30915] hover:text-[#D30915] text-[#141219] text-xs font-black shadow-2xs active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 select-none"
                   >
-                    <Heart className="w-3 h-3 text-[#D30915]" />
-                    <span>Wishlist</span>
+                    <Heart className="w-4 h-4 text-[#D30915]" />
+                    <span>My Wishlist ({wishlistCount})</span>
                   </button>
                 </div>
+              ) : (
+                <div className="p-2.5 bg-white rounded-[14px] border border-[#fecdd3] shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img
+                        src={user.avatar || '/assets/ilovesurprises/Profile/profile%20image.webp'}
+                        alt={user.name}
+                        className="w-8 h-8 rounded-full object-cover border border-[#D30915] shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <strong className="block text-xs font-black text-[#141219] truncate">
+                          {user.name}
+                        </strong>
+                        <span className="text-[10px] text-[#716d77] block truncate">{user.email}</span>
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-black uppercase text-[#D30915] bg-[#fff1f2] px-2 py-0.5 rounded-full border border-[#fecdd3] shrink-0">
+                      {isAffiliateRole(user.role) ? '20% Rep' : 'VIP'}
+                    </span>
+                  </div>
 
+                  <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-[#f4edf2] text-[11px] font-bold text-[#55505a]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMobileMenu();
+                        if (onNavigateToAccount) {
+                          onNavigateToAccount('profile');
+                        } else {
+                          onNavigate?.('home');
+                        }
+                      }}
+                      className="p-1.5 rounded-[8px] bg-[#fffafc] hover:bg-[#fff1f2] hover:text-[#D30915] flex items-center gap-1.5 cursor-pointer text-left"
+                    >
+                      <User className="w-3 h-3 text-[#D30915]" />
+                      <span>Account</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMobileMenu();
+                        if (onNavigateToAccount) {
+                          onNavigateToAccount('orders');
+                        } else {
+                          onNavigate?.('home');
+                        }
+                      }}
+                      className="p-1.5 rounded-[8px] bg-[#fffafc] hover:bg-[#fff1f2] hover:text-[#D30915] flex items-center gap-1.5 cursor-pointer text-left"
+                    >
+                      <PackageCheck className="w-3 h-3 text-emerald-600" />
+                      <span>Orders</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMobileMenu();
+                        if (onNavigateToAccount) {
+                          onNavigateToAccount('addresses');
+                        } else {
+                          onNavigate?.('home');
+                        }
+                      }}
+                      className="p-1.5 rounded-[8px] bg-[#fffafc] hover:bg-[#fff1f2] hover:text-[#D30915] flex items-center gap-1.5 cursor-pointer text-left"
+                    >
+                      <MapPin className="w-3 h-3 text-purple-600" />
+                      <span>Addresses</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMobileMenu();
+                        if (onNavigateToAccount) {
+                          onNavigateToAccount('wishlist');
+                        } else {
+                          onNavigate?.('home');
+                        }
+                      }}
+                      className="p-1.5 rounded-[8px] bg-[#fffafc] hover:bg-[#fff1f2] hover:text-[#D30915] flex items-center gap-1.5 cursor-pointer text-left"
+                    >
+                      <Heart className="w-3 h-3 text-[#D30915]" />
+                      <span>Wishlist</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeMobileMenu();
+                      if (onNavigateToAdmin) {
+                        onNavigateToAdmin();
+                      } else {
+                        onNavigate?.('admin');
+                      }
+                    }}
+                    className="w-full h-[32px] rounded-[10px] bg-[#fff1f2] text-[#D30915] hover:bg-[#ffe5ef] text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Admin Suite Portal</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeMobileMenu();
+                      try {
+                        localStorage.removeItem('ils_consultant_subscribed');
+                        localStorage.removeItem('ils_consultant_username');
+                        localStorage.removeItem('ils_consultant_name');
+                      } catch { }
+                      setIsConsultantSubscribed(false);
+                      window.dispatchEvent(new CustomEvent('ils_consultant_subscribed', { detail: { subscribed: false } }));
+                      onLogout?.();
+                    }}
+                    className="w-full h-[32px] rounded-[10px] bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Direct Support Contact Links */}
+              <div className="pt-2 border-t border-[#f2e6ee] flex items-center justify-between text-[10px] font-bold text-[#716d77]">
+                <a
+                  href="tel:18007877747"
+                  className="flex items-center gap-1 hover:text-[#D30915] transition-colors"
+                >
+                  <Phone className="w-3 h-3 text-emerald-600" />
+                  <span>1-800-SURPRISE</span>
+                </a>
+                <a
+                  href="mailto:support@ilovesurprises.com"
+                  className="flex items-center gap-1 hover:text-[#D30915] transition-colors"
+                >
+                  <Mail className="w-3 h-3 text-[#D30915]" />
+                  <span>Email Help</span>
+                </a>
+              </div>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )
+      }
+
+      {/* 4. YouTube-Style Animated Voice Search Modal Overlay */}
+      {
+        typeof document !== 'undefined' && isVoiceModalOpen && createPortal(
+          <div className="fixed inset-0 z-[9999999] bg-black/65 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative w-full max-w-md bg-white rounded-[28px] p-6 sm:p-8 shadow-[0_25px_60px_rgba(0,0,0,0.35)] border border-[#f0dae7] text-center flex flex-col items-center overflow-hidden">
+
+              {/* Close Button in Top-Right */}
+              <button
+                type="button"
+                onClick={closeVoiceModal}
+                className="absolute top-4 right-4 w-9 h-9 rounded-full bg-[#fff5f8] hover:bg-[#D30915] text-[#716d77] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-xs border border-[#fecdd3]"
+                aria-label="Close voice search"
+              >
+                <X className="w-4 h-4 stroke-[2.5]" />
+              </button>
+
+              {/* Voice Status Heading */}
+              <div className="mb-6">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-[#D30915] bg-[#fff1f2] px-3 py-1 rounded-full border border-[#fecdd3] mb-2">
+                  <Volume2 className="w-3.5 h-3.5" />
+                  <span>Voice Search</span>
+                </span>
+                <h3 className="text-xl sm:text-2xl font-black text-[#141219]">
+                  {isListening ? 'Listening...' : 'Try saying something'}
+                </h3>
+                <p className="text-xs sm:text-sm text-[#716d77] mt-1 max-w-[280px]">
+                  Say a candle scent, jewelry surprise, or cash prize
+                </p>
+              </div>
+
+              {/* YouTube Animated Ripple Pulse & Equalizer */}
+              <div className="relative my-4 flex items-center justify-center w-40 h-40">
+                {/* Outer Ripple Wave 1 */}
+                <div
+                  className={`absolute w-36 h-36 rounded-full bg-[#D30915]/15 transition-all duration-1000 ${isListening ? 'animate-ping' : 'scale-90 opacity-20'
+                    }`}
+                />
+
+                {/* Middle Ripple Wave 2 */}
+                <div
+                  className={`absolute w-28 h-28 rounded-full bg-[#D30915]/25 transition-all duration-700 ${isListening ? 'animate-pulse' : 'scale-90 opacity-40'
+                    }`}
+                />
+
+                {/* Center YouTube Mic Button */}
                 <button
                   type="button"
-                  onClick={() => {
-                    closeMobileMenu();
-                    if (onNavigateToAdmin) {
-                      onNavigateToAdmin();
-                    } else {
-                      onNavigate?.('admin');
-                    }
-                  }}
-                  className="w-full h-[32px] rounded-[10px] bg-[#fff1f2] text-[#D30915] hover:bg-[#ffe5ef] text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  onClick={startVoiceSearch}
+                  className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center text-white shadow-[0_10px_30px_rgba(211, 9, 21,0.45)] transition-transform duration-200 cursor-pointer active:scale-95 ${isListening
+                    ? 'bg-gradient-to-tr from-[#D30915] via-[#ff4081] to-[#ff2a6d] scale-105'
+                    : 'bg-gradient-to-tr from-[#716d77] to-[#36323d] hover:bg-[#D30915]'
+                    }`}
+                  title={isListening ? 'Listening... Tap to stop' : 'Tap to start speaking'}
+                  aria-label="Toggle voice search"
                 >
-                  <span>Admin Suite Portal</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeMobileMenu();
-                    try {
-                      localStorage.removeItem('ils_consultant_subscribed');
-                      localStorage.removeItem('ils_consultant_username');
-                      localStorage.removeItem('ils_consultant_name');
-                    } catch { }
-                    setIsConsultantSubscribed(false);
-                    window.dispatchEvent(new CustomEvent('ils_consultant_subscribed', { detail: { subscribed: false } }));
-                    onLogout?.();
-                  }}
-                  className="w-full h-[32px] rounded-[10px] bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Sign Out</span>
+                  <Mic className={`w-8 h-8 ${isListening ? 'animate-bounce text-white' : 'text-white'}`} />
                 </button>
               </div>
-            )}
 
-            {/* Direct Support Contact Links */}
-            <div className="pt-2 border-t border-[#f2e6ee] flex items-center justify-between text-[10px] font-bold text-[#716d77]">
-              <a
-                href="tel:18007877747"
-                className="flex items-center gap-1 hover:text-[#D30915] transition-colors"
-              >
-                <Phone className="w-3 h-3 text-emerald-600" />
-                <span>1-800-SURPRISE</span>
-              </a>
-              <a
-                href="mailto:support@ilovesurprises.com"
-                className="flex items-center gap-1 hover:text-[#D30915] transition-colors"
-              >
-                <Mail className="w-3 h-3 text-[#D30915]" />
-                <span>Email Help</span>
-              </a>
-            </div>
-          </div>
-
-        </div>
-      </div>,
-      document.body
-    )
-  }
-
-  {/* 4. YouTube-Style Animated Voice Search Modal Overlay */ }
-  {
-    typeof document !== 'undefined' && isVoiceModalOpen && createPortal(
-      <div className="fixed inset-0 z-[9999999] bg-black/65 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
-        <div className="relative w-full max-w-md bg-white rounded-[28px] p-6 sm:p-8 shadow-[0_25px_60px_rgba(0,0,0,0.35)] border border-[#f0dae7] text-center flex flex-col items-center overflow-hidden">
-
-          {/* Close Button in Top-Right */}
-          <button
-            type="button"
-            onClick={closeVoiceModal}
-            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-[#fff5f8] hover:bg-[#D30915] text-[#716d77] hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-xs border border-[#fecdd3]"
-            aria-label="Close voice search"
-          >
-            <X className="w-4 h-4 stroke-[2.5]" />
-          </button>
-
-          {/* Voice Status Heading */}
-          <div className="mb-6">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-[#D30915] bg-[#fff1f2] px-3 py-1 rounded-full border border-[#fecdd3] mb-2">
-              <Volume2 className="w-3.5 h-3.5" />
-              <span>Voice Search</span>
-            </span>
-            <h3 className="text-xl sm:text-2xl font-black text-[#141219]">
-              {isListening ? 'Listening...' : 'Try saying something'}
-            </h3>
-            <p className="text-xs sm:text-sm text-[#716d77] mt-1 max-w-[280px]">
-              Say a candle scent, jewelry surprise, or cash prize
-            </p>
-          </div>
-
-          {/* YouTube Animated Ripple Pulse & Equalizer */}
-          <div className="relative my-4 flex items-center justify-center w-40 h-40">
-            {/* Outer Ripple Wave 1 */}
-            <div
-              className={`absolute w-36 h-36 rounded-full bg-[#D30915]/15 transition-all duration-1000 ${isListening ? 'animate-ping' : 'scale-90 opacity-20'
-                }`}
-            />
-
-            {/* Middle Ripple Wave 2 */}
-            <div
-              className={`absolute w-28 h-28 rounded-full bg-[#D30915]/25 transition-all duration-700 ${isListening ? 'animate-pulse' : 'scale-90 opacity-40'
-                }`}
-            />
-
-            {/* Center YouTube Mic Button */}
-            <button
-              type="button"
-              onClick={startVoiceSearch}
-              className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center text-white shadow-[0_10px_30px_rgba(211, 9, 21,0.45)] transition-transform duration-200 cursor-pointer active:scale-95 ${isListening
-                ? 'bg-gradient-to-tr from-[#D30915] via-[#ff4081] to-[#ff2a6d] scale-105'
-                : 'bg-gradient-to-tr from-[#716d77] to-[#36323d] hover:bg-[#D30915]'
-                }`}
-              title={isListening ? 'Listening... Tap to stop' : 'Tap to start speaking'}
-              aria-label="Toggle voice search"
-            >
-              <Mic className={`w-8 h-8 ${isListening ? 'animate-bounce text-white' : 'text-white'}`} />
-            </button>
-          </div>
-
-          {/* Sound Equalizer Waveform Bars */}
-          {isListening && (
-            <div className="flex items-center gap-1.5 h-6 mb-4">
-              <span className="w-1 bg-[#D30915] rounded-full animate-[pulse_0.6s_ease-in-out_infinite] h-3" />
-              <span className="w-1 bg-[#D30915] rounded-full animate-[pulse_0.4s_ease-in-out_infinite_0.1s] h-6" />
-              <span className="w-1 bg-[#D30915] rounded-full animate-[pulse_0.7s_ease-in-out_infinite_0.2s] h-4" />
-              <span className="w-1 bg-[#D30915] rounded-full animate-[pulse_0.5s_ease-in-out_infinite_0.15s] h-5" />
-              <span className="w-1 bg-[#D30915] rounded-full animate-[pulse_0.6s_ease-in-out_infinite_0.3s] h-3" />
-            </div>
-          )}
-
-          {/* Live Transcribed Speech Feedback */}
-          <div className="w-full bg-[#fff9fb] border border-[#f5d8e4] rounded-[18px] p-3.5 min-h-[56px] flex items-center justify-center">
-            <p className="text-sm font-bold text-[#141219] break-words">
-              {voiceFeedback ? (
-                <span className="text-[#D30915] font-black">&ldquo;{voiceFeedback}&rdquo;</span>
-              ) : (
-                <span className="text-[#8a858f] text-xs">Speak now... e.g. &ldquo;Classic Cola Cash Candle&rdquo;</span>
+              {/* Sound Equalizer Waveform Bars */}
+              {isListening && (
+                <div className="flex items-center gap-1.5 h-6 mb-4">
+                  <span className="w-1 bg-[#D30915] rounded-full animate-[pulse_0.6s_ease-in-out_infinite] h-3" />
+                  <span className="w-1 bg-[#D30915] rounded-full animate-[pulse_0.4s_ease-in-out_infinite_0.1s] h-6" />
+                  <span className="w-1 bg-[#D30915] rounded-full animate-[pulse_0.7s_ease-in-out_infinite_0.2s] h-4" />
+                  <span className="w-1 bg-[#D30915] rounded-full animate-[pulse_0.5s_ease-in-out_infinite_0.15s] h-5" />
+                  <span className="w-1 bg-[#D30915] rounded-full animate-[pulse_0.6s_ease-in-out_infinite_0.3s] h-3" />
+                </div>
               )}
-            </p>
-          </div>
 
-          {/* Quick Test Voice Tags */}
-          <div className="mt-4 pt-3 border-t border-[#f4edf2] w-full">
-            <span className="block text-[10px] font-black uppercase tracking-wider text-[#8a858f] mb-2">
-              Or tap a popular phrase
-            </span>
-            <div className="flex flex-wrap justify-center gap-1.5">
-              {['Cash Candles', 'Diamond Ring', 'Cola Soda', 'Bath Bomb Cash'].map((phrase) => (
-                <button
-                  key={phrase}
-                  type="button"
-                  onClick={() => {
-                    setVoiceFeedback(phrase);
-                    executeSearch(phrase);
-                  }}
-                  className="px-2.5 py-1 rounded-[10px] bg-white hover:bg-[#D30915] text-[#D30915] hover:text-white border border-[#fecdd3] text-xs font-bold transition-all shadow-2xs cursor-pointer"
-                >
-                  &ldquo;{phrase}&rdquo;
-                </button>
-              ))}
+              {/* Live Transcribed Speech Feedback */}
+              <div className="w-full bg-[#fff9fb] border border-[#f5d8e4] rounded-[18px] p-3.5 min-h-[56px] flex items-center justify-center">
+                <p className="text-sm font-bold text-[#141219] break-words">
+                  {voiceFeedback ? (
+                    <span className="text-[#D30915] font-black">&ldquo;{voiceFeedback}&rdquo;</span>
+                  ) : (
+                    <span className="text-[#8a858f] text-xs">Speak now... e.g. &ldquo;Classic Cola Cash Candle&rdquo;</span>
+                  )}
+                </p>
+              </div>
+
+              {/* Quick Test Voice Tags */}
+              <div className="mt-4 pt-3 border-t border-[#f4edf2] w-full">
+                <span className="block text-[10px] font-black uppercase tracking-wider text-[#8a858f] mb-2">
+                  Or tap a popular phrase
+                </span>
+                <div className="flex flex-wrap justify-center gap-1.5">
+                  {['Cash Candles', 'Diamond Ring', 'Cola Soda', 'Bath Bomb Cash'].map((phrase) => (
+                    <button
+                      key={phrase}
+                      type="button"
+                      onClick={() => {
+                        setVoiceFeedback(phrase);
+                        executeSearch(phrase);
+                      }}
+                      className="px-2.5 py-1 rounded-[10px] bg-white hover:bg-[#D30915] text-[#D30915] hover:text-white border border-[#fecdd3] text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                    >
+                      &ldquo;{phrase}&rdquo;
+                    </button>
+                  ))}
+                </div>
+              </div>
+
             </div>
-          </div>
-
-        </div>
-      </div>,
-      document.body
-    )
-  }
+          </div>,
+          document.body
+        )
+      }
 
     </>
   );

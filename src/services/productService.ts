@@ -24,24 +24,56 @@ const queryCache = new Map<string, QueryCacheEntry>();
 const QUERY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes fresh
 
 /**
- * Storage cache helpers for instant (< 5ms) restores on page reload and navigation.
+ * Multi-layer storage cache helpers for instant (< 5ms) restores on page reload, navigation, and browser restarts.
  */
 const SESSION_CACHE_PREFIX = 'ils_prod_qcache_v4_';
 const LOCAL_STORAGE_PREFIX = 'ils_prod_store_v4_';
 
-function getSessionCache<T>(key: string): T | null {
+function getLocalCache<T>(key: string, maxAgeMs = 24 * 60 * 60 * 1000): T | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(SESSION_CACHE_PREFIX + key);
+    const raw = localStorage.getItem(LOCAL_STORAGE_PREFIX + key);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.timestamp === 'number' && Date.now() - parsed.timestamp < QUERY_CACHE_TTL_MS) {
+    if (parsed && typeof parsed.timestamp === 'number' && Date.now() - parsed.timestamp < maxAgeMs) {
       return parsed.data as T;
     }
   } catch {
     // ignore
   }
   return null;
+}
+
+function setLocalCache<T>(key: string, data: T): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(
+      LOCAL_STORAGE_PREFIX + key,
+      JSON.stringify({
+        data,
+        timestamp: Date.now(),
+      })
+    );
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function getSessionCache<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(SESSION_CACHE_PREFIX + key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.timestamp === 'number' && Date.now() - parsed.timestamp < QUERY_CACHE_TTL_MS) {
+        return parsed.data as T;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  // Seamless fallback to persistent localStorage across tab closes / reopens
+  return getLocalCache<T>(key, QUERY_CACHE_TTL_MS);
 }
 
 function setSessionCache<T>(key: string, data: T): void {
@@ -57,37 +89,24 @@ function setSessionCache<T>(key: string, data: T): void {
   } catch {
     // ignore quota errors
   }
+  // Keep persistent store warm in parallel
+  setLocalCache(key, data);
 }
 
 function getLocalProduct(key: string): Product | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_PREFIX + key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.timestamp === 'number' && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
-      return parsed.data as Product;
-    }
-  } catch {
-    // ignore
-  }
-  return null;
+  return getLocalCache<Product>(key, 24 * 60 * 60 * 1000);
 }
 
 function setLocalProduct(key: string, data: Product): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(
-      LOCAL_STORAGE_PREFIX + key,
-      JSON.stringify({
-        data,
-        timestamp: Date.now(),
-      })
-    );
-  } catch {
-    // ignore quota errors
-  }
+  setLocalCache(key, data);
 }
+
+/**
+ * In-flight request deduplication maps to prevent duplicate concurrent queries
+ * from hitting the network when multiple components mount simultaneously.
+ */
+const inFlightCollectionRequests = new Map<string, Promise<any>>();
+const inFlightProductListRequests = new Map<string, Promise<any>>();
 
 /**
  * In-memory single product cache by slug & ID for instant product details navigation.
@@ -563,8 +582,8 @@ export function mapRowToProduct(row: any): Product {
   const scentNotes: string[] = Array.isArray(row.scentNotes)
     ? row.scentNotes
     : Array.isArray(row.scent_notes)
-    ? row.scent_notes
-    : [];
+      ? row.scent_notes
+      : [];
 
   // Options & Variants
   const options: ProductOption[] = [];
@@ -632,10 +651,10 @@ export function mapRowToProduct(row: any): Product {
     row.inStock !== undefined
       ? Boolean(row.inStock)
       : row.in_stock !== undefined
-      ? Boolean(row.in_stock)
-      : typeof row.total_inventory_qty === 'number'
-      ? row.total_inventory_qty > 0
-      : (row.stock ?? 50) > 0;
+        ? Boolean(row.in_stock)
+        : typeof row.total_inventory_qty === 'number'
+          ? row.total_inventory_qty > 0
+          : (row.stock ?? 50) > 0;
 
   const prod: Product = {
     id,
@@ -744,68 +763,80 @@ export const productService = {
       return sessCached;
     }
 
-    try {
-      // Map sort param to backend sortBy enum: newest, price-asc, price-desc, rating, bestseller
-      const backendSort =
-        params.sort === 'price-asc'
-          ? 'price-asc'
-          : params.sort === 'price-desc'
-          ? 'price-desc'
-          : params.sort === 'rating'
-          ? 'rating'
-          : params.sort === 'best-sellers'
-          ? 'bestseller'
-          : 'newest';
-
-      const queryParams: Record<string, any> = {
-        page,
-        limit,
-        sortBy: backendSort,
-      };
-
-      if (params.searchQuery?.trim()) {
-        queryParams.search = params.searchQuery.trim();
-      }
-
-      if (params.category && params.category !== 'All Surprises' && params.category !== 'All') {
-        queryParams.category = params.category;
-      }
-
-      if (params.minPrice !== undefined && params.minPrice !== null) {
-        queryParams.minPrice = params.minPrice;
-      }
-      if (params.maxPrice !== undefined && params.maxPrice !== null) {
-        queryParams.maxPrice = params.maxPrice;
-      }
-
-      if (params.surpriseTypes && params.surpriseTypes.includes('cash') && !params.surpriseTypes.includes('jewelry')) {
-        if (!queryParams.search) {
-          queryParams.search = 'cash';
-        }
-      }
-
-      const response = await apiClient.get<any>('/api/products', queryParams);
-      const rawProducts: any[] = response?.data?.products || [];
-      const total: number = response?.data?.pagination?.total ?? rawProducts.length;
-      const totalPages: number = response?.data?.pagination?.totalPages ?? Math.max(1, Math.ceil(total / limit));
-
-      const products = deduplicateProducts(rawProducts.map(mapRowToProduct));
-      products.forEach((p) => cacheProduct(p));
-
-      const result: PaginatedProductsResult = {
-        products,
-        total,
-        page,
-        totalPages,
-      };
-
-      queryCache.set(cacheKey, { result, timestamp: Date.now() });
-      setSessionCache(cacheKey, result);
-      return result;
-    } catch (err: any) {
-      console.warn('Backend API getProducts error:', err?.message || err);
-      throw err;
+    const inflightKey = cacheKey;
+    if (inFlightProductListRequests.has(inflightKey)) {
+      return inFlightProductListRequests.get(inflightKey)!;
     }
+
+    const fetchPromise = (async () => {
+      try {
+        // Map sort param to backend sortBy enum: newest, price-asc, price-desc, rating, bestseller
+        const backendSort =
+          params.sort === 'price-asc'
+            ? 'price-asc'
+            : params.sort === 'price-desc'
+              ? 'price-desc'
+              : params.sort === 'rating'
+                ? 'rating'
+                : params.sort === 'best-sellers'
+                  ? 'bestseller'
+                  : 'newest';
+
+        const queryParams: Record<string, any> = {
+          page,
+          limit,
+          sortBy: backendSort,
+        };
+
+        if (params.searchQuery?.trim()) {
+          queryParams.search = params.searchQuery.trim();
+        }
+
+        if (params.category && params.category !== 'All Surprises' && params.category !== 'All') {
+          queryParams.category = params.category;
+        }
+
+        if (params.minPrice !== undefined && params.minPrice !== null) {
+          queryParams.minPrice = params.minPrice;
+        }
+        if (params.maxPrice !== undefined && params.maxPrice !== null) {
+          queryParams.maxPrice = params.maxPrice;
+        }
+
+        if (params.surpriseTypes && params.surpriseTypes.includes('cash') && !params.surpriseTypes.includes('jewelry')) {
+          if (!queryParams.search) {
+            queryParams.search = 'cash';
+          }
+        }
+
+        const response = await apiClient.get<any>('/api/products', queryParams);
+        const rawProducts: any[] = response?.data?.products || [];
+        const total: number = response?.data?.pagination?.total ?? rawProducts.length;
+        const totalPages: number = response?.data?.pagination?.totalPages ?? Math.max(1, Math.ceil(total / limit));
+
+        const products = deduplicateProducts(rawProducts.map(mapRowToProduct));
+        products.forEach((p) => cacheProduct(p));
+
+        const result: PaginatedProductsResult = {
+          products,
+          total,
+          page,
+          totalPages,
+        };
+
+        queryCache.set(cacheKey, { result, timestamp: Date.now() });
+        setSessionCache(cacheKey, result);
+        return result;
+      } catch (err: any) {
+        console.warn('Backend API getProducts error:', err?.message || err);
+        throw err;
+      }
+    })().finally(() => {
+      inFlightProductListRequests.delete(inflightKey);
+    });
+
+    inFlightProductListRequests.set(inflightKey, fetchPromise);
+    return fetchPromise;
   },
 
   /**
@@ -892,55 +923,58 @@ export const productService = {
 
     if (missingIds.length > 0) {
       try {
-        // Fetch missing products in parallel chunks of 16 to avoid artificial queue delays
-        const chunkSize = 16;
-        for (let i = 0; i < missingIds.length; i += chunkSize) {
-          const chunk = missingIds.slice(i, i + chunkSize);
-          const fetchPromises = chunk.map(async (id) => {
+        const notFoundIds = new Set<string>();
+        const networkErrorIds: string[] = [];
+        const poolConcurrency = 8;
+
+        let index = 0;
+        const workers = Array.from(
+          { length: Math.min(poolConcurrency, missingIds.length) },
+          async () => {
+            while (index < missingIds.length) {
+              const currentIdx = index++;
+              const id = missingIds[currentIdx];
+              try {
+                const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
+                const p = res?.data?.product;
+                if (p) {
+                  const prod = mapRowToProduct(p);
+                  cacheProduct(prod);
+                  productMap.set(id.toLowerCase(), prod);
+                  if (prod.slug) productMap.set(prod.slug.toLowerCase(), prod);
+                  if (prod.id) productMap.set(prod.id.toLowerCase(), prod);
+                }
+              } catch (err: any) {
+                if (err?.statusCode === 404) {
+                  notFoundIds.add(id.toLowerCase());
+                } else {
+                  networkErrorIds.push(id);
+                }
+              }
+            }
+          }
+        );
+
+        await Promise.all(workers);
+
+        // Fast parallel retry ONLY for transient network drops (status 0 / timeout), NEVER for permanent 404 Not Found
+        if (networkErrorIds.length > 0) {
+          const retryPromises = networkErrorIds.map(async (id) => {
             try {
               const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
               const p = res?.data?.product;
               if (p) {
                 const prod = mapRowToProduct(p);
                 cacheProduct(prod);
-                return { requestedId: id, prod };
-              }
-              return null;
-            } catch {
-              return null;
-            }
-          });
-
-          const fetched = await Promise.all(fetchPromises);
-          fetched.forEach((item) => {
-            if (item && item.prod) {
-              const { requestedId, prod } = item;
-              productMap.set(requestedId.toLowerCase(), prod);
-              if (prod.slug) productMap.set(prod.slug.toLowerCase(), prod);
-              if (prod.id) productMap.set(prod.id.toLowerCase(), prod);
-              cacheProduct(prod);
-            }
-          });
-        }
-
-        // Sequential retry for any items that encountered a transient network drop
-        const stillMissing = missingIds.filter((id) => !productMap.has(id.toLowerCase()));
-        if (stillMissing.length > 0) {
-          for (const id of stillMissing) {
-            try {
-              const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
-              const p = res?.data?.product;
-              if (p) {
-                const prod = mapRowToProduct(p);
                 productMap.set(id.toLowerCase(), prod);
                 if (prod.slug) productMap.set(prod.slug.toLowerCase(), prod);
                 if (prod.id) productMap.set(prod.id.toLowerCase(), prod);
-                cacheProduct(prod);
               }
             } catch {
               // ignore
             }
-          }
+          });
+          await Promise.all(retryPromises);
         }
       } catch (err) {
         console.warn('Error fetching products by IDs from backend:', err);
@@ -1262,222 +1296,234 @@ export const productService = {
       return sessCached;
     }
 
-    // Check if this is an approved collection with authoritative product mapping
-    const handleStr = typeof handleOrId === 'string' ? handleOrId : col.handle;
-    const approvedMeta = getApprovedCollectionMeta(col.handle) || getApprovedCollectionMeta(handleStr);
+    const inflightKey = `${col.handle.toLowerCase()}_${page}_${limit}_${sortOption}`;
+    if (inFlightCollectionRequests.has(inflightKey)) {
+      return inFlightCollectionRequests.get(inflightKey)!;
+    }
 
-    if (approvedMeta) {
-      const allHandles = approvedMeta.productHandles;
-      const total = allHandles.length;
-      const totalPages = Math.max(1, Math.ceil(total / limit));
-      let prods: Product[] = [];
+    const fetchPromise = (async () => {
+      // Check if this is an approved collection with authoritative product mapping
+      const handleStr = typeof handleOrId === 'string' ? handleOrId : col.handle;
+      const approvedMeta = getApprovedCollectionMeta(col.handle) || getApprovedCollectionMeta(handleStr);
 
-      if (sortOption === 'featured' || sortOption === 'best-sellers') {
-        const skip = (page - 1) * limit;
-        const pageHandles = allHandles.slice(skip, skip + limit);
-        prods = await this.getProductsByIds(pageHandles);
+      if (approvedMeta) {
+        const allHandles = approvedMeta.productHandles;
+        const total = allHandles.length;
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        let prods: Product[] = [];
 
-        // Warm cache for next page asynchronously
-        if (page < totalPages) {
-          const nextSlice = allHandles.slice(skip + limit, skip + 2 * limit);
-          if (nextSlice.length > 0) {
-            setTimeout(() => {
-              this.getProductsByIds(nextSlice).catch(() => {});
-            }, 200);
-          }
-        }
-      } else {
-        // Price or Newest sort
-        if (total <= 200) {
-          const allProds = await this.getProductsByIds(allHandles);
-          const sorted = [...allProds];
-          if (sortOption === 'price-asc') {
-            sorted.sort((a, b) => a.price - b.price);
-          } else if (sortOption === 'price-desc') {
-            sorted.sort((a, b) => b.price - a.price);
-          } else if (sortOption === 'newest') {
-            sorted.reverse();
-          }
-          const skip = (page - 1) * limit;
-          prods = sorted.slice(skip, skip + limit);
-        } else {
-          // Large collection
+        if (sortOption === 'featured' || sortOption === 'best-sellers') {
           const skip = (page - 1) * limit;
           const pageHandles = allHandles.slice(skip, skip + limit);
           prods = await this.getProductsByIds(pageHandles);
-          if (sortOption === 'price-asc') {
-            prods.sort((a, b) => a.price - b.price);
-          } else if (sortOption === 'price-desc') {
-            prods.sort((a, b) => b.price - a.price);
+
+          // Warm cache for next page asynchronously
+          if (page < totalPages) {
+            const nextSlice = allHandles.slice(skip + limit, skip + 2 * limit);
+            if (nextSlice.length > 0) {
+              setTimeout(() => {
+                this.getProductsByIds(nextSlice).catch(() => { });
+              }, 200);
+            }
+          }
+        } else {
+          // Price or Newest sort
+          if (total <= 200) {
+            const allProds = await this.getProductsByIds(allHandles);
+            const sorted = [...allProds];
+            if (sortOption === 'price-asc') {
+              sorted.sort((a, b) => a.price - b.price);
+            } else if (sortOption === 'price-desc') {
+              sorted.sort((a, b) => b.price - a.price);
+            } else if (sortOption === 'newest') {
+              sorted.reverse();
+            }
+            const skip = (page - 1) * limit;
+            prods = sorted.slice(skip, skip + limit);
+          } else {
+            // Large collection
+            const skip = (page - 1) * limit;
+            const pageHandles = allHandles.slice(skip, skip + limit);
+            prods = await this.getProductsByIds(pageHandles);
+            if (sortOption === 'price-asc') {
+              prods.sort((a, b) => a.price - b.price);
+            } else if (sortOption === 'price-desc') {
+              prods.sort((a, b) => b.price - a.price);
+            }
           }
         }
+
+        // Guarantee unique, non-repeated primary images for Jewelry Candles collection
+        if (col.handle === 'jewelry-candles' || inputHandle === 'jewelry-candles') {
+          prods = prods.map((p) => {
+            const authImg = getJewelryCandlePrimaryImage(p.id || p.slug, p.name);
+            if (authImg) {
+              return {
+                ...p,
+                image: authImg,
+                images: [authImg, ...(p.images || []).filter((u) => u !== authImg)],
+              };
+            }
+            return p;
+          });
+        }
+
+        prods = deduplicateProducts(prods);
+        prods.forEach((p) => cacheProduct(p));
+
+        if (!col.imageUrl && prods.length > 0 && prods[0].image) {
+          col.imageUrl = prods[0].image;
+        }
+        col.productsCount = total;
+
+        const result = {
+          collection: col,
+          products: prods,
+          total: Math.max(total, prods.length),
+          page,
+          totalPages,
+        };
+
+        // Only persist full complete page results to prevent poisoned partial page caching in sessionStorage
+        const expectedCount =
+          sortOption === 'featured' || sortOption === 'best-sellers'
+            ? Math.min(limit, Math.max(0, total - (page - 1) * limit))
+            : Math.min(limit, total);
+
+        queryCache.set(cacheKey, { result, timestamp: Date.now() });
+        queryCache.set(altCacheKey, { result, timestamp: Date.now() });
+        if (prods.length >= expectedCount) {
+          setSessionCache(cacheKey, result);
+          setSessionCache(altCacheKey, result);
+        }
+        return result;
       }
 
-      // Guarantee unique, non-repeated primary images for Jewelry Candles collection
-      if (col.handle === 'jewelry-candles' || inputHandle === 'jewelry-candles') {
-        prods = prods.map((p) => {
-          const authImg = getJewelryCandlePrimaryImage(p.id || p.slug, p.name);
-          if (authImg) {
-            return {
-              ...p,
-              image: authImg,
-              images: [authImg, ...(p.images || []).filter((u) => u !== authImg)],
-            };
-          }
-          return p;
+      try {
+        // Map handle to best search keyword for the backend
+        const handleLower = col.handle.toLowerCase();
+        let searchKeyword = handleLower.replace(/-/g, ' ');
+
+        if (handleLower.includes('cash-candle') || handleLower === 'cash-candles') {
+          searchKeyword = 'cash candle';
+        } else if (handleLower.includes('cash-money') || handleLower === 'cash-money-candles') {
+          searchKeyword = 'cash money candle';
+        } else if (handleLower.includes('jewelry-candle') || handleLower === 'jewelry-candles') {
+          searchKeyword = 'jewelry candle';
+        } else if (handleLower.includes('wax-melt')) {
+          searchKeyword = 'wax melt';
+        } else if (handleLower.includes('bath-bomb')) {
+          searchKeyword = 'bath bomb';
+        } else if (handleLower.includes('soap')) {
+          searchKeyword = 'soap';
+        } else if (handleLower.includes('zodiac')) {
+          searchKeyword = 'zodiac';
+        } else if (handleLower.includes('halloween')) {
+          searchKeyword = 'halloween';
+        } else if (handleLower.includes('christmas')) {
+          searchKeyword = 'christmas';
+        } else if (handleLower.includes('slime')) {
+          searchKeyword = 'slime';
+        } else if (handleLower.includes('candy')) {
+          searchKeyword = 'candy';
+        } else if (handleLower.includes('chocolate')) {
+          searchKeyword = 'chocolate';
+        } else if (handleLower.includes('cereal')) {
+          searchKeyword = 'cereal';
+        } else if (handleLower.includes('coffee')) {
+          searchKeyword = 'coffee';
+        } else if (handleLower.includes('funny')) {
+          searchKeyword = 'funny';
+        } else if (handleLower.includes('military')) {
+          searchKeyword = 'military';
+        } else if (handleLower.includes('soda')) {
+          searchKeyword = 'soda';
+        } else if (handleLower.includes('wine')) {
+          searchKeyword = 'wine';
+        } else if (handleLower.includes('sugar-scrub')) {
+          searchKeyword = 'sugar scrub';
+        } else if (handleLower.includes('bath-salt') || handleLower.includes('bath-soak') || handleLower.includes('money-bath-salt')) {
+          searchKeyword = 'bath salt';
+        }
+
+        const backendSort =
+          params.sort === 'price-asc'
+            ? 'price-asc'
+            : params.sort === 'price-desc'
+              ? 'price-desc'
+              : params.sort === 'best-sellers'
+                ? 'bestseller'
+                : 'newest';
+
+        const res = await apiClient.get<any>('/api/products', {
+          search: searchKeyword,
+          page,
+          limit,
+          sortBy: backendSort,
         });
-      }
 
-      prods = deduplicateProducts(prods);
-      prods.forEach((p) => cacheProduct(p));
+        const rawProducts: any[] = res?.data?.products || [];
+        const total: number = res?.data?.pagination?.total ?? rawProducts.length;
 
-      if (!col.imageUrl && prods.length > 0 && prods[0].image) {
-        col.imageUrl = prods[0].image;
-      }
-      col.productsCount = total;
+        let prods = deduplicateProducts(rawProducts.map(mapRowToProduct));
 
-      const result = {
-        collection: col,
-        products: prods,
-        total: Math.max(total, prods.length),
-        page,
-        totalPages,
-      };
+        // Filter out explicitly excluded defective/hidden designs
+        prods = prods.filter((p: Product) => {
+          const h = (p.slug || '').toLowerCase();
+          const t = (p.name || '').toLowerCase();
+          if (
+            h.includes('scented-flower') ||
+            t.includes('scented flower bouquet') ||
+            t.includes('scented flowers bouquet')
+          ) {
+            return false;
+          }
+          if (
+            h.includes('you-make-me-so-happy') ||
+            t.includes('you make me so happy')
+          ) {
+            return false;
+          }
+          return true;
+        });
 
-      // Only persist full complete page results to prevent poisoned partial page caching in sessionStorage
-      const expectedCount =
-        sortOption === 'featured' || sortOption === 'best-sellers'
-          ? Math.min(limit, Math.max(0, total - (page - 1) * limit))
-          : Math.min(limit, total);
+        prods.forEach((p) => cacheProduct(p));
 
-      queryCache.set(cacheKey, { result, timestamp: Date.now() });
-      queryCache.set(altCacheKey, { result, timestamp: Date.now() });
-      if (prods.length >= expectedCount) {
+        if (!col.imageUrl && prods.length > 0 && prods[0].image) {
+          col.imageUrl = prods[0].image;
+        }
+
+        const result = {
+          collection: col,
+          products: prods,
+          total,
+          page,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+        };
+
+        queryCache.set(cacheKey, { result, timestamp: Date.now() });
+        queryCache.set(altCacheKey, { result, timestamp: Date.now() });
         setSessionCache(cacheKey, result);
         setSessionCache(altCacheKey, result);
-      }
-      return result;
-    }
-
-    try {
-      // Map handle to best search keyword for the backend
-      const handleLower = col.handle.toLowerCase();
-      let searchKeyword = handleLower.replace(/-/g, ' ');
-
-      if (handleLower.includes('cash-candle') || handleLower === 'cash-candles') {
-        searchKeyword = 'cash candle';
-      } else if (handleLower.includes('cash-money') || handleLower === 'cash-money-candles') {
-        searchKeyword = 'cash money candle';
-      } else if (handleLower.includes('jewelry-candle') || handleLower === 'jewelry-candles') {
-        searchKeyword = 'jewelry candle';
-      } else if (handleLower.includes('wax-melt')) {
-        searchKeyword = 'wax melt';
-      } else if (handleLower.includes('bath-bomb')) {
-        searchKeyword = 'bath bomb';
-      } else if (handleLower.includes('soap')) {
-        searchKeyword = 'soap';
-      } else if (handleLower.includes('zodiac')) {
-        searchKeyword = 'zodiac';
-      } else if (handleLower.includes('halloween')) {
-        searchKeyword = 'halloween';
-      } else if (handleLower.includes('christmas')) {
-        searchKeyword = 'christmas';
-      } else if (handleLower.includes('slime')) {
-        searchKeyword = 'slime';
-      } else if (handleLower.includes('candy')) {
-        searchKeyword = 'candy';
-      } else if (handleLower.includes('chocolate')) {
-        searchKeyword = 'chocolate';
-      } else if (handleLower.includes('cereal')) {
-        searchKeyword = 'cereal';
-      } else if (handleLower.includes('coffee')) {
-        searchKeyword = 'coffee';
-      } else if (handleLower.includes('funny')) {
-        searchKeyword = 'funny';
-      } else if (handleLower.includes('military')) {
-        searchKeyword = 'military';
-      } else if (handleLower.includes('soda')) {
-        searchKeyword = 'soda';
-      } else if (handleLower.includes('wine')) {
-        searchKeyword = 'wine';
-      } else if (handleLower.includes('sugar-scrub')) {
-        searchKeyword = 'sugar scrub';
-      } else if (handleLower.includes('bath-salt') || handleLower.includes('bath-soak') || handleLower.includes('money-bath-salt')) {
-        searchKeyword = 'bath salt';
+        return result;
+      } catch (err: any) {
+        console.warn(`Error fetching products for collection ${col.handle}:`, err);
+        throw err;
       }
 
-      const backendSort =
-        params.sort === 'price-asc'
-          ? 'price-asc'
-          : params.sort === 'price-desc'
-          ? 'price-desc'
-          : params.sort === 'best-sellers'
-          ? 'bestseller'
-          : 'newest';
-
-      const res = await apiClient.get<any>('/api/products', {
-        search: searchKeyword,
-        page,
-        limit,
-        sortBy: backendSort,
-      });
-
-      const rawProducts: any[] = res?.data?.products || [];
-      const total: number = res?.data?.pagination?.total ?? rawProducts.length;
-
-      let prods = deduplicateProducts(rawProducts.map(mapRowToProduct));
-
-      // Filter out explicitly excluded defective/hidden designs
-      prods = prods.filter((p: Product) => {
-        const h = (p.slug || '').toLowerCase();
-        const t = (p.name || '').toLowerCase();
-        if (
-          h.includes('scented-flower') ||
-          t.includes('scented flower bouquet') ||
-          t.includes('scented flowers bouquet')
-        ) {
-          return false;
-        }
-        if (
-          h.includes('you-make-me-so-happy') ||
-          t.includes('you make me so happy')
-        ) {
-          return false;
-        }
-        return true;
-      });
-
-      prods.forEach((p) => cacheProduct(p));
-
-      if (!col.imageUrl && prods.length > 0 && prods[0].image) {
-        col.imageUrl = prods[0].image;
-      }
-
-      const result = {
+      return {
         collection: col,
-        products: prods,
-        total,
+        products: [],
+        total: 0,
         page,
-        totalPages: Math.max(1, Math.ceil(total / limit)),
+        totalPages: 1,
       };
+    })().finally(() => {
+      inFlightCollectionRequests.delete(inflightKey);
+    });
 
-      queryCache.set(cacheKey, { result, timestamp: Date.now() });
-      queryCache.set(altCacheKey, { result, timestamp: Date.now() });
-      setSessionCache(cacheKey, result);
-      setSessionCache(altCacheKey, result);
-      return result;
-    } catch (err: any) {
-      console.warn(`Error fetching products for collection ${col.handle}:`, err);
-      throw err;
-    }
-
-    return {
-      collection: col,
-      products: [],
-      total: 0,
-      page,
-      totalPages: 1,
-    };
+    inFlightCollectionRequests.set(inflightKey, fetchPromise);
+    return fetchPromise;
   },
 
   /**
@@ -1526,30 +1572,133 @@ export const productService = {
   },
 
   /**
-   * Synchronously retrieves cached products for a homepage collection if already in memory or sessionStorage.
-   * Returns immediately (< 1ms), allowing instant paint with zero loading shimmer when cached.
+   * Synchronously retrieves cached products for Shop/general queries across memory, sessionStorage, and localStorage.
+   */
+  getCachedProducts(params: GetProductsParams = {}): PaginatedProductsResult | null {
+    const page = Math.max(1, params.page || 1);
+    const limit = params.limit || (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 15 : 16);
+
+    const cacheKey = JSON.stringify({
+      page,
+      limit,
+      category: params.category || 'all',
+      search: (params.searchQuery || '').trim().toLowerCase(),
+      minPrice: params.minPrice ?? null,
+      maxPrice: params.maxPrice ?? null,
+      surpriseTypes: (params.surpriseTypes || []).slice().sort(),
+      sort: params.sort || 'featured',
+    });
+
+    const cached = queryCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < QUERY_CACHE_TTL_MS) {
+      return cached.result;
+    }
+    const sessCached = getSessionCache<PaginatedProductsResult>(cacheKey);
+    if (sessCached) {
+      queryCache.set(cacheKey, { result: sessCached, timestamp: Date.now() });
+      return sessCached;
+    }
+    return null;
+  },
+
+  /**
+   * Synchronously retrieves full cached collection result across all tiers (memory, sessionStorage, localStorage)
+   * or synthesizes from individually warm product handles. Returns immediately (< 0.5ms) for instant UI hydration.
+   */
+  getCachedCollectionResult(
+    handleOrId: string,
+    params: { page?: number; limit?: number; sort?: string } = {}
+  ): { collection: Collection | null; products: Product[]; total: number; page: number; totalPages: number } | null {
+    if (!handleOrId) return null;
+    const clean = String(handleOrId).trim().toLowerCase();
+    const page = Math.max(1, params.page || 1);
+    const limit = params.limit || (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 15 : 16);
+    const sort = params.sort || 'featured';
+
+    const keysToCheck = [
+      `col_prods_${clean}_${page}_${limit}_${sort}`,
+      clean === 'cash-candles' ? `col_prods_cash-money-candles_${page}_${limit}_${sort}` : '',
+      clean === 'cash-money-candles' ? `col_prods_cash-candles_${page}_${limit}_${sort}` : '',
+      clean === 'zodiac-cash-money-candles' ? `col_prods_zodiac-cash-candles_${page}_${limit}_${sort}` : '',
+      clean === 'christmas-candles-1' ? `col_prods_christmas_${page}_${limit}_${sort}` : '',
+    ].filter(Boolean);
+
+    for (const key of keysToCheck) {
+      const mem = queryCache.get(key);
+      if (mem && Date.now() - mem.timestamp < QUERY_CACHE_TTL_MS) {
+        return mem.result;
+      }
+      const sess = getSessionCache<any>(key);
+      if (sess && sess.products && Array.isArray(sess.products) && sess.products.length > 0) {
+        queryCache.set(key, { result: sess, timestamp: Date.now() });
+        return sess;
+      }
+      const local = getLocalCache<any>(key);
+      if (local && local.products && Array.isArray(local.products) && local.products.length > 0) {
+        queryCache.set(key, { result: local, timestamp: Date.now() });
+        return local;
+      }
+    }
+
+    // Check if approved collection handles are individually cached in memory or localStorage
+    const approvedMeta = getApprovedCollectionMeta(clean);
+    if (approvedMeta) {
+      const allHandles = approvedMeta.productHandles;
+      const skip = (page - 1) * limit;
+      const pageHandles = allHandles.slice(skip, skip + limit);
+      const cachedProds: Product[] = [];
+      let allFound = true;
+
+      for (const h of pageHandles) {
+        const p = getCachedProduct(h);
+        if (p) {
+          cachedProds.push(p);
+        } else {
+          allFound = false;
+          break;
+        }
+      }
+
+      if (allFound && cachedProds.length === pageHandles.length) {
+        const fallbackImg =
+          approvedMeta.imageUrl ||
+          SIGNATURE_COLLECTION_IMAGES[approvedMeta.canonicalHandle] ||
+          '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg';
+
+        const col: Collection = {
+          id: approvedMeta.collectionId,
+          handle: approvedMeta.canonicalHandle,
+          title: approvedMeta.name,
+          bodyHtml: approvedMeta.description,
+          productsCount: approvedMeta.actualCount,
+          imageUrl: fallbackImg,
+        };
+        const total = allHandles.length;
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        const synthesized = {
+          collection: col,
+          products: cachedProds,
+          total: Math.max(total, cachedProds.length),
+          page,
+          totalPages,
+        };
+        queryCache.set(`col_prods_${clean}_${page}_${limit}_${sort}`, { result: synthesized, timestamp: Date.now() });
+        return synthesized;
+      }
+    }
+
+    return null;
+  },
+
+  /**
+   * Synchronously retrieves cached products for a homepage collection across memory, sessionStorage, and localStorage.
    */
   getCachedCollectionProducts(handleOrId: string, limit = 10): Product[] | null {
     if (!handleOrId) return null;
     const clean = String(handleOrId).trim().toLowerCase();
-    const keysToCheck = [
-      `col_prods_${clean}_1_${limit}_featured`,
-      clean === 'cash-candles' ? `col_prods_cash-money-candles_1_${limit}_featured` : '',
-      clean === 'cash-money-candles' ? `col_prods_cash-candles_1_${limit}_featured` : '',
-      clean === 'zodiac-cash-money-candles' ? `col_prods_zodiac-cash-candles_1_${limit}_featured` : '',
-      clean === 'christmas-candles-1' ? `col_prods_christmas_1_${limit}_featured` : '',
-    ].filter(Boolean);
-
-    for (const key of keysToCheck) {
-      const cached = queryCache.get(key);
-      if (cached && Date.now() - cached.timestamp < QUERY_CACHE_TTL_MS) {
-        return cached.result?.products || null;
-      }
-      const sess = getSessionCache<any>(key);
-      if (sess?.products && Array.isArray(sess.products)) {
-        queryCache.set(key, { result: sess, timestamp: Date.now() });
-        return sess.products;
-      }
+    const res = this.getCachedCollectionResult(clean, { page: 1, limit, sort: 'featured' });
+    if (res?.products && res.products.length > 0) {
+      return res.products;
     }
     return null;
   },

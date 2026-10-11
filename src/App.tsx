@@ -401,7 +401,7 @@ export function App() {
       if (items && items.length > 0) {
         setCart(items);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   // Sync wishlist and cart with backend when user is logged in
@@ -411,13 +411,13 @@ export function App() {
         if (remoteIds && remoteIds.length > 0) {
           setWishlistIds((prev) => Array.from(new Set([...prev, ...remoteIds])));
         }
-      }).catch(() => {});
+      }).catch(() => { });
 
       cartService.syncLocalCartToServer().then((items) => {
         if (items && items.length > 0) {
           setCart(items);
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [user?.id]);
 
@@ -935,10 +935,10 @@ export function App() {
           const id = path.startsWith('/order-confirmation/')
             ? path.replace('/order-confirmation/', '')
             : path.startsWith('/thank-you/')
-            ? path.replace('/thank-you/', '')
-            : path.startsWith('/order-success/')
-            ? path.replace('/order-success/', '')
-            : null;
+              ? path.replace('/thank-you/', '')
+              : path.startsWith('/order-success/')
+                ? path.replace('/order-success/', '')
+                : null;
           if (id) setConfirmedOrderId(id);
           setCurrentView('order-confirmation');
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1271,7 +1271,7 @@ export function App() {
   };
 
   const handleOrderCompleted = (createdOrder: Order) => {
-    cartService.clearCart().catch(() => {});
+    cartService.clearCart().catch(() => { });
     setCart([]); // Clear cart upon successful order
     setLatestPlacedOrder(createdOrder);
     setConfirmedOrderId(createdOrder.id);

@@ -11,7 +11,7 @@ import {
   type FilterState,
 } from '../components/products/filterConstants';
 import { ProductGrid } from '../components/products/ProductGrid';
-import { productService } from '../services/productService';
+import { useProducts } from '../hooks/useProducts';
 import { deduplicateProducts } from '../utils/productUtils';
 import type { Product, CartItem, SurpriseType } from '../types';
 import {
@@ -117,20 +117,7 @@ export const Shop: React.FC<ShopProps> = ({
     }));
     setCurrentPage(1);
   }
-  const [serverProducts, setServerProducts] = useState<Product[] | null>(null);
-  const [serverTotal, setServerTotal] = useState<number | null>(null);
-  const [serverTotalPages, setServerTotalPages] = useState<number>(1);
-  const [isFetchingProducts, setIsFetchingProducts] = useState<boolean>(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState<boolean>(false);
-  const [retryCount, setRetryCount] = useState<number>(0);
-
-  const handleRetry = useCallback(() => {
-    setIsRetrying(true);
-    setFetchError(null);
-    setIsFetchingProducts(true);
-    setRetryCount((prev) => prev + 1);
-  }, []);
 
   // Responsive limit: 15 on Laptop/Desktop (3 complete rows of 5), 16 on Mobile/Tablet (8 complete rows of 2)
   const [isDesktop, setIsDesktop] = useState<boolean>(() => {
@@ -148,75 +135,61 @@ export const Shop: React.FC<ShopProps> = ({
 
   const pageLimit = isDesktop ? 15 : 16;
 
-  useEffect(() => {
-    let isCancelled = false;
-    setIsFetchingProducts(true);
-    setFetchError(null);
+  const sortParam =
+    appliedFilters.sortBy === 'price-asc'
+      ? 'price-asc'
+      : appliedFilters.sortBy === 'price-desc'
+      ? 'price-desc'
+      : appliedFilters.sortBy === 'rating'
+      ? 'rating'
+      : appliedFilters.sortBy === 'best-sellers'
+      ? 'best-sellers'
+      : 'featured';
 
-    const sortParam =
-      appliedFilters.sortBy === 'price-asc'
-        ? 'price-asc'
-        : appliedFilters.sortBy === 'price-desc'
-        ? 'price-desc'
-        : appliedFilters.sortBy === 'rating'
-        ? 'rating'
-        : appliedFilters.sortBy === 'best-sellers'
-        ? 'best-sellers'
-        : 'featured';
+  const {
+    products: queryProducts,
+    total: queryTotal,
+    totalPages: queryTotalPages,
+    isLoading: isQueryLoading,
+    error: queryError,
+    refetch,
+  } = useProducts({
+    page: currentPage,
+    limit: pageLimit,
+    category: appliedFilters.categories[0],
+    searchQuery,
+    minPrice: appliedFilters.minPrice,
+    maxPrice: appliedFilters.maxPrice,
+    surpriseTypes: appliedFilters.surpriseTypes as SurpriseType[],
+    sort: sortParam,
+  });
 
-    productService
-      .getProducts({
-        page: currentPage,
-        limit: pageLimit,
-        category: appliedFilters.categories[0],
-        searchQuery,
-        minPrice: appliedFilters.minPrice,
-        maxPrice: appliedFilters.maxPrice,
-        surpriseTypes: appliedFilters.surpriseTypes as SurpriseType[],
-        sort: sortParam,
-      })
-      .then((res) => {
-        if (!isCancelled && res) {
-          setServerProducts(deduplicateProducts(res.products));
-          setServerTotal(res.total);
-          setServerTotalPages(res.totalPages);
-          setIsFetchingProducts(false);
-          setIsRetrying(false);
-          setFetchError(null);
-        }
-      })
-      .catch((err) => {
-        console.warn('Error fetching products from service:', err);
-        if (!isCancelled) {
-          setIsFetchingProducts(false);
-          setIsRetrying(false);
-          setServerProducts([]);
-          setFetchError(
-            err?.message || 'Unable to connect to the product catalog service. Please check your internet connection and try again.'
-          );
-        }
-      });
+  const handleRetry = useCallback(async () => {
+    setIsRetrying(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [refetch]);
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [currentPage, appliedFilters, searchQuery, retryCount, pageLimit]);
+  const isFetchingProducts = isQueryLoading && queryProducts.length === 0;
+  const fetchError = queryError
+    ? queryError.message ||
+      'Unable to connect to the product catalog service. Please check your internet connection and try again.'
+    : null;
 
   // Active applied products shown in the grid (capped at 15 on laptop to prevent lonely row 4)
   const activeProducts = useMemo(() => {
-    if (serverProducts !== null) {
-      const prods = deduplicateProducts(serverProducts);
-      if (isDesktop && prods.length > 15) {
-        return prods.slice(0, 15);
-      }
-      return prods;
+    const prods = deduplicateProducts(queryProducts);
+    if (isDesktop && prods.length > 15) {
+      return prods.slice(0, 15);
     }
-    return [];
-  }, [serverProducts, isDesktop]);
+    return prods;
+  }, [queryProducts, isDesktop]);
 
-  const totalPages = serverProducts !== null ? serverTotalPages : 1;
-
-  const displayTotalCount = serverTotal ?? 0;
+  const totalPages = queryTotalPages || 1;
+  const displayTotalCount = queryTotal ?? 0;
 
   // Apply draft filters when "Search by Filter" / "Show Results" is clicked and auto-close filter panel
   const handleApplyFilters = () => {
@@ -389,8 +362,8 @@ export const Shop: React.FC<ShopProps> = ({
             onResetFilters={handleResetFilters}
             onApplyFilters={handleApplyFilters}
             onClose={handleCloseDesktopFilter}
-            allProducts={serverProducts || []}
-            totalResultsCount={serverTotal ?? undefined}
+            allProducts={queryProducts || []}
+            totalResultsCount={queryTotal ?? undefined}
           />
         </div>
       )}
@@ -465,8 +438,8 @@ export const Shop: React.FC<ShopProps> = ({
         onFilterChange={setDraftFilters}
         onResetFilters={handleResetFilters}
         onApplyFilters={handleApplyFilters}
-        allProducts={serverProducts || []}
-        totalResultsCount={serverTotal ?? 0}
+        allProducts={queryProducts || []}
+        totalResultsCount={queryTotal ?? 0}
       />
 
       {/* Mobile Sort Bottom Sheet Portal */}

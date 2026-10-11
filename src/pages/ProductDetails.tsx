@@ -28,7 +28,7 @@ import { ProductCard } from '../components/products/ProductCard';
 import { RingSizerModal } from '../components/products/RingSizerModal';
 import { reviewsData } from '../data/reviews';
 import type { Product, CartItem, Review } from '../types';
-import { productService } from '../services/productService';
+import { useRelatedProducts } from '../hooks/useProducts';
 import { representativeService, type PublicRepresentative } from '../services/representativeService';
 
 interface ProductDetailsProps {
@@ -262,25 +262,8 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     return allReviews;
   }, [allReviews, product]);
 
-  const [liveRelatedProducts, setLiveRelatedProducts] = useState<Product[] | null>(null);
-
-  useEffect(() => {
-    let isCancelled = false;
-    productService
-      .getRelatedProducts(product, 4)
-      .then((items) => {
-        if (!isCancelled && items && items.length > 0) {
-          setLiveRelatedProducts(items);
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [product]);
-
-  const relatedProducts = liveRelatedProducts ?? [];
+  const { data: relatedItems } = useRelatedProducts(product, 4);
+  const relatedProducts = relatedItems ?? [];
 
   // Authentic alternate images strictly for THIS product (never cross-pollinating with different products)
   const alternateImages = useMemo(() => {
