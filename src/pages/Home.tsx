@@ -6,7 +6,6 @@ import { AffiliateSection } from '../components/home/AffiliateSection';
 import { FeaturedProducts } from '../components/home/FeaturedProducts';
 import { ReviewsSection } from '../components/home/ReviewsSection';
 import { ValuePropositionSection } from '../components/home/ValuePropositionSection';
-import { sessionTracker } from '../utils/sessionTracker';
 import { productService } from '../services/productService';
 import type { Product, CartItem } from '../types';
 
@@ -39,18 +38,10 @@ export const Home: React.FC<HomeProps> = ({
   onWishlistToggle,
   onSelectProduct,
 }) => {
-  // Skeleton only shows on first open & page refresh; subsequent visits in same session render immediately
-  const [isLoading, setIsLoading] = useState(() => sessionTracker.isFirstVisit('home'));
+  // Eliminate initial skeleton lag: render immediate instant UI on first visit
+  const isLoading = false;
   const [userSelectedCategory, setUserSelectedCategory] = useState<string | null>(null);
   const homeCategory = userSelectedCategory ?? selectedCategory ?? 'All Surprises';
-
-  useEffect(() => {
-    if (!isLoading) return;
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 450);
-    return () => clearTimeout(timer);
-  }, [isLoading]);
 
   // Pre-warm primary catalog collections in browser idle time
   useEffect(() => {
