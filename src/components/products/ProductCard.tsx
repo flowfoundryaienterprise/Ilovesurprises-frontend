@@ -165,7 +165,7 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
             <div className="flex items-center gap-0.5 font-extrabold text-[#141219] shrink-0">
               <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-[#ffa000] text-[#ffa000]" />
               <span>{product.rating.toFixed(1)}</span>
-              <span className="text-[#8a858f] font-normal text-[8.5px] sm:text-[9px]">({product.reviewCount})</span>
+              <span className="text-[#524d58] font-medium text-[8.5px] sm:text-[9px]">({product.reviewCount})</span>
             </div>
           </div>
 

@@ -159,9 +159,9 @@ export const Hero: React.FC<HeroProps> = ({
 
                   {/* Title & Supporting Text */}
                   <div className="min-w-0 flex-1 flex flex-col justify-center">
-                    <h3 className="text-[10.5px] min-[360px]:text-[11.5px] min-[400px]:text-[12.5px] sm:text-[14px] font-bold text-[#141219] group-hover:text-[#D30915] leading-snug tracking-tight truncate m-0 transition-colors">
+                    <span className="block text-[10.5px] min-[360px]:text-[11.5px] min-[400px]:text-[12.5px] sm:text-[14px] font-bold text-[#141219] group-hover:text-[#D30915] leading-snug tracking-tight truncate m-0 transition-colors">
                       {item.title}
-                    </h3>
+                    </span>
                     <p className="text-[8.5px] min-[360px]:text-[9.5px] min-[400px]:text-[10.5px] sm:text-[12px] text-[#716d77] leading-snug mt-0.5 line-clamp-2 sm:line-clamp-1 font-medium m-0">
                       {item.subtitle}
                     </p>

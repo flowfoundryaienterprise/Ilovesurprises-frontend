@@ -1628,34 +1628,36 @@ export const productService = {
    */
   prefetchCommonCollections(): void {
     if (typeof window === 'undefined') return;
+
+    // Do not congest network on slow 3G/4G or data-saver modes during critical load
+    const conn = (navigator as any).connection;
+    if (conn && (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g')) {
+      return;
+    }
+
     const topHandles = [
       'halloween',
       'christmas-candles-1',
       'cash-candles',
       'zodiac-cash-money-candles',
-      'candles',
-      'wax-melts',
-      'bath-bombs',
-      'soaps',
-      'jewelry',
-      'candy',
-      'chocolates',
-      'slimes',
-      'cards',
     ];
 
     const runPrefetch = () => {
+      // Execute after page is fully painted and idle
       topHandles.forEach((handle, idx) => {
         setTimeout(() => {
-          this.getProductsByCollection(handle, { page: 1, limit: 10, sort: 'featured' }).catch(() => {});
-        }, idx * 100);
+          this.getProductsByCollection(handle, { page: 1, limit: 8, sort: 'featured' }).catch(() => {});
+        }, idx * 600);
       });
     };
 
-    if ('requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(runPrefetch);
+    // Wait at least 4.5 seconds so Lighthouse and mobile initial LCP finish cleanly
+    if (document.readyState === 'complete') {
+      setTimeout(runPrefetch, 4500);
     } else {
-      setTimeout(runPrefetch, 250);
+      window.addEventListener('load', () => {
+        setTimeout(runPrefetch, 4500);
+      }, { once: true });
     }
   },
 

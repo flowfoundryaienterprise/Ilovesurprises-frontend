@@ -1211,8 +1211,8 @@ export const Header: React.FC<HeaderProps> = ({
                 <img
                   src="/assets/ilovesurprises/logo/logo-16k.png"
                   alt="I Love Surprises Logo"
-                  width={8192}
-                  height={2728}
+                  width={580}
+                  height={193}
                   loading="eager"
                   fetchPriority="high"
                   decoding="async"
@@ -2157,8 +2157,8 @@ export const Header: React.FC<HeaderProps> = ({
                 <img
                   src="/assets/ilovesurprises/logo/logo-16k.png"
                   alt="I Love Surprises Logo"
-                  width={8192}
-                  height={2728}
+                  width={580}
+                  height={193}
                   loading="lazy"
                   decoding="async"
                   className="h-[42px] min-[360px]:h-[46px] min-[390px]:h-[50px] min-[420px]:h-[52px] sm:h-[50px] w-auto max-w-[170px] min-[360px]:max-w-[195px] min-[390px]:max-w-[215px] min-[420px]:max-w-[230px] sm:max-w-[225px] object-contain"

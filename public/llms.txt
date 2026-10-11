@@ -1,0 +1,14 @@
+# I Love Surprises
+
+> I Love Surprises is an American e-commerce brand offering handcrafted soy candles, bath bombs, wax melts, and bath treats with authentic fine jewelry and real cash reveals hidden inside ($2 up to $2,500).
+
+## Store Navigation & Key Collections
+- [Home Page](https://ilovesurprises.com/): Official storefront for mystery cash and jewelry candles.
+- [Cash Candles](https://ilovesurprises.com/collection/cash-candles): Hand-poured candles with guaranteed real currency inside.
+- [Jewelry Candles](https://ilovesurprises.com/collection/jewelry-candles): Premium scented candles containing hidden genuine rings, necklaces, and jewelry appraised up to $7,500.
+- [Halloween Collection](https://ilovesurprises.com/collection/halloween): Seasonal spooky candles and bath treats with surprise reveals.
+- [Christmas Candles](https://ilovesurprises.com/collection/christmas-candles-1): Holiday celebration scents with hidden cash and ring surprises.
+- [Wax Melts](https://ilovesurprises.com/collection/wax-melts): Flameless fragrance wax cubes with hidden treasures.
+- [Bath Bombs](https://ilovesurprises.com/collection/bath-bombs): Luxurious soothing bath fizzy bombs with hidden jewelry.
+- [About Us](https://ilovesurprises.com/about): Brand history, craftsmanship, and guarantee policies.
+- [Appraise Jewelry](https://ilovesurprises.com/appraise): Enter jewelry codes to verify appraised retail value.
