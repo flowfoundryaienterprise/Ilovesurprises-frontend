@@ -164,16 +164,17 @@ export const ProductGrid: React.FC<ProductGridProps> = React.memo(({
         const isWishlisted = wishlistSet.has(product.id);
 
         return (
-          <ProductCard
-            key={product.id}
-            product={product}
-            cartQuantity={qty}
-            onAddToCart={onAddToCart}
-            onUpdateQuantity={handleUpdate}
-            onToggleWishlist={handleToggle}
-            onSelectProduct={onSelectProduct}
-            isWishlisted={isWishlisted}
-          />
+          <div key={product.id} className="product-card-appear">
+            <ProductCard
+              product={product}
+              cartQuantity={qty}
+              onAddToCart={onAddToCart}
+              onUpdateQuantity={handleUpdate}
+              onToggleWishlist={handleToggle}
+              onSelectProduct={onSelectProduct}
+              isWishlisted={isWishlisted}
+            />
+          </div>
         );
       })}
     </div>

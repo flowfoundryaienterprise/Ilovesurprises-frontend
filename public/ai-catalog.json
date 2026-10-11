@@ -1,0 +1,15 @@
+{
+  "$schema": "https://agenticresourcediscovery.org/schema/v1/ai-catalog.json",
+  "name": "I Love Surprises",
+  "version": "1.0.0",
+  "description": "Handcrafted soy candles and bath bombs with real cash ($2 - $2,500) and fine jewelry hidden inside.",
+  "url": "https://ilovesurprises.com",
+  "documentation": "https://ilovesurprises.com/llms.txt",
+  "services": [
+    {
+      "name": "E-Commerce Catalog",
+      "description": "Browse and purchase scented reveal candles, wax melts, and bath products.",
+      "url": "https://ilovesurprises.com"
+    }
+  ]
+}

@@ -12,9 +12,13 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://api.ilovesurprises.com',
+        target: 'http://localhost:3000',
         changeOrigin: true,
-        secure: true,
+        secure: false,
+      },
+      '/health': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
       },
     },
     watch: {

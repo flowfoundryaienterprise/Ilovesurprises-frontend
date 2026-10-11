@@ -125,10 +125,10 @@ export const AffiliateSection: React.FC<AffiliateSectionProps> = ({ isLoading = 
 
               <a
                 href="/affiliate"
-                role="button"
+                aria-label="Learn more about becoming an independent consultant with I Love Surprises"
                 className="inline-flex items-center justify-center min-h-[44px] sm:min-h-[48px] px-3 min-[380px]:px-4 sm:px-6 rounded-[13px] sm:rounded-[14px] bg-white hover:bg-[#fff9fb] border border-[#ebdce5] hover:border-[#D30915] text-[#141219] hover:text-[#D30915] font-black text-[11px] min-[375px]:text-xs sm:text-[13px] uppercase tracking-wider shadow-2xs hover:shadow-[0_6px_18px_rgba(50,31,63,0.06)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 text-center"
               >
-                Learn More
+                Learn More About Consultant Program
               </a>
             </div>
 
@@ -220,19 +220,19 @@ export const AffiliateSection: React.FC<AffiliateSectionProps> = ({ isLoading = 
                   <span className="text-[10px] sm:text-[11px] font-black px-2 py-0.5 rounded-full bg-[#D30915] text-white shadow-2xs">
                     You 20%
                   </span>
-                  <span className="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-600 text-white shadow-2xs">
+                  <span className="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-700 text-white shadow-2xs">
                     5%
                   </span>
-                  <span className="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-500 text-white shadow-2xs">
+                  <span className="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-700 text-white shadow-2xs">
                     4%
                   </span>
-                  <span className="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-400 text-white shadow-2xs">
+                  <span className="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-100 text-purple-950 border border-purple-200 shadow-2xs">
                     3%
                   </span>
-                  <span className="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-300 text-white shadow-2xs">
+                  <span className="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-100 text-purple-950 border border-purple-200 shadow-2xs">
                     2%
                   </span>
-                  <span className="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-200 text-purple-900 shadow-2xs">
+                  <span className="text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-100 text-purple-950 border border-purple-200 shadow-2xs">
                     1%
                   </span>
                 </div>

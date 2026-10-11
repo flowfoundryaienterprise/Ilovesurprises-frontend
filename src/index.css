@@ -1,6 +1,58 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* ─── Fix 5: Skeleton shimmer animation for smooth perceived loading ─── */
+@keyframes shimmer {
+  0% {
+    background-position: -600px 0;
+  }
+  100% {
+    background-position: 600px 0;
+  }
+}
+
+@keyframes product-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #f0e8ef 0%,
+    #f9f3f8 40%,
+    #eddde9 60%,
+    #f0e8ef 100%
+  );
+  background-size: 600px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  will-change: background-position;
+}
+
+.product-card-appear {
+  animation: product-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Stagger each card for a cascade reveal effect */
+.product-card-appear:nth-child(1)  { animation-delay: 0ms; }
+.product-card-appear:nth-child(2)  { animation-delay: 30ms; }
+.product-card-appear:nth-child(3)  { animation-delay: 60ms; }
+.product-card-appear:nth-child(4)  { animation-delay: 90ms; }
+.product-card-appear:nth-child(5)  { animation-delay: 120ms; }
+.product-card-appear:nth-child(6)  { animation-delay: 150ms; }
+.product-card-appear:nth-child(7)  { animation-delay: 180ms; }
+.product-card-appear:nth-child(8)  { animation-delay: 210ms; }
+.product-card-appear:nth-child(9)  { animation-delay: 240ms; }
+.product-card-appear:nth-child(10) { animation-delay: 270ms; }
+.product-card-appear:nth-child(n+11) { animation-delay: 300ms; }
+
+
 @layer base {
   :root {
     --ink: #141219;

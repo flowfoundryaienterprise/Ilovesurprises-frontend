@@ -272,6 +272,9 @@ export function App() {
           });
         }
       }
+
+      // Proactively pre-warm top collections in the background for 0ms transitions
+      productService.prefetchCommonCollections();
     }
   }, []);
 
