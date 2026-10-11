@@ -502,7 +502,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   <div className="flex items-center gap-2">
                     {/* Instagram */}
                     <a
-                      href="https://instagram.com"
+                      href="https://www.instagram.com/ilovesurprises"
                       target="_blank"
                       rel="noreferrer"
                       aria-label="Instagram"
@@ -515,7 +515,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
                     {/* Facebook */}
                     <a
-                      href="https://facebook.com"
+                      href="https://www.facebook.com/ilovesurprises"
                       target="_blank"
                       rel="noreferrer"
                       aria-label="Facebook"

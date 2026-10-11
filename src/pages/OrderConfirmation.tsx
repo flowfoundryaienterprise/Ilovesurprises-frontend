@@ -376,6 +376,25 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
                       <Gift className="w-3 h-3 text-emerald-600 shrink-0" />
                       <span className="truncate">{item.selectedSurpriseOption || (item.product.surpriseType === 'cash' ? 'Real Cash Inside' : 'Jewelry Inside')}</span>
                     </p>
+                    {(item.selectedRingSize || item.selectedJewelryType || item.selectedSize) && (
+                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                        {item.selectedJewelryType && (
+                          <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200">
+                            {item.selectedJewelryType}
+                          </span>
+                        )}
+                        {item.selectedRingSize && (
+                          <span className="text-[9px] font-bold text-[#D30915] bg-[#fff1f2] px-1.5 py-0.2 rounded border border-[#fecdd3]">
+                            Size {item.selectedRingSize}
+                          </span>
+                        )}
+                        {item.selectedSize && (
+                          <span className="text-[9px] font-medium text-[#716d77] bg-gray-50 px-1.5 py-0.2 rounded border border-gray-200">
+                            {item.selectedSize}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <span className="text-[11px] text-[#716d77] block mt-0.5 truncate">
                       ${item.unitPrice.toFixed(2)} × {item.quantity}
                     </span>

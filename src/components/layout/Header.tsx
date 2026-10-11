@@ -2140,7 +2140,6 @@ export const Header: React.FC<HeaderProps> = ({
             className={`relative w-[85%] max-w-[340px] h-full bg-white shadow-2xl z-10 flex flex-col justify-between overflow-y-auto border-l border-[#eee7ed] ${isClosingMobileMenu ? 'animate-drawer-out' : 'animate-drawer-in'
               }`}
           >
-<<<<<<< HEAD
             {/* Drawer Top Header */}
             <div>
               <div className="p-4 border-b border-[#f4edf2] flex items-center justify-between bg-gradient-to-r from-[#fff5f5] to-[#ffffff]">
@@ -2161,8 +2160,8 @@ export const Header: React.FC<HeaderProps> = ({
                   <img
                     src="/assets/ilovesurprises/logo/logo-16k.png"
                     alt="I Love Surprises Logo"
-                    width={8192}
-                    height={2728}
+                    width={580}
+                    height={193}
                     loading="lazy"
                     decoding="async"
                     className="h-[42px] min-[360px]:h-[46px] min-[390px]:h-[50px] min-[420px]:h-[52px] sm:h-[50px] w-auto max-w-[170px] min-[360px]:max-w-[195px] min-[390px]:max-w-[215px] min-[420px]:max-w-[230px] sm:max-w-[225px] object-contain"
@@ -2174,41 +2173,6 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                   />
                 </a>
-=======
-          {/* Drawer Top Header */}
-          <div>
-            <div className="p-4 border-b border-[#f4edf2] flex items-center justify-between bg-gradient-to-r from-[#fff5f5] to-[#ffffff]">
-              <a
-                href="/"
-                onClick={(e) =>
-                  handleNavClick(e, {
-                    id: 'home',
-                    label: 'Home',
-                    href: '/',
-                    targetSectionId: 'hero',
-                    icon: HomeIcon,
-                  })
-                }
-                className="flex items-center shrink min-w-0"
-                aria-label="Home"
-              >
-                <img
-                  src="/assets/ilovesurprises/logo/logo-16k.png"
-                  alt="I Love Surprises Logo"
-                  width={580}
-                  height={193}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-[42px] min-[360px]:h-[46px] min-[390px]:h-[50px] min-[420px]:h-[52px] sm:h-[50px] w-auto max-w-[170px] min-[360px]:max-w-[195px] min-[390px]:max-w-[215px] min-[420px]:max-w-[230px] sm:max-w-[225px] object-contain"
-                  style={{
-                    imageRendering: '-webkit-optimize-contrast',
-                    WebkitBackfaceVisibility: 'hidden',
-                    backfaceVisibility: 'hidden',
-                    transform: 'translateZ(0)',
-                  }}
-                />
-              </a>
->>>>>>> origin/main
 
                 <button
                   type="button"

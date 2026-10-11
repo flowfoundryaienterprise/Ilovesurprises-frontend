@@ -59,9 +59,10 @@ export function generateCartItemKey(
  */
 export function mapBackendCartItemToFrontend(
   item: BackendCartItemDTO,
-  fallbackProduct?: Product
+  fallbackProduct?: Product,
+  fallbackCartItem?: Partial<CartItem>
 ): CartItem {
-  const product: Product = fallbackProduct || {
+  const product: Product = fallbackProduct || fallbackCartItem?.product || {
     id: item.productId,
     name: item.productName,
     slug: item.productSlug,
@@ -74,15 +75,28 @@ export function mapBackendCartItemToFrontend(
     inStock: item.isAvailable !== false,
   };
 
-  const ringSizeNum = item.selectedRingSize ? parseInt(item.selectedRingSize, 10) : undefined;
+  const parsedRingSize = item.selectedRingSize ? parseInt(item.selectedRingSize, 10) : undefined;
+  const selectedRingSize = (parsedRingSize !== undefined && !isNaN(parsedRingSize))
+    ? parsedRingSize
+    : fallbackCartItem?.selectedRingSize;
+
+  const selectedJewelryType = (item as any).selectedJewelryType || fallbackCartItem?.selectedJewelryType;
+  const selectedSize = item.selectedScent || (item as any).selectedSize || fallbackCartItem?.selectedSize;
+
+  const stableId = item.id || generateCartItemKey(product.id, {
+    selectedRingSize,
+    selectedJewelryType,
+    selectedSize,
+  });
 
   return {
-    id: item.id,
+    id: stableId,
     serverItemId: item.id,
     product,
     quantity: item.quantity,
-    selectedRingSize: isNaN(ringSizeNum as number) ? undefined : ringSizeNum,
-    selectedSize: item.selectedScent || undefined,
+    selectedRingSize,
+    selectedJewelryType,
+    selectedSize,
   };
 }
 
@@ -127,9 +141,11 @@ export const cartService = {
         const localItems = this.getLocalCart();
         const mappedItems: CartItem[] = backendCart.items.map((bItem) => {
           const match = localItems.find(
-            (l) => l.product.id === bItem.productId || l.product.slug === bItem.productSlug
+            (l) => (l.serverItemId && l.serverItemId === bItem.id) ||
+                   l.product.id === bItem.productId ||
+                   l.product.slug === bItem.productSlug
           );
-          return mapBackendCartItemToFrontend(bItem, match?.product);
+          return mapBackendCartItemToFrontend(bItem, match?.product, match);
         });
 
         this.saveLocalCart(mappedItems);
@@ -179,12 +195,18 @@ export const cartService = {
         const localItems = this.getLocalCart();
         const mappedItems: CartItem[] = backendCart.items.map((bItem) => {
           if (bItem.productId === params.product.id || bItem.productSlug === params.product.slug) {
-            return mapBackendCartItemToFrontend(bItem, params.product);
+            return mapBackendCartItemToFrontend(bItem, params.product, {
+              selectedRingSize: params.selectedRingSize,
+              selectedJewelryType: params.selectedJewelryType,
+              selectedSize: params.selectedSize,
+            });
           }
           const match = localItems.find(
-            (l) => l.product.id === bItem.productId || l.product.slug === bItem.productSlug
+            (l) => (l.serverItemId && l.serverItemId === bItem.id) ||
+                   l.product.id === bItem.productId ||
+                   l.product.slug === bItem.productSlug
           );
-          return mapBackendCartItemToFrontend(bItem, match?.product);
+          return mapBackendCartItemToFrontend(bItem, match?.product, match);
         });
 
         this.saveLocalCart(mappedItems);
@@ -264,9 +286,11 @@ export const cartService = {
         if (backendCart && Array.isArray(backendCart.items)) {
           const mappedItems: CartItem[] = backendCart.items.map((bItem) => {
             const match = currentCart.find(
-              (l) => l.product.id === bItem.productId || l.product.slug === bItem.productSlug
+              (l) => (l.serverItemId && l.serverItemId === bItem.id) ||
+                     l.product.id === bItem.productId ||
+                     l.product.slug === bItem.productSlug
             );
-            return mapBackendCartItemToFrontend(bItem, match?.product);
+            return mapBackendCartItemToFrontend(bItem, match?.product, match);
           });
 
           this.saveLocalCart(mappedItems);
@@ -310,9 +334,11 @@ export const cartService = {
         if (backendCart && Array.isArray(backendCart.items)) {
           const mappedItems: CartItem[] = backendCart.items.map((bItem) => {
             const match = currentCart.find(
-              (l) => l.product.id === bItem.productId || l.product.slug === bItem.productSlug
+              (l) => (l.serverItemId && l.serverItemId === bItem.id) ||
+                     l.product.id === bItem.productId ||
+                     l.product.slug === bItem.productSlug
             );
-            return mapBackendCartItemToFrontend(bItem, match?.product);
+            return mapBackendCartItemToFrontend(bItem, match?.product, match);
           });
 
           this.saveLocalCart(mappedItems);

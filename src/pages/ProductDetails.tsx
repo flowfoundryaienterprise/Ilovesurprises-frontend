@@ -102,13 +102,15 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
 
   // Detect whether this is a jewelry surprise product
   const isJewelrySurprise = useMemo(() => {
-    return (
-      product.surpriseType === 'jewelry' ||
-      (product.category || '').toLowerCase().includes('jewelry') ||
-      (product.name || '').toLowerCase().includes('ring') ||
-      (product.name || '').toLowerCase().includes('jewelry') ||
-      Boolean(product.surpriseValue && (product.surpriseValue || '').toLowerCase().includes('jewelry'))
-    );
+    if (product.surpriseType === 'cash' || (product.category || '').toLowerCase().includes('cash')) {
+      return false;
+    }
+    if (product.surpriseType === 'jewelry') return true;
+    const cat = (product.category || '').toLowerCase();
+    const name = (product.name || '').toLowerCase();
+    const val = (product.surpriseValue || '').toLowerCase();
+    if (cat.includes('jewelry') || val.includes('jewelry')) return true;
+    return /\b(ring|rings|necklace|necklaces|earring|earrings|bracelet|bracelets|jewelry)\b/i.test(name);
   }, [product]);
 
   // Detect Halloween product
@@ -194,8 +196,42 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
 
   // Jewelry Variant States (Ring Size & Jewelry Type fallback)
   const [selectedJewelryType, setSelectedJewelryType] = useState<string>('Ring');
-  const [selectedRingSize, setSelectedRingSize] = useState<number>(7);
+  const [selectedRingSize, setSelectedRingSize] = useState<number | undefined>(7);
   const [isRingSizerOpen, setIsRingSizerOpen] = useState(false);
+
+  // Sync / clear ring size when switching jewelry type or when product changes
+  const handleJewelryTypeSelect = (type: string) => {
+    setSelectedJewelryType(type);
+    if (type === 'Ring') {
+      setSelectedRingSize((prev) => (prev && RING_SIZES.includes(prev) ? prev : 7));
+      setSelectedOptions((prev) => {
+        const next = { ...prev };
+        delete next['Jewelry Reveal Type'];
+        delete next['Jewelry Type'];
+        next['Jewelry Reveal Type'] = 'Ring';
+        next['Ring Size'] = String(selectedRingSize || 7);
+        return next;
+      });
+    } else {
+      setSelectedRingSize(undefined);
+      setSelectedOptions((prev) => {
+        const next = { ...prev };
+        delete next['Ring Size'];
+        delete next['Jewelry Reveal Type'];
+        delete next['Jewelry Type'];
+        next['Jewelry Reveal Type'] = type;
+        return next;
+      });
+    }
+  };
+
+  const handleRingSizeSelect = (size: number) => {
+    setSelectedRingSize(size);
+    setSelectedOptions((prev) => ({
+      ...prev,
+      'Ring Size': String(size),
+    }));
+  };
 
   // Consultant Attribution
   const [rep, setRep] = useState<PublicRepresentative | null>(() =>
@@ -253,14 +289,24 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
       ? Math.round(((currentCompareAtPrice - currentPrice) / currentCompareAtPrice) * 100)
       : null;
 
-  // Filter reviews for this product or category
+  // Filter reviews strictly for this product
   const relevantReviews = useMemo(() => {
-    const specific = allReviews.filter(
+    return allReviews.filter(
       (r) => r.productId === product.id || r.productName.toLowerCase() === product.name.toLowerCase()
     );
-    if (specific.length > 0) return specific;
-    return allReviews;
   }, [allReviews, product]);
+
+  const productReviewCount = relevantReviews.length > 0 ? relevantReviews.length : (product.reviewCount || 0);
+  const averageRating = useMemo(() => {
+    if (relevantReviews.length > 0) {
+      const sum = relevantReviews.reduce((acc, r) => acc + (r.rating || 5), 0);
+      return Number((sum / relevantReviews.length).toFixed(1));
+    }
+    if (product.reviewCount > 0 && product.rating > 0) {
+      return product.rating;
+    }
+    return 0;
+  }, [relevantReviews, product.reviewCount, product.rating]);
 
   const { data: relatedItems } = useRelatedProducts(product, 4);
   const relatedProducts = relatedItems ?? [];
@@ -283,7 +329,12 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     const otherOpts =
       product.options && product.options.length > 0
         ? Object.entries(selectedOptions)
-            .filter(([k]) => !k.toLowerCase().includes('scent') && !k.toLowerCase().includes('fragrance'))
+            .filter(([k]) => {
+              const kl = k.toLowerCase();
+              if (kl.includes('scent') || kl.includes('fragrance')) return false;
+              if (isJewelrySurprise && /jewelry|reveal|ring/i.test(kl)) return false;
+              return true;
+            })
             .map(([k, v]) => `${k}: ${v}`)
             .join(', ')
         : '';
@@ -308,7 +359,12 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     const otherOpts =
       product.options && product.options.length > 0
         ? Object.entries(selectedOptions)
-            .filter(([k]) => !k.toLowerCase().includes('scent') && !k.toLowerCase().includes('fragrance'))
+            .filter(([k]) => {
+              const kl = k.toLowerCase();
+              if (kl.includes('scent') || kl.includes('fragrance')) return false;
+              if (isJewelrySurprise && /jewelry|reveal|ring/i.test(kl)) return false;
+              return true;
+            })
             .map(([k, v]) => `${k}: ${v}`)
             .join(', ')
         : '';
@@ -456,15 +512,19 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 {product.category}
               </span>
 
-              <div className="flex items-center gap-1 text-xs font-extrabold text-[#141219]">
-                <div className="flex items-center gap-0.5 text-amber-500">
-                  <Star className="w-3.5 h-3.5 fill-current" />
+              {productReviewCount > 0 && averageRating > 0 ? (
+                <div className="flex items-center gap-1 text-xs font-extrabold text-[#141219]">
+                  <div className="flex items-center gap-0.5 text-amber-500">
+                    <Star className="w-3.5 h-3.5 fill-current" />
+                  </div>
+                  <span>{averageRating.toFixed(1)}</span>
+                  <span className="text-[#8a858f] font-normal">
+                    ({productReviewCount} verified {productReviewCount === 1 ? 'review' : 'reviews'})
+                  </span>
                 </div>
-                <span>{product.rating.toFixed(1)}</span>
-                <span className="text-[#8a858f] font-normal">
-                  ({allReviews.length} verified {allReviews.length === 1 ? 'review' : 'reviews'})
-                </span>
-              </div>
+              ) : (
+                <span className="text-[11px] font-medium text-[#8a858f]">No reviews yet</span>
+              )}
             </div>
 
             {/* Representative Endorsement Pill */}
@@ -619,14 +679,24 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </p>
             </div>
 
-            {/* AUTHORITATIVE PRODUCT OPTIONS (Non-Scent options like Size/Style) */}
+            {/* AUTHORITATIVE PRODUCT OPTIONS (Non-Scent, Non-Jewelry options like Size/Style) */}
             {product.options &&
               product.options
-                .filter((opt) => !opt.name.toLowerCase().includes('scent') && !opt.name.toLowerCase().includes('fragrance'))
+                .filter((opt) => {
+                  const nameLower = opt.name.toLowerCase();
+                  if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
+                  if (isJewelrySurprise && /jewelry|reveal|ring/i.test(nameLower)) return false;
+                  return true;
+                })
                 .length > 0 && (
                 <div className="mb-5 space-y-4">
                   {product.options
-                    .filter((opt) => !opt.name.toLowerCase().includes('scent') && !opt.name.toLowerCase().includes('fragrance'))
+                    .filter((opt) => {
+                      const nameLower = opt.name.toLowerCase();
+                      if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
+                      if (isJewelrySurprise && /jewelry|reveal|ring/i.test(nameLower)) return false;
+                      return true;
+                    })
                     .map((opt) => {
                       const currentVal = selectedOptions[opt.name] || opt.values[0];
                       return (
@@ -677,7 +747,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                       <button
                         key={type}
                         type="button"
-                        onClick={() => setSelectedJewelryType(type)}
+                        onClick={() => handleJewelryTypeSelect(type)}
                         className={`py-2 px-2.5 rounded-[12px] text-center border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                           selectedJewelryType === type
                             ? 'border-[#D30915] bg-[#fff1f2] text-[#D30915] font-black shadow-xs ring-2 ring-[#D30915]/15'
@@ -708,7 +778,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                           <Ruler className="w-3 h-3" />
                           <span>Find My Size</span>
                         </button>
-                        <span className="text-xs font-bold text-[#D30915]">Size {selectedRingSize}</span>
+                        <span className="text-xs font-bold text-[#D30915]">{selectedRingSize ? `Size ${selectedRingSize}` : 'Select Size'}</span>
                       </div>
                     </div>
                     <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
@@ -716,7 +786,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                         <button
                           key={size}
                           type="button"
-                          onClick={() => setSelectedRingSize(size)}
+                          onClick={() => handleRingSizeSelect(size)}
                           className={`py-2 px-1 rounded-[12px] text-center border transition-all cursor-pointer flex flex-col items-center justify-center ${
                             selectedRingSize === size
                               ? 'border-[#D30915] bg-[#fff1f2] text-[#D30915] font-black shadow-xs ring-2 ring-[#D30915]/20 scale-105'
@@ -729,7 +799,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                       ))}
                     </div>
                     <p className="text-[11px] text-[#716d77] m-0 mt-2 font-medium">
-                      ✨ Your ring surprise will be tailored in Size {selectedRingSize} appraised $10 to $7,500.
+                      ✨ Your ring surprise will be tailored in Size {selectedRingSize || 7} appraised $10 to $7,500.
                     </p>
                     {onNavigateToAppraisal && (
                       <button
@@ -942,20 +1012,34 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               <span className="text-xs font-black uppercase tracking-wider text-[#716d77] block mb-1">
                 Overall Customer Rating
               </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl sm:text-5xl font-black text-[#141219] font-display">
-                  {product.rating.toFixed(1)}
-                </span>
-                <span className="text-base font-bold text-[#8a858f]">/ 5.0</span>
-              </div>
-              <div className="flex items-center gap-1 my-2 text-amber-500">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Star key={s} className="w-5 h-5 fill-current" />
-                ))}
-              </div>
-              <p className="text-xs text-[#716d77] m-0">
-                Based on <strong>{allReviews.length}</strong> authentic customer {allReviews.length === 1 ? 'unboxing' : 'unboxings'}
-              </p>
+              {productReviewCount > 0 && averageRating > 0 ? (
+                <>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl sm:text-5xl font-black text-[#141219] font-display">
+                      {averageRating.toFixed(1)}
+                    </span>
+                    <span className="text-base font-bold text-[#8a858f]">/ 5.0</span>
+                  </div>
+                  <div className="flex items-center gap-1 my-2 text-amber-500">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`w-5 h-5 ${s <= Math.round(averageRating) ? 'fill-current text-amber-500' : 'text-gray-300'}`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-xs text-[#716d77] m-0">
+                    Based on <strong>{productReviewCount}</strong> authentic customer {productReviewCount === 1 ? 'unboxing' : 'unboxings'}
+                  </p>
+                </>
+              ) : (
+                <div className="py-2">
+                  <div className="text-lg font-bold text-[#141219]">No reviews yet</div>
+                  <p className="text-xs text-[#716d77] m-0 mt-1">
+                    This product has not received verified customer reviews yet.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="pt-4 border-t border-[#f0dce6] space-y-1.5 text-xs">
@@ -964,35 +1048,42 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 <span className="text-emerald-700">Verified ✓</span>
               </div>
               <div className="flex items-center justify-between text-[#141219] font-bold">
-                <span>Appraised Jewelry Inside</span>
-                <span className="text-[#D30915]">$10 - $7,500</span>
+                <span>{product.surpriseType === 'cash' ? 'Cash Prize Inside' : 'Appraised Jewelry Inside'}</span>
+                <span className="text-[#D30915]">{product.surpriseType === 'cash' ? '$2 - $2,500' : '$10 - $7,500'}</span>
               </div>
             </div>
           </div>
 
           {/* Star Breakdown Bars */}
           <div className="lg:col-span-8 p-6 rounded-3xl bg-white border border-[#eedbe6] space-y-3 flex flex-col justify-center">
-            {[
-              { stars: 5, pct: 88, count: Math.round(product.reviewCount * 0.88) },
-              { stars: 4, pct: 9, count: Math.round(product.reviewCount * 0.09) },
-              { stars: 3, pct: 2, count: Math.round(product.reviewCount * 0.02) },
-              { stars: 2, pct: 1, count: Math.round(product.reviewCount * 0.01) },
-              { stars: 1, pct: 0, count: 0 },
-            ].map((bar) => (
-              <div key={bar.stars} className="flex items-center gap-3 text-xs">
-                <div className="flex items-center gap-1 w-14 shrink-0 font-bold text-[#141219]">
-                  <span>{bar.stars}</span>
-                  <Star className="w-3.5 h-3.5 text-amber-500 fill-current" />
+            {productReviewCount > 0 ? (
+              [
+                { stars: 5, pct: 88, count: Math.round(productReviewCount * 0.88) },
+                { stars: 4, pct: 9, count: Math.round(productReviewCount * 0.09) },
+                { stars: 3, pct: 2, count: Math.round(productReviewCount * 0.02) },
+                { stars: 2, pct: 1, count: Math.round(productReviewCount * 0.01) },
+                { stars: 1, pct: 0, count: 0 },
+              ].map((bar) => (
+                <div key={bar.stars} className="flex items-center gap-3 text-xs">
+                  <div className="flex items-center gap-1 w-14 shrink-0 font-bold text-[#141219]">
+                    <span>{bar.stars}</span>
+                    <Star className="w-3.5 h-3.5 text-amber-500 fill-current" />
+                  </div>
+                  <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-400 to-[#D30915] rounded-full transition-all duration-500"
+                      style={{ width: `${bar.pct}%` }}
+                    />
+                  </div>
+                  <span className="w-10 text-right font-semibold text-[#716d77]">{bar.pct}%</span>
                 </div>
-                <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-amber-400 to-[#D30915] rounded-full transition-all duration-500"
-                    style={{ width: `${bar.pct}%` }}
-                  />
-                </div>
-                <span className="w-10 text-right font-semibold text-[#716d77]">{bar.pct}%</span>
+              ))
+            ) : (
+              <div className="text-center py-6 text-xs text-[#716d77]">
+                <p className="font-semibold text-[#141219] mb-1">No ratings submitted yet</p>
+                <p className="m-0">Customer star breakdown will appear after verified customer unboxings.</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -1241,8 +1332,8 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
       <RingSizerModal
         isOpen={isRingSizerOpen}
         onClose={() => setIsRingSizerOpen(false)}
-        currentSize={selectedRingSize}
-        onSelectSize={(size) => setSelectedRingSize(size)}
+        currentSize={selectedRingSize || 7}
+        onSelectSize={(size) => handleRingSizeSelect(size)}
       />
     </div>
   );

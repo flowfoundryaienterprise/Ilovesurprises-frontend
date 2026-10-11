@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Heart, Plus, Minus, Star, Gift } from 'lucide-react';
 import type { Product } from '../../types';
 import { resolveProductImage, cacheProduct } from '../../services/productService';
@@ -77,6 +77,33 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
       ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
       : null;
 
+  const isNonCandle = useMemo(() => {
+    const cat = (product.category || '').toLowerCase();
+    const name = (product.name || '').toLowerCase();
+    return (
+      cat.includes('soap') ||
+      cat.includes('melt') ||
+      cat.includes('card') ||
+      cat.includes('slime') ||
+      name.includes('soap') ||
+      name.includes('melt') ||
+      name.includes('card') ||
+      name.includes('slime')
+    );
+  }, [product.category, product.name]);
+
+  const sanitizedBadge = product.badge && product.badge.toLowerCase() === 'candles' && isNonCandle
+    ? null
+    : product.badge;
+
+  const sanitizedSurpriseValue = useMemo(() => {
+    if (!product.surpriseValue) return '';
+    if (product.surpriseType === 'cash' && product.surpriseValue.toLowerCase().includes('jewelry')) {
+      return 'Real Cash $2 - $2,500 inside';
+    }
+    return product.surpriseValue;
+  }, [product.surpriseValue, product.surpriseType]);
+
   return (
     <div
       id={`product-${product.id}`}
@@ -116,9 +143,9 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
             <span className="px-1.5 sm:px-2 py-0.5 rounded-[6px] sm:rounded-full bg-[#D30915] text-white text-[8px] sm:text-[9px] font-black uppercase tracking-wider shadow-xs">
               {discountPercent}% OFF
             </span>
-          ) : product.badge ? (
+          ) : sanitizedBadge ? (
             <span className="px-1.5 sm:px-2 py-0.5 rounded-[6px] sm:rounded-full bg-[#141219] text-white text-[8px] sm:text-[9px] font-black uppercase tracking-wider shadow-xs truncate max-w-[76px] sm:max-w-[90px]">
-              {product.badge}
+              {sanitizedBadge}
             </span>
           ) : null}
         </div>
@@ -144,11 +171,11 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
         </button>
 
         {/* Surprise Pill Tag at Bottom of Image with Strict Truncation and No Overflow */}
-        {product.surpriseValue && (
+        {sanitizedSurpriseValue && (
           <div className="absolute bottom-1.5 left-1.5 right-1.5 bg-white/95 backdrop-blur-xs rounded-[6px] sm:rounded-[8px] px-1.5 sm:px-2 py-0.5 border border-[#f2e6ec] flex items-center gap-1 shadow-2xs z-10 pointer-events-none overflow-hidden max-w-[calc(100%-12px)]">
             <Gift className="w-2.5 h-2.5 text-[#D30915] shrink-0" />
             <span className="text-[8.5px] sm:text-[10px] font-bold text-[#141219] truncate leading-tight">
-              {product.surpriseValue}
+              {sanitizedSurpriseValue}
             </span>
           </div>
         )}
@@ -162,11 +189,13 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
             <span className="font-bold text-[#716d77] uppercase tracking-wider truncate max-w-[62%] sm:max-w-[68%]">
               {product.category}
             </span>
-            <div className="flex items-center gap-0.5 font-extrabold text-[#141219] shrink-0">
-              <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-[#ffa000] text-[#ffa000]" />
-              <span>{product.rating.toFixed(1)}</span>
-              <span className="text-[#524d58] font-medium text-[8.5px] sm:text-[9px]">({product.reviewCount})</span>
-            </div>
+            {product.reviewCount > 0 && product.rating > 0 ? (
+              <div className="flex items-center gap-0.5 font-extrabold text-[#141219] shrink-0">
+                <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-[#ffa000] text-[#ffa000]" />
+                <span>{product.rating.toFixed(1)}</span>
+                <span className="text-[#524d58] font-medium text-[8.5px] sm:text-[9px]">({product.reviewCount})</span>
+              </div>
+            ) : null}
           </div>
 
           {/* Product Name */}

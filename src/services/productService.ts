@@ -484,17 +484,36 @@ export function mapRowToProduct(row: any): Product {
   const slug = String(row.handle || row.slug || id);
   const description = row.description || row.shortDescription || row.body_html || undefined;
 
-  let categoryName = row.categoryName || row.category_name || '';
+  let categoryName = row.categoryName || row.category_name || row.category || row.product_type || row.productType || '';
   if (!categoryName && row.categoryId) {
     const matchedCategory = categoriesData.find((c) => c.id === row.categoryId);
-    categoryName = matchedCategory ? matchedCategory.name : 'Candles';
-  }
-  if (!categoryName) {
-    categoryName = row.badge || 'Candles';
+    categoryName = matchedCategory ? matchedCategory.name : '';
   }
 
   const nameLower = name.toLowerCase();
   const catLower = categoryName.toLowerCase();
+
+  // Derive accurate category if categoryName is missing or generically defaulting to Candles
+  if (!categoryName || catLower === 'candles') {
+    if (nameLower.includes('wax melt') || nameLower.includes('wax-melt')) {
+      categoryName = 'Wax Melts';
+    } else if (nameLower.includes('soap') || nameLower.includes('goat milk')) {
+      categoryName = 'Soaps';
+    } else if (nameLower.includes('slime')) {
+      categoryName = 'Slimes';
+    } else if (nameLower.includes('greeting card') || (nameLower.includes('card') && !nameLower.includes('cardamom'))) {
+      categoryName = 'Greeting Cards';
+    } else if (nameLower.includes('bath bomb') || nameLower.includes('bath soak') || nameLower.includes('sugar scrub')) {
+      categoryName = 'Bath & Body';
+    } else if (nameLower.includes('chocolate')) {
+      categoryName = 'Chocolates';
+    } else if (nameLower.includes('candy') || nameLower.includes('gummy')) {
+      categoryName = 'Cash Candy';
+    } else if (!categoryName) {
+      categoryName = 'Candles';
+    }
+  }
+
   const isWaxMelt = nameLower.includes('wax melt') || nameLower.includes('wax-melt') || catLower.includes('wax melt');
   const isCandle = !isWaxMelt && (nameLower.includes('candle') || catLower.includes('candle'));
 
@@ -581,59 +600,6 @@ export function mapRowToProduct(row: any): Product {
     allImages = [resolvedImage];
   }
 
-  // Ring sizes & Jewelry types
-  const rawRingSizes = Array.isArray(row.ringSizes) ? row.ringSizes : [];
-  const ringSizesNum: number[] = rawRingSizes.map(Number).filter((n: number) => !isNaN(n));
-  const finalRingSizes = ringSizesNum.length > 0 ? ringSizesNum : [5, 6, 7, 8, 9, 10];
-
-  const jewelryTypes: string[] =
-    Array.isArray(row.jewelryTypes) && row.jewelryTypes.length > 0
-      ? row.jewelryTypes
-      : ['Ring', 'Necklace', 'Earrings', 'Bracelet'];
-
-  // Scent options & notes
-  const scentNotes: string[] = Array.isArray(row.scentNotes)
-    ? row.scentNotes
-    : Array.isArray(row.scent_notes)
-      ? row.scent_notes
-      : [];
-
-  // Options & Variants
-  const options: ProductOption[] = [];
-  if (finalRingSizes.length > 0) {
-    options.push({
-      name: 'Ring Size',
-      position: 1,
-      values: finalRingSizes.map(String),
-    });
-  }
-  if (jewelryTypes.length > 0) {
-    options.push({
-      name: 'Jewelry Reveal Type',
-      position: 2,
-      values: jewelryTypes,
-    });
-  }
-  if (Array.isArray(row.scentOptions) && row.scentOptions.length > 0) {
-    options.push({
-      name: 'Fragrance Scent',
-      position: 3,
-      values: row.scentOptions.map((s: any) => s.name || s),
-    });
-  }
-
-  const variants: ProductVariant[] = finalRingSizes.map((size) => ({
-    variantId: `${id}-size-${size}`,
-    productId: id,
-    title: `Size ${size}`,
-    price,
-    compareAtPrice: originalPrice,
-    sku,
-    inStock: true,
-    option1Name: 'Ring Size',
-    option1Value: String(size),
-  }));
-
   // Surprise type
   let surpriseType: SurpriseType = (row.surprise_type as SurpriseType) || 'mystery';
   if (!row.surprise_type) {
@@ -641,9 +607,7 @@ export function mapRowToProduct(row: any): Product {
       surpriseType = 'cash';
     } else if (
       nameLower.includes('jewelry') ||
-      nameLower.includes('ring') ||
-      nameLower.includes('necklace') ||
-      nameLower.includes('diamond')
+      /\b(ring|rings|necklace|necklaces|diamond)\b/i.test(nameLower)
     ) {
       surpriseType = 'jewelry';
     } else if (nameLower.includes('charm')) {
@@ -653,12 +617,79 @@ export function mapRowToProduct(row: any): Product {
     }
   }
 
-  const surpriseValue =
+  // Ensure cash products NEVER display jewelry-reveal claims
+  let surpriseValue =
     row.surpriseRevealInfo?.valueRange ||
-    row.surprise_value ||
-    (surpriseType === 'cash'
-      ? 'Real Cash $2 - $2,500 inside'
-      : 'Jewelry inside worth $10 - $7,500');
+    row.surprise_value;
+
+  if (surpriseType === 'cash') {
+    if (!surpriseValue || surpriseValue.toLowerCase().includes('jewelry')) {
+      surpriseValue = 'Real Cash $2 - $2,500 inside';
+    }
+  } else if (!surpriseValue) {
+    surpriseValue = 'Jewelry inside worth $10 - $7,500';
+  }
+
+  // Ring sizes & Jewelry types ONLY for jewelry products
+  const rawRingSizes = Array.isArray(row.ringSizes) ? row.ringSizes : [];
+  const ringSizesNum: number[] = rawRingSizes.map(Number).filter((n: number) => !isNaN(n));
+  const finalRingSizes = surpriseType === 'jewelry'
+    ? (ringSizesNum.length > 0 ? ringSizesNum : [5, 6, 7, 8, 9, 10])
+    : [];
+
+  const jewelryTypes: string[] =
+    surpriseType === 'jewelry'
+      ? (Array.isArray(row.jewelryTypes) && row.jewelryTypes.length > 0
+          ? row.jewelryTypes
+          : ['Ring', 'Necklace', 'Earrings', 'Bracelet'])
+      : [];
+
+  // Scent options & notes
+  const scentNotes: string[] = Array.isArray(row.scentNotes)
+    ? row.scentNotes
+    : Array.isArray(row.scent_notes)
+      ? row.scent_notes
+      : [];
+
+  // Options & Variants (Preserve real backend options; do not duplicate jewelry selectors)
+  const options: ProductOption[] = [];
+  if (Array.isArray(row.options) && row.options.length > 0) {
+    options.push(...row.options);
+  }
+  if (Array.isArray(row.scentOptions) && row.scentOptions.length > 0) {
+    options.push({
+      name: 'Fragrance Scent',
+      position: 1,
+      values: row.scentOptions.map((s: any) => s.name || s),
+    });
+  }
+
+  let variants: ProductVariant[] = [];
+  if (Array.isArray(row.product_variants) && row.product_variants.length > 0) {
+    variants = row.product_variants.map((v: any, idx: number) => ({
+      variantId: String(v.id || v.variant_id || `${id}-v-${idx}`),
+      productId: id,
+      title: v.title || undefined,
+      price: Number(v.price) || price,
+      compareAtPrice: v.compare_at_price ? Number(v.compare_at_price) : originalPrice,
+      sku: v.sku || sku,
+      inStock: v.in_stock !== false,
+      option1Name: v.option1_name || undefined,
+      option1Value: v.option1_value || undefined,
+    }));
+  } else if (surpriseType === 'jewelry' && finalRingSizes.length > 0) {
+    variants = finalRingSizes.map((size) => ({
+      variantId: `${id}-size-${size}`,
+      productId: id,
+      title: `Size ${size}`,
+      price,
+      compareAtPrice: originalPrice,
+      sku,
+      inStock: true,
+      option1Name: 'Ring Size',
+      option1Value: String(size),
+    }));
+  }
 
   const inStock =
     row.inStock !== undefined
@@ -668,6 +699,25 @@ export function mapRowToProduct(row: any): Product {
         : typeof row.total_inventory_qty === 'number'
           ? row.total_inventory_qty > 0
           : (row.stock ?? 50) > 0;
+
+  // Sanitize generic CANDLES badge from non-candle products
+  let badge = row.badge || undefined;
+  if (badge && badge.toLowerCase() === 'candles') {
+    const isNonCandle =
+      categoryName.toLowerCase().includes('soap') ||
+      categoryName.toLowerCase().includes('melt') ||
+      categoryName.toLowerCase().includes('card') ||
+      categoryName.toLowerCase().includes('slime') ||
+      categoryName.toLowerCase().includes('candy') ||
+      categoryName.toLowerCase().includes('chocolate') ||
+      nameLower.includes('soap') ||
+      nameLower.includes('melt') ||
+      nameLower.includes('slime') ||
+      nameLower.includes('card');
+    if (isNonCandle) {
+      badge = undefined;
+    }
+  }
 
   const prod: Product = {
     id,
@@ -936,19 +986,6 @@ export const productService = {
 
     if (missingIds.length > 0) {
       try {
-<<<<<<< HEAD
-        const notFoundIds = new Set<string>();
-        const networkErrorIds: string[] = [];
-        const poolConcurrency = 8;
-
-        let index = 0;
-        const workers = Array.from(
-          { length: Math.min(poolConcurrency, missingIds.length) },
-          async () => {
-            while (index < missingIds.length) {
-              const currentIdx = index++;
-              const id = missingIds[currentIdx];
-=======
         // Fast single-request batch fetch
         const batchRes = await apiClient.post<any>('/api/products/batch', { ids: missingIds });
         const batchProducts: any[] = batchRes?.data?.products || [];
@@ -977,42 +1014,12 @@ export const productService = {
           for (let i = 0; i < stillMissing.length; i += chunkSize) {
             const chunk = stillMissing.slice(i, i + chunkSize);
             const fetchPromises = chunk.map(async (id) => {
->>>>>>> origin/main
               try {
                 const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
                 const p = res?.data?.product;
                 if (p) {
                   const prod = mapRowToProduct(p);
                   cacheProduct(prod);
-<<<<<<< HEAD
-                  productMap.set(id.toLowerCase(), prod);
-                  if (prod.slug) productMap.set(prod.slug.toLowerCase(), prod);
-                  if (prod.id) productMap.set(prod.id.toLowerCase(), prod);
-                }
-              } catch (err: any) {
-                if (err?.statusCode === 404) {
-                  notFoundIds.add(id.toLowerCase());
-                } else {
-                  networkErrorIds.push(id);
-                }
-              }
-            }
-          }
-        );
-
-        await Promise.all(workers);
-
-        // Fast parallel retry ONLY for transient network drops (status 0 / timeout), NEVER for permanent 404 Not Found
-        if (networkErrorIds.length > 0) {
-          const retryPromises = networkErrorIds.map(async (id) => {
-            try {
-              const res = await apiClient.get<any>(`/api/products/${encodeURIComponent(id)}`);
-              const p = res?.data?.product;
-              if (p) {
-                const prod = mapRowToProduct(p);
-                cacheProduct(prod);
-                productMap.set(id.toLowerCase(), prod);
-=======
                   return { requestedId: id, prod };
                 }
                 return null;
@@ -1026,22 +1033,13 @@ export const productService = {
               if (item && item.prod) {
                 const { requestedId, prod } = item;
                 productMap.set(requestedId.toLowerCase(), prod);
->>>>>>> origin/main
                 if (prod.slug) productMap.set(prod.slug.toLowerCase(), prod);
                 if (prod.id) productMap.set(prod.id.toLowerCase(), prod);
               }
-<<<<<<< HEAD
-            } catch {
-              // ignore
-            }
-          });
-          await Promise.all(retryPromises);
-=======
             });
           }
         } catch (err) {
           console.warn('Error fetching missing products by IDs:', err);
->>>>>>> origin/main
         }
       }
     }

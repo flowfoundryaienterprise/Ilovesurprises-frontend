@@ -201,9 +201,16 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
             )}
 
             <div className="mt-4">
-              <span className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-[#f8f5f7] border border-[#ebdce5] text-xs font-black text-[#141219]">
-                {totalCount.toLocaleString()} {totalCount === 1 ? 'Product' : 'Products'}
-              </span>
+              {isLoading ? (
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#f8f5f7] border border-[#ebdce5] text-xs font-bold text-[#716d77] animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-[#D30915] animate-ping" />
+                  <span>Loading products...</span>
+                </div>
+              ) : (
+                <span className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-[#f8f5f7] border border-[#ebdce5] text-xs font-black text-[#141219]">
+                  {totalCount.toLocaleString()} {totalCount === 1 ? 'Product' : 'Products'}
+                </span>
+              )}
             </div>
           </div>
 
@@ -227,8 +234,17 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
       {/* 3. Toolbar: Product Count & Sorting */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-6 border-b border-[#f4edf2]">
         <div className="text-xs sm:text-sm text-[#716d77] font-medium">
-          Showing <span className="font-bold text-[#141219]">{displayedProducts.length}</span> of{' '}
-          <span className="font-bold text-[#141219]">{totalCount.toLocaleString()}</span> products
+          {isLoading ? (
+            <span className="inline-flex items-center gap-1.5 text-xs text-[#8a858f] animate-pulse">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#D30915]" />
+              Loading collection inventory...
+            </span>
+          ) : (
+            <>
+              Showing <span className="font-bold text-[#141219]">{displayedProducts.length}</span> of{' '}
+              <span className="font-bold text-[#141219]">{totalCount.toLocaleString()}</span> products
+            </>
+          )}
         </div>
 
         {/* Sort Controls */}
