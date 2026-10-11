@@ -293,10 +293,10 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <li>
                 <button
                   type="button"
-                  onClick={(e) => e.preventDefault()}
+                  onClick={() => onNavigate?.('about')}
                   className="hover:text-[#D30915] hover:translate-x-1 transition-all py-1 sm:py-0.5 text-left cursor-pointer bg-transparent border-none p-0 w-full min-h-[36px] sm:min-h-0 flex items-center"
                 >
-                  Services
+                  Our Story & Craftsmanship
                 </button>
               </li>
               <li>
@@ -311,19 +311,19 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <li>
                 <button
                   type="button"
-                  onClick={(e) => e.preventDefault()}
+                  onClick={() => onNavigate?.('rewards')}
                   className="hover:text-[#D30915] hover:translate-x-1 transition-all py-1 sm:py-0.5 text-left cursor-pointer bg-transparent border-none p-0 w-full min-h-[36px] sm:min-h-0 flex items-center"
                 >
-                  Redeem Your Crypto Candle Prize
+                  Surprise VIP Rewards Club
                 </button>
               </li>
               <li>
                 <button
                   type="button"
-                  onClick={(e) => e.preventDefault()}
+                  onClick={() => onNavigate?.('shop')}
                   className="hover:text-[#D30915] hover:translate-x-1 transition-all py-1 sm:py-0.5 text-left cursor-pointer bg-transparent border-none p-0 w-full min-h-[36px] sm:min-h-0 flex items-center"
                 >
-                  Discover Our Jewelries
+                  Discover Fine Jewelry Reveals
                 </button>
               </li>
               <li>
@@ -523,6 +523,19 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                     >
                       <svg className="w-3.5 h-3.5 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
                         <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                      </svg>
+                    </a>
+
+                    {/* TikTok */}
+                    <a
+                      href="https://www.tiktok.com/@ilovesurprises"
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="TikTok"
+                      className="w-8 h-8 sm:w-8 sm:h-8 rounded-[10px] bg-white border border-[#eedbe6] text-[#55505a] hover:text-white hover:bg-[#000000] hover:border-[#000000] hover:shadow-[0_6px_16px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center shadow-2xs group"
+                    >
+                      <svg className="w-3.5 h-3.5 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+                        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.29 0 .58.04.86.12V9.32a6.34 6.34 0 0 0-.86-.06 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V9.05a8.27 8.27 0 0 0 4.77 1.48V7.08a4.85 4.85 0 0 1-1-.39z" />
                       </svg>
                     </a>
 

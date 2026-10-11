@@ -44,6 +44,7 @@ const OfficialRules = lazy(() => import('./pages/OfficialRules').then((m) => ({ 
 const ShippingPolicy = lazy(() => import('./pages/ShippingPolicy').then((m) => ({ default: m.ShippingPolicy })));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy })));
 const FAQ = lazy(() => import('./pages/FAQ').then((m) => ({ default: m.FAQ })));
+const NotFound = lazy(() => import('./pages/NotFound').then((m) => ({ default: m.NotFound })));
 const RepresentativeSubscriptionModal = lazy(() =>
   import('./components/affiliate/RepresentativeSubscriptionModal').then((m) => ({
     default: m.RepresentativeSubscriptionModal,
@@ -81,7 +82,8 @@ export type AppView =
   | 'official-rules'
   | 'shipping-policy'
   | 'privacy'
-  | 'faqs';
+  | 'faqs'
+  | 'not-found';
 
 export const KNOWN_COLLECTION_HANDLES = new Set([
   'candles',
@@ -207,10 +209,21 @@ export function App() {
       ].includes(trimmedPath) &&
       !trimmedPath.includes('/')
     ) {
-      representativeService.setAttributedRepresentative(trimmedPath);
+      // ONLY attribute if it's explicitly via /rep/ or is a known verified representative
+      const isExplicitRepRoute = path.startsWith('/rep/');
+      const verifiedRep = representativeService.lookupRepresentative(trimmedPath);
+      if (isExplicitRepRoute || verifiedRep) {
+        representativeService.setAttributedRepresentative(trimmedPath);
+        return 'home';
+      }
+      return 'not-found';
     }
 
-    return 'home';
+    if (path === '/' || path === '') {
+      return 'home';
+    }
+
+    return 'not-found';
   });
 
   const [isProductLoading, setIsProductLoading] = useState<boolean>(() => {
@@ -675,6 +688,7 @@ export function App() {
       'shipping-policy': 'Shipping Policy | ILoveSurprises.com',
       privacy: 'Privacy Policy | ILoveSurprises.com',
       faqs: 'Frequently Asked Questions | ILoveSurprises.com',
+      'not-found': 'Page Not Found | ILoveSurprises.com',
     };
 
     const descriptions: Record<AppView, string> = {
@@ -699,6 +713,7 @@ export function App() {
       'shipping-policy': 'Fast tracked shipping, handling times, delivery destinations, and carrier guidance for I Love Surprises.',
       privacy: 'Learn how I Love Surprises safeguards personal information, order data, and customer privacy.',
       faqs: 'Frequently asked questions about surprise candles, jewelry, shipping, returns, and support.',
+      'not-found': 'The requested page could not be found. Explore our surprise candles, wax melts, and bath treats with authentic prizes inside.',
     };
 
     document.title = titles[currentView] || 'ILoveSurprises.com';
@@ -2059,6 +2074,18 @@ export function App() {
                   <FAQ
                     onNavigateToHome={() => handleNavigateToHome('backward')}
                     onNavigateToContact={() => handleNavigateToContact('forward')}
+                  />
+                </Suspense>
+              </div>
+            )}
+
+            {currentView === 'not-found' && (
+              <div key="page-not-found" className={transitionClass}>
+                <Suspense fallback={<PageLoadingFallback />}>
+                  <NotFound
+                    onNavigateToHome={() => handleNavigateToHome('backward')}
+                    onNavigateToShop={() => handleNavigateToShop('All Surprises', 'forward')}
+                    onNavigateToCollection={(h) => handleNavigateToCollection(h)}
                   />
                 </Suspense>
               </div>

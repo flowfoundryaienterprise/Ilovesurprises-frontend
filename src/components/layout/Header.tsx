@@ -41,6 +41,11 @@ import {
   type SubCategoryItem,
   getCleanCollectionUrl,
 } from '../../data/navigationCategories';
+import {
+  FREE_SHIPPING_THRESHOLD,
+  REP_MONTHLY_MEMBERSHIP_SHORT_LABEL,
+  REP_MONTHLY_MEMBERSHIP_LABEL,
+} from '../../config/policyConstants';
 
 export interface HeaderProps {
   cartCount?: number;
@@ -60,13 +65,15 @@ export interface HeaderProps {
   | 'contact'
   | 'rewards'
   | 'admin'
+  | 'admin-login'
   | 'appraisal'
   | 'refund-policy'
   | 'terms'
   | 'official-rules'
   | 'shipping-policy'
   | 'privacy'
-  | 'faqs';
+  | 'faqs'
+  | 'not-found';
   onOpenCart?: () => void;
   wishlistCount?: number;
   onOpenAuth?: (mode?: 'login' | 'signup' | 'forgot') => void;
@@ -227,7 +234,7 @@ export const Header: React.FC<HeaderProps> = ({
   const topTimerSeconds = String(topCountdownSecs % 60).padStart(2, '0');
 
   const [announcementText, setAnnouncementText] = useState(() => {
-    return adminService.getHomepageContent().announcementText || 'Free Shipping $75+ • Guaranteed Real Cash ($2-$2,500) or Jewelry in Every Item';
+    return adminService.getHomepageContent().announcementText || `Free Shipping $${FREE_SHIPPING_THRESHOLD}+ • Guaranteed Real Cash ($2-$2,500) or Jewelry in Every Item`;
   });
 
   useEffect(() => {
@@ -1132,7 +1139,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-[#e2d5de]">|</span>
             <div className="flex items-center gap-1.5">
               <Gift className="w-3.5 h-3.5 text-[#D30915] shrink-0" />
-              <span>Free Shipping $75+</span>
+              <span>Free Shipping ${FREE_SHIPPING_THRESHOLD}+</span>
             </div>
             <span className="text-[#e2d5de]">|</span>
             <a
@@ -1580,11 +1587,11 @@ export const Header: React.FC<HeaderProps> = ({
                     }
                   }}
                   className="hidden sm:inline-flex items-center justify-center gap-1.5 h-[38px] px-2.5 min-[1240px]:px-3.5 xl:px-4 rounded-full bg-[#D30915] hover:bg-[#b60711] text-white text-[12px] min-[1240px]:text-[13px] xl:text-[14px] font-bold shadow-xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all cursor-pointer whitespace-nowrap select-none shrink-0"
-                  title="Join $20/month"
+                  title={`Join ${REP_MONTHLY_MEMBERSHIP_SHORT_LABEL}`}
                 >
                   <Users className="w-4 h-4 shrink-0" />
-                  <span className="hidden min-[1240px]:inline">Join $20/month</span>
-                  <span className="min-[1240px]:hidden">Join $20/mo</span>
+                  <span className="hidden min-[1240px]:inline">Join {REP_MONTHLY_MEMBERSHIP_LABEL}</span>
+                  <span className="min-[1240px]:hidden">Join {REP_MONTHLY_MEMBERSHIP_SHORT_LABEL}</span>
                 </button>
               )}
 
@@ -2331,7 +2338,7 @@ export const Header: React.FC<HeaderProps> = ({
                     className="w-full h-[42px] px-3.5 rounded-[12px] bg-[#D30915] hover:bg-[#b60711] text-white text-xs font-black shadow-md hover:shadow-lg active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2 select-none"
                   >
                     <Users className="w-4 h-4" />
-                    <span>Join $20/month</span>
+                    <span>Join {REP_MONTHLY_MEMBERSHIP_LABEL}</span>
                   </button>
                   <button
                     type="button"

@@ -876,15 +876,23 @@ export const productService = {
         const rawProducts: any[] = response?.data?.products || [];
         const total: number = response?.data?.pagination?.total ?? rawProducts.length;
         const totalPages: number = response?.data?.pagination?.totalPages ?? Math.max(1, Math.ceil(total / limit));
+        let products = deduplicateProducts(rawProducts.map(mapRowToProduct));
 
-        const products = deduplicateProducts(rawProducts.map(mapRowToProduct));
+        // Strict client-side price filter verification
+        if (params.minPrice !== undefined && params.minPrice !== null) {
+          products = products.filter((p) => Number(p.price) >= Number(params.minPrice));
+        }
+        if (params.maxPrice !== undefined && params.maxPrice !== null) {
+          products = products.filter((p) => Number(p.price) <= Number(params.maxPrice));
+        }
+
         products.forEach((p) => cacheProduct(p));
 
         const result: PaginatedProductsResult = {
           products,
-          total,
+          total: (params.minPrice != null || params.maxPrice != null) ? products.length : total,
           page,
-          totalPages,
+          totalPages: (params.minPrice != null || params.maxPrice != null) ? Math.max(1, Math.ceil(products.length / limit)) : totalPages,
         };
 
         queryCache.set(cacheKey, { result, timestamp: Date.now() });
@@ -1219,9 +1227,16 @@ export const productService = {
       'bath-bombs': 'bath-bombs',
       'soaps': 'soap',
       'soap': 'soap',
-      'jewelry': 'jewelry',
-      'candy': 'candy',
-      'chocolates': 'chocolates',
+      'jewelry': 'jewelry-candles',
+      'candy': 'cash-candy',
+      'chocolates': 'cash-chocolates',
+      'ring-candles': 'jewelry-candles',
+      'mystery-rings': 'jewelry-candles',
+      'necklace-candles': 'jewelry-candles',
+      'bracelet-candles': 'jewelry-candles',
+      'earring-candles': 'jewelry-candles',
+      'city-cash-chocolates': 'cash-chocolates',
+      'gourmet-chocolate-bars': 'cash-chocolates',
       'slimes': 'slimes',
       'cards': 'greeting-cards',
       'greeting-cards': 'greeting-cards',

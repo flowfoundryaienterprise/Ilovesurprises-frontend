@@ -43,16 +43,48 @@ export const Shop: React.FC<ShopProps> = ({
   onWishlistToggle,
   onSelectProduct,
 }) => {
-  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [searchQuery, setSearchQuery] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('q') || params.get('search');
+      if (q) return q;
+    }
+    return initialSearchQuery;
+  });
 
   // Active filters currently applied to the product catalog
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(() => {
+    let cat = initialCategory && initialCategory !== 'All Surprises' ? [initialCategory] : [];
+    let minPrice: number | null = null;
+    let maxPrice: number | null = null;
+    let sortBy: FilterState['sortBy'] = 'featured';
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlCat = params.get('category');
+      if (urlCat && urlCat !== 'All Surprises' && urlCat !== 'All') {
+        cat = [urlCat];
+      }
+      const urlMin = params.get('minPrice');
+      if (urlMin && !isNaN(Number(urlMin))) {
+        minPrice = Number(urlMin);
+      }
+      const urlMax = params.get('maxPrice');
+      if (urlMax && !isNaN(Number(urlMax))) {
+        maxPrice = Number(urlMax);
+      }
+      const urlSort = params.get('sort');
+      if (urlSort) {
+        sortBy = urlSort as any;
+      }
+    }
+
     return {
       ...DEFAULT_FILTERS,
-      categories:
-        initialCategory && initialCategory !== 'All Surprises'
-          ? [initialCategory]
-          : [],
+      categories: cat,
+      minPrice,
+      maxPrice,
+      sortBy,
     };
   });
 
@@ -86,7 +118,16 @@ export const Shop: React.FC<ShopProps> = ({
     }
   };
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const page = params.get('page');
+      if (page && !isNaN(Number(page))) {
+        return Math.max(1, Number(page));
+      }
+    }
+    return 1;
+  });
   const [prevCategory, setPrevCategory] = useState(initialCategory);
   if (initialCategory !== prevCategory) {
     setPrevCategory(initialCategory);
@@ -179,14 +220,62 @@ export const Shop: React.FC<ShopProps> = ({
       'Unable to connect to the product catalog service. Please check your internet connection and try again.'
     : null;
 
-  // Active applied products shown in the grid (capped at 15 on laptop to prevent lonely row 4)
+  // Strict client-side price filter enforcement and pagination slice
   const activeProducts = useMemo(() => {
-    const prods = deduplicateProducts(queryProducts);
+    let prods = deduplicateProducts(queryProducts);
+    if (appliedFilters.minPrice !== null) {
+      prods = prods.filter((p) => Number(p.price) >= Number(appliedFilters.minPrice));
+    }
+    if (appliedFilters.maxPrice !== null) {
+      prods = prods.filter((p) => Number(p.price) <= Number(appliedFilters.maxPrice));
+    }
     if (isDesktop && prods.length > 15) {
       return prods.slice(0, 15);
     }
     return prods;
-  }, [queryProducts, isDesktop]);
+  }, [queryProducts, isDesktop, appliedFilters.minPrice, appliedFilters.maxPrice]);
+
+  // Synchronize search query, filter state, sorting, and page with URL query parameters
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const url = new URL(window.location.href);
+      if (searchQuery.trim()) {
+        url.searchParams.set('q', searchQuery.trim());
+      } else {
+        url.searchParams.delete('q');
+        url.searchParams.delete('search');
+      }
+      if (appliedFilters.categories.length > 0) {
+        url.searchParams.set('category', appliedFilters.categories[0]);
+      } else {
+        url.searchParams.delete('category');
+      }
+      if (appliedFilters.minPrice !== null) {
+        url.searchParams.set('minPrice', String(appliedFilters.minPrice));
+      } else {
+        url.searchParams.delete('minPrice');
+      }
+      if (appliedFilters.maxPrice !== null) {
+        url.searchParams.set('maxPrice', String(appliedFilters.maxPrice));
+      } else {
+        url.searchParams.delete('maxPrice');
+      }
+      if (appliedFilters.sortBy && appliedFilters.sortBy !== 'featured') {
+        url.searchParams.set('sort', appliedFilters.sortBy);
+      } else {
+        url.searchParams.delete('sort');
+      }
+      if (currentPage > 1) {
+        url.searchParams.set('page', String(currentPage));
+      } else {
+        url.searchParams.delete('page');
+      }
+      window.history.replaceState(null, '', url.pathname + url.search);
+    } catch {
+      // ignore
+    }
+  }, [searchQuery, appliedFilters, currentPage]);
 
   const totalPages = queryTotalPages || 1;
   const displayTotalCount = queryTotal ?? 0;

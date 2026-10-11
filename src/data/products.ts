@@ -16,9 +16,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "The Aquarius Zodiac Cash Candle is a personalized cash candle created for those who think differently and embrace originality. Featuring the Aquarius zodiac sign on the label, this candle makes a unique and unforgettable gift for Aquarius signs and astrology lovers alike. Every Aquarius Zodiac Cash Candle includes a guaranteed real $2 bill hidden inside. Select randomized Cash Candles may also reveal a second cash prize valued up to $2,500 , adding an exciting surprise to every burn. This is a huge 2.5-pound candle , crafted with highly scented soy wax and premium essential oil blends for a fresh, modern fragrance experience. With over 80 hours of burn time , it fills your space with clean, long-lasting scent that truly smells amazing. Each candle comes in a luxurious 21 oz apothecary-style glass jar designed to complement any home décor , making it as stylish on display as it is when lit. Customize your Aquarius Zodiac Cash Candle by choosing your favorite scent from our best-selling "
   },
   {
@@ -36,9 +34,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "The Aries Zodiac Cash Candle is a personalized cash candle created for those who embody passion, confidence, and fearless energy. Featuring the Aries zodiac sign on the label, this candle makes a powerful and unforgettable gift for Aries signs and astrology lovers alike. Every Aries Zodiac Cash Candle includes a guaranteed real $2 bill hidden inside. Select randomized Cash Candles may also reveal a second cash prize valued up to $2,500 , adding an exciting surprise to every burn. This is a huge 2.5-pound candle , crafted with highly scented soy wax and premium essential oil blends for a bold, energizing fragrance experience. With over 80 hours of burn time , it fills your space with rich, long-lasting scent that truly smells amazing. Each candle comes in a luxurious 21 oz apothecary-style glass jar designed to complement any home décor , making it as striking on display as it is when lit. Customize your Aries Zodiac Cash Candle by choosing your favorite scent from our best-selling frag"
   },
   {
@@ -56,9 +52,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "The Cancer Zodiac Cash Candle is a personalized cash candle created for those who embody compassion, intuition, and deep emotional connection. Featuring the Cancer zodiac sign on the label, this candle makes a meaningful and unforgettable gift for Cancer signs and astrology lovers alike. Every Cancer Zodiac Cash Candle includes a guaranteed real $2 bill hidden inside. Select randomized Cash Candles may also reveal a second cash prize valued up to $2,500 , adding an exciting surprise to every burn. This is a huge 2.5-pound candle , crafted with highly scented soy wax and premium essential oil blends for a rich, soothing fragrance experience. With over 80 hours of burn time , it fills your space with comforting, long-lasting scent that truly smells amazing. Each candle comes in a luxurious 21 oz apothecary-style glass jar designed to complement any home décor , making it as beautiful on display as it is when lit. Customize your Cancer Zodiac Cash Candle by choosing your favorite scent fr"
   },
   {
@@ -76,9 +70,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "The Capricorn Zodiac Cash Candle is a personalized cash candle created for those who value ambition, discipline, and lasting success. Featuring the Capricorn zodiac sign on the label, this candle makes a strong and meaningful gift for Capricorn signs and astrology lovers alike. Every Capricorn Zodiac Cash Candle includes a guaranteed real $2 bill hidden inside. Select randomized Cash Candles may also reveal a second cash prize valued up to $2,500 , adding an exciting surprise to every burn. This is a huge 2.5-pound candle , crafted with highly scented soy wax and premium essential oil blends for a refined, grounding fragrance experience. With over 80 hours of burn time , it fills your space with rich, long-lasting scent that truly smells amazing. Each candle comes in a luxurious 21 oz apothecary-style glass jar designed to complement any home décor , making it as timeless on display as it is when lit. Customize your Capricorn Zodiac Cash Candle by choosing your favorite scent from our "
   },
   {
@@ -96,9 +88,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "The Gemini Zodiac Cash Candle is a personalized cash candle created for those who thrive on curiosity, communication, and creativity. Featuring the Gemini zodiac sign on the label, this candle makes a fun and unforgettable gift for Gemini signs and astrology lovers alike. Every Gemini Zodiac Cash Candle includes a guaranteed real $2 bill hidden inside. Select randomized Cash Candles may also reveal a second cash prize valued up to $2,500 , adding an exciting surprise to every burn. This is a huge 2.5-pound candle , crafted with highly scented soy wax and premium essential oil blends for a bright, uplifting fragrance experience. With over 80 hours of burn time , it fills your space with lively, long-lasting scent that truly smells amazing. Each candle comes in a luxurious 21 oz apothecary-style glass jar designed to complement any home décor , making it as eye-catching on display as it is when lit. Customize your Gemini Zodiac Cash Candle by choosing your favorite scent from our best-se"
   },
   {
@@ -116,9 +106,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "The Leo Zodiac Cash Candle is a personalized cash candle created for those who shine brightly and command attention wherever they go. Featuring the Leo zodiac sign on the label, this candle makes a bold and unforgettable gift for Leo signs and astrology lovers alike. Every Leo Zodiac Cash Candle includes a guaranteed real $2 bill hidden inside. Select randomized Cash Candles may also reveal a second cash prize valued up to $2,500 , adding an exciting surprise to every burn. This is a huge 2.5-pound candle , crafted with highly scented soy wax and premium essential oil blends for a rich, luxurious fragrance experience. With over 80 hours of burn time , it fills your space with powerful, long-lasting scent that truly smells amazing. Each candle comes in a luxurious 21 oz apothecary-style glass jar designed to complement any home décor , making it just as striking on display as it is when lit. Customize your Leo Zodiac Cash Candle by choosing your favorite scent from our best-selling frag"
   },
   {
@@ -136,9 +124,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "(Charming • Balanced • Romantic) The Libra Zodiac Cash Candle celebrates beauty, harmony, and connection. Featuring the Libra zodiac sign , it’s an elegant and thoughtful gift. Each candle includes a guaranteed real $2 bill , and select randomized Cash Candles may reveal a second cash prize valued up to $2,500 . This 2.5-pound, highly scented soy candle with essential oil blends offers over 80 hours of burn time in a timeless 21 oz apothecary-style jar . Find balance. Choose your scent. Light your candle."
   },
   {
@@ -156,9 +142,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "The Pisces Zodiac Cash Candle is a personalized cash candle created for those who are imaginative, intuitive, and deeply compassionate. Featuring the Pisces zodiac sign on the label, this candle makes a soothing and unforgettable gift for Pisces signs and astrology lovers alike. Every Pisces Zodiac Cash Candle includes a guaranteed real $2 bill hidden inside. Select randomized Cash Candles may also reveal a second cash prize valued up to $2,500 , adding an exciting surprise to every burn. This is a huge 2.5-pound candle , crafted with highly scented soy wax and premium essential oil blends for a calming, immersive fragrance experience. With over 80 hours of burn time , it fills your space with gentle, long-lasting scent that truly smells amazing. Each candle comes in a luxurious 21 oz apothecary-style glass jar designed to complement any home décor , making it as serene on display as it is when lit. Customize your Pisces Zodiac Cash Candle by choosing your favorite scent from our best-"
   },
   {
@@ -176,9 +160,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "The Sagittarius Zodiac Cash Candle is a personalized cash candle created for those who crave adventure, freedom, and new experiences. Featuring the Sagittarius zodiac sign on the label, this candle makes an inspiring and unforgettable gift for Sagittarius signs and astrology lovers alike. Every Sagittarius Zodiac Cash Candle includes a guaranteed real $2 bill hidden inside. Select randomized Cash Candles may also reveal a second cash prize valued up to $2,500 , adding an exciting surprise to every burn. This is a huge 2.5-pound candle , crafted with highly scented soy wax and premium essential oil blends for a bright, uplifting fragrance experience. With over 80 hours of burn time , it fills your space with vibrant, long-lasting scent that truly smells amazing. Each candle comes in a luxurious 21 oz apothecary-style glass jar designed to complement any home décor , making it as bold on display as it is when lit. Customize your Sagittarius Zodiac Cash Candle by choosing your favorite sc"
   },
   {
@@ -196,9 +178,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "The Scorpio Zodiac Cash Candle is a personalized cash candle created for those who live with depth, intensity, and undeniable passion. Featuring the Scorpio zodiac sign on the label, this candle makes a powerful and unforgettable gift for Scorpio signs and astrology lovers alike. Every Scorpio Zodiac Cash Candle includes a guaranteed real $2 bill hidden inside. Select randomized Cash Candles may also reveal a second cash prize valued up to $2,500 , adding an exciting surprise to every burn. This is a huge 2.5-pound candle , crafted with highly scented soy wax and premium essential oil blends for a bold, sensual fragrance experience. With over 80 hours of burn time , it fills your space with rich, long-lasting scent that truly smells amazing. Each candle comes in a luxurious 21 oz apothecary-style glass jar designed to complement any home décor , making it as striking on display as it is when lit. Customize your Scorpio Zodiac Cash Candle by choosing your favorite scent from our best-se"
   },
   {
@@ -216,9 +196,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "The Taurus Zodiac Cash Candle is a personalized cash candle created for those who appreciate comfort, stability, and the finer things in life. Featuring the Taurus zodiac sign on the label, this candle makes a luxurious and unforgettable gift for Taurus signs and astrology lovers alike. Every Taurus Zodiac Cash Candle includes a guaranteed real $2 bill hidden inside. Select randomized Cash Candles may also reveal a second cash prize valued up to $2,500 , adding an exciting surprise to every burn. This is a huge 2.5-pound candle , crafted with highly scented soy wax and premium essential oil blends for a rich, indulgent fragrance experience. With over 80 hours of burn time , it fills your space with warm, long-lasting scent that truly smells amazing. Each candle comes in a luxurious 21 oz apothecary-style glass jar designed to complement any home décor , making it as elegant on display as it is when lit. Customize your Taurus Zodiac Cash Candle by choosing your favorite scent from our b"
   },
   {
@@ -236,9 +214,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "The Virgo Zodiac Cash Candle is a personalized cash candle created for those who value precision, balance, and understated elegance. Featuring the Virgo zodiac sign on the label, this candle makes a refined and unforgettable gift for Virgo signs and astrology lovers alike. Every Virgo Zodiac Cash Candle includes a guaranteed real $2 bill hidden inside. Select randomized Cash Candles may also reveal a second cash prize valued up to $2,500 , adding an exciting surprise to every burn. This is a huge 2.5-pound candle , crafted with highly scented soy wax and premium essential oil blends for a clean, calming fragrance experience. With over 80 hours of burn time , it fills your space with smooth, long-lasting scent that truly smells amazing. Each candle comes in a luxurious 21 oz apothecary-style glass jar designed to complement any home décor , making it as timeless on display as it is when lit. Customize your Virgo Zodiac Cash Candle by choosing your favorite scent from our best-selling fr"
   },
   {
@@ -909,9 +885,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "So Beary Lucky to Have You – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “So Beary Lucky to Have You” is displayed on the front of this special edition cash candle, making it a playful keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “So Beary Lucky to Have You” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Sur"
   },
   {
@@ -929,9 +903,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "Forever and Always – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “Forever and Always” is displayed on the front of this special edition cash candle, making it a timeless keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “Forever and Always” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Surprise Bear Figurine Dur"
   },
   {
@@ -949,9 +921,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "You Make Everything Better – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “You Make Everything Better” is displayed on the front of this special edition cash candle, making it a comforting, heartfelt keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “You Make Everything Better” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up"
   },
   {
@@ -969,9 +939,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "So Glad You’re in My Life – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “So Glad You’re in My Life” is displayed on the front of this special edition cash candle, making it a heartfelt keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “So Glad You’re in My Life” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Surp"
   },
   {
@@ -989,9 +957,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "I’m Beary Glad You’re Mine – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “I’m Beary Glad You’re Mine” is displayed on the front of this special edition cash candle, making it a playful keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “I’m Beary Glad You’re Mine” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Sur"
   },
   {
@@ -1009,9 +975,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "Happy Valentine’s Day – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for celebrating Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “Happy Valentine’s Day” is displayed on the front of this special edition cash candle, making it a festive keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “Happy Valentine’s Day” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Surpri"
   },
   {
@@ -1029,9 +993,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "You’re My Favorite Place in the World – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “You’re My Favorite Place in the World” is displayed on the front of this special edition cash candle, making it a deeply sentimental keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “You’re My Favorite Place in the World” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles contai"
   },
   {
@@ -1049,9 +1011,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "You Make My Heart Melt – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “You Make My Heart Melt” is displayed on the front of this special edition cash candle, making it a sweet, playful keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “You Make My Heart Melt” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Surprise"
   },
   {
@@ -1069,9 +1029,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "With All My Love – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “With All My Love” is displayed on the front of this special edition cash candle, making it a heartfelt keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “With All My Love” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Surprise Bear Figurine Durable "
   },
   {
@@ -1089,9 +1047,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "To the One I Love – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “To the One I Love” is displayed on the front of this special edition cash candle, making it a timeless keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “To the One I Love” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Surprise Bear Figurine Durabl"
   },
   {
@@ -1109,9 +1065,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "Love You Forever – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “Love You Forever” is displayed on the front of this special edition cash candle, making it a timeless keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “Love You Forever” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Surprise Bear Figurine Durable p"
   },
   {
@@ -1129,9 +1083,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "Love You Beary Much – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “Love You Beary Much” is displayed on the front of this special edition cash candle, making it a sweet keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “Love You Beary Much” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Surprise Bear Figurine Dur"
   },
   {
@@ -1149,9 +1101,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "I Love You! – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “I Love You!” is displayed on the front of this special edition cash candle, making it a timeless keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “I Love You!” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Surprise Bear Figurine Durable plastic bear fig"
   },
   {
@@ -1169,9 +1119,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "**Happy Valentine’s Day – You Light Up My Heart Cash Candle + Surprise Bear Valentine’s Day Bundle** A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for celebrating Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “Happy Valentine’s Day – You Light Up My Heart” is displayed on the front of this special edition cash candle, making it a heartfelt keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “Happy Valentine’s Day – You Light Up My Heart” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed c"
   },
   {
@@ -1189,9 +1137,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "You’re the One – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “You’re the One” is displayed on the front of this special edition cash candle, making it a bold, timeless keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “You’re the One” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500 Surprise Bear Figurine Durable p"
   },
   {
@@ -1209,9 +1155,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "You’re My Happily Ever After – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “You’re My Happily Ever After” is displayed on the front of this special edition cash candle, making it a romantic keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “You’re My Happily Ever After” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,"
   },
   {
@@ -1229,9 +1173,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "You’re My Beary Favorite – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “You’re My Beary Favorite” is displayed on the front of this special edition cash candle, making it a fun and heartfelt keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “You’re My Beary Favorite” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2,500"
   },
   {
@@ -1249,9 +1191,7 @@ export const productsData: Product[] = [
     "isBestSeller": true,
     "isNew": false,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "Every Love Song Is About You – Cash Candle + Surprise Bear Valentine’s Day Bundle A best-selling 4-in-1 surprise gift that blends romance, fragrance, and real cash into one unforgettable bundle—perfect for Valentine’s Day and meaningful moments year-round. This bundle includes a 21 oz Cash Candle and a Surprise Bear Figurine , each with guaranteed cash inside , with select items containing additional cash prizes up to $2,500 . The phrase “Every Love Song Is About You” is displayed on the front of this special edition cash candle, making it a heartfelt keepsake long after the surprise is revealed. What’s Included 21 oz Cash Candle “Every Love Song Is About You” featured on the front of the candle Choose from many candle scents in the dropdown menu, so you’re sure to find one you love Crafted with a premium coconut soy wax blend Highly scented, clean-burning, and long-lasting 80–100+ hours of burn time Includes guaranteed cash, with some candles containing additional cash prizes up to $2"
   },
   {
@@ -2237,9 +2177,7 @@ export const productsData: Product[] = [
     "isBestSeller": false,
     "isNew": true,
     "inStock": true,
-    "scentNotes": [
-      "BIRTHDAY CAKE"
-    ],
+    "scentNotes": [],
     "description": "Celebrate with the Aquarius Astrology Birthday Cash Candle! Every candle includes a guaranteed real $2 bill hidden inside, with select candles revealing up to $2,500. A huge 2.5-pound candle crafted with highly scented soy wax."
   },
   {

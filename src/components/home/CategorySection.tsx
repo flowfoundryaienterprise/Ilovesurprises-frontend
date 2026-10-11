@@ -3,6 +3,7 @@ import { ShieldCheck, Truck, RotateCcw, Lock } from 'lucide-react';
 import { categoriesData } from '../../data/categories';
 import { CategorySkeleton } from '../ui/CategorySkeleton';
 import { handleImageErrorSafely, getCategoryFallback } from '../../utils/imageUtils';
+import { FREE_SHIPPING_THRESHOLD, RETURN_POLICY_LABEL } from '../../config/policyConstants';
 
 interface CategorySectionProps {
   selectedCategory?: string;
@@ -144,7 +145,7 @@ export const CategorySection: React.FC<CategorySectionProps> = React.memo(({
           </div>
           <div className="min-w-0 flex-1">
             <strong className="block text-[11px] sm:text-xs font-black text-[#141219] truncate leading-tight">
-              Free Shipping $75+
+              Free Shipping ${FREE_SHIPPING_THRESHOLD}+
             </strong>
             <span className="text-[9px] sm:text-[11px] text-[#716d77] block truncate leading-tight mt-0.5 font-medium">
               Fast & reliable delivery
@@ -159,7 +160,7 @@ export const CategorySection: React.FC<CategorySectionProps> = React.memo(({
           </div>
           <div className="min-w-0 flex-1">
             <strong className="block text-[11px] sm:text-xs font-black text-[#141219] truncate leading-tight">
-              30-Day Returns
+              {RETURN_POLICY_LABEL}
             </strong>
             <span className="text-[9px] sm:text-[11px] text-[#716d77] block truncate leading-tight mt-0.5 font-medium">
               Hassle-free process

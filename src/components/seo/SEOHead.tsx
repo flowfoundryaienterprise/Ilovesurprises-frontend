@@ -15,6 +15,20 @@ const SITE_ORIGIN = 'https://ilovesurprises.com';
 const BRAND_SUFFIX = '| I Love Surprises';
 const DEFAULT_IMAGE = `${SITE_ORIGIN}/logo.png`;
 
+export function stripHtml(input: string): string {
+  if (!input) return '';
+  return input
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 interface SEOResult {
   title: string;
   description: string;
@@ -463,6 +477,21 @@ export function SEOHead({ view, product, category, repUsername, accountTab, coll
         };
         break;
 
+      case 'not-found':
+        seo = {
+          title: `Page Not Found ${BRAND_SUFFIX}`,
+          description: 'The requested page could not be found. Explore our handcrafted jewelry and real cash surprise collections.',
+          canonical: `${SITE_ORIGIN}/404`,
+          isPrivate: true,
+          ogType: 'website',
+          ogImage: DEFAULT_IMAGE,
+          breadcrumbs: [
+            { name: 'Home', url: `${SITE_ORIGIN}/` },
+            { name: 'Page Not Found', url: `${SITE_ORIGIN}/404` },
+          ],
+        };
+        break;
+
       default:
         seo = {
           title: `I Love Surprises ${BRAND_SUFFIX}`,
@@ -476,6 +505,10 @@ export function SEOHead({ view, product, category, repUsername, accountTab, coll
         break;
     }
 
+    // Sanitize title and description: strip any unwanted HTML tags
+    seo.title = stripHtml(seo.title);
+    seo.description = stripHtml(seo.description);
+
     // 1. Update Document Title
     document.title = seo.title;
 
@@ -487,7 +520,7 @@ export function SEOHead({ view, product, category, repUsername, accountTab, coll
         el.setAttribute(attrName, attrVal);
         document.head.appendChild(el);
       }
-      el.setAttribute('content', content);
+      el.setAttribute('content', stripHtml(content));
     };
 
     // 2. Update Meta Description
@@ -600,11 +633,11 @@ export function SEOHead({ view, product, category, repUsername, accountTab, coll
         },
       };
 
-      if (product.rating) {
+      if (product.rating && product.rating > 0 && product.reviewCount && product.reviewCount > 0) {
         productSchema.aggregateRating = {
           '@type': 'AggregateRating',
           ratingValue: product.rating,
-          reviewCount: product.reviewCount || 1,
+          reviewCount: product.reviewCount,
         };
       }
 

@@ -30,6 +30,7 @@ import { reviewsData } from '../data/reviews';
 import type { Product, CartItem, Review } from '../types';
 import { useRelatedProducts } from '../hooks/useProducts';
 import { representativeService, type PublicRepresentative } from '../services/representativeService';
+import { FREE_SHIPPING_THRESHOLD, RETURN_POLICY_LABEL } from '../config/policyConstants';
 
 interface ProductDetailsProps {
   product: Product;
@@ -119,7 +120,17 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     return combined.includes('halloween');
   }, [product.name, product.slug, product.category]);
 
-  // Order scents: Pumpkin Spice is ALWAYS #1 for Halloween products, then the remaining 19 scents in exact founder order
+  // Detect whether product is scented (Candles, Wax Melts, Bath Bombs, Soaps, Slimes)
+  const isScentedProduct = useMemo(() => {
+    const cat = (product.category || '').toLowerCase();
+    const name = (product.name || '').toLowerCase();
+    if (product.options?.some((o) => /scent|fragrance/i.test(o.name))) return true;
+    if (/candle|wax melt|wax-melt|bath bomb|soap|slime/i.test(cat)) return true;
+    if (/candle|wax melt|wax-melt|bath bomb|soap|slime/i.test(name)) return true;
+    return false;
+  }, [product]);
+
+  // Order scents: Pumpkin Spice is ALWAYS #1 for Halloween products, then remaining scents in founder order
   const orderedScents = useMemo(() => {
     if (isHalloween) {
       return ['Pumpkin Spice', ...FOUNDER_SCENTS.filter((s) => s !== 'Pumpkin Spice')];
@@ -127,11 +138,41 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     return FOUNDER_SCENTS;
   }, [isHalloween]);
 
-  const [selectedScent, setSelectedScent] = useState<string>(() => orderedScents[0]);
+  // Intelligently select default scent corresponding to actual product (not blanket Birthday Cake)
+  const initialScent = useMemo(() => {
+    const nameLower = (product.name || '').toLowerCase();
+    // 1. Check if product name directly mentions any founder scent
+    for (const scent of FOUNDER_SCENTS) {
+      if (nameLower.includes(scent.toLowerCase())) {
+        return scent;
+      }
+    }
+    // 2. Check legitimate scent notes
+    if (product.scentNotes && product.scentNotes.length > 0) {
+      for (const note of product.scentNotes) {
+        const match = FOUNDER_SCENTS.find((s) => s.toLowerCase() === note.toLowerCase());
+        if (match && (match !== 'Birthday Cake' || nameLower.includes('birthday'))) {
+          return match;
+        }
+      }
+    }
+    // 3. Halloween items default to Pumpkin Spice
+    if (isHalloween) {
+      return 'Pumpkin Spice';
+    }
+    // 4. Products with 'birthday' in title default to Birthday Cake
+    if (nameLower.includes('birthday')) {
+      return 'Birthday Cake';
+    }
+    // 5. Neutral default: French Vanilla (clean, universally loved)
+    return 'French Vanilla';
+  }, [product, isHalloween]);
+
+  const [selectedScent, setSelectedScent] = useState<string>(() => initialScent);
 
   useEffect(() => {
-    setSelectedScent(orderedScents[0]);
-  }, [orderedScents]);
+    setSelectedScent(initialScent);
+  }, [initialScent]);
 
   // Real-time urgency countdown timer (JewelryCandles conversion style)
   const [productTimerSecs, setProductTimerSecs] = useState(() => {
@@ -338,7 +379,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             .map(([k, v]) => `${k}: ${v}`)
             .join(', ')
         : '';
-    const formattedSize = [selectedScent ? `Scent: ${selectedScent}` : '', otherOpts || selectedSize]
+    const formattedSize = [isScentedProduct && selectedScent ? `Scent: ${selectedScent}` : '', otherOpts || selectedSize]
       .filter(Boolean)
       .join(' | ');
 
@@ -368,7 +409,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             .map(([k, v]) => `${k}: ${v}`)
             .join(', ')
         : '';
-    const formattedSize = [selectedScent ? `Scent: ${selectedScent}` : '', otherOpts || selectedSize]
+    const formattedSize = [isScentedProduct && selectedScent ? `Scent: ${selectedScent}` : '', otherOpts || selectedSize]
       .filter(Boolean)
       .join(' | ');
 
@@ -638,46 +679,48 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </p>
             </div>
 
-            {/* Clean Dropdown Scent Selection (Exact 20 Scents in Founder Order) */}
-            <div className="mb-5 p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] shadow-2xs">
-              <div className="flex items-center justify-between mb-2">
-                <label htmlFor="scent-dropdown" className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1.5 cursor-pointer">
-                  <span>Choose Scent / Fragrance (Required):</span>
-                </label>
-                <span className="text-xs font-bold text-[#D30915]">{selectedScent}</span>
-              </div>
-              <div className="relative">
-                <select
-                  id="scent-dropdown"
-                  value={selectedScent}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedScent(val);
-                    setSelectedOptions((prev) => ({ ...prev, Scent: val, Fragrance: val }));
-                  }}
-                  className="w-full h-[46px] px-3.5 pr-10 rounded-[14px] bg-white border border-[#eedbe6] hover:border-[#D30915] focus:border-[#D30915] focus:ring-2 focus:ring-[#D30915]/20 text-xs sm:text-sm font-bold text-[#141219] appearance-none cursor-pointer transition-all outline-none shadow-2xs"
-                >
-                  {orderedScents.map((scent, idx) => (
-                    <option key={scent} value={scent} className="text-sm font-medium text-[#141219]">
-                      {idx + 1}. {scent} {idx === 0 && isHalloween ? '🎃 (Halloween Priority Scent)' : ''}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-[#716d77]">
-                  <ChevronDown className="w-4 h-4" />
+            {/* Clean Dropdown Scent Selection (Exact 20 Scents in Founder Order) - Only for Scented Products */}
+            {isScentedProduct && (
+              <div className="mb-5 p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] shadow-2xs">
+                <div className="flex items-center justify-between mb-2">
+                  <label htmlFor="scent-dropdown" className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1.5 cursor-pointer">
+                    <span>Choose Scent / Fragrance (Required):</span>
+                  </label>
+                  <span className="text-xs font-bold text-[#D30915]">{selectedScent}</span>
                 </div>
+                <div className="relative">
+                  <select
+                    id="scent-dropdown"
+                    value={selectedScent}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedScent(val);
+                      setSelectedOptions((prev) => ({ ...prev, Scent: val, Fragrance: val }));
+                    }}
+                    className="w-full h-[46px] px-3.5 pr-10 rounded-[14px] bg-white border border-[#eedbe6] hover:border-[#D30915] focus:border-[#D30915] focus:ring-2 focus:ring-[#D30915]/20 text-xs sm:text-sm font-bold text-[#141219] appearance-none cursor-pointer transition-all outline-none shadow-2xs"
+                  >
+                    {orderedScents.map((scent, idx) => (
+                      <option key={scent} value={scent} className="text-sm font-medium text-[#141219]">
+                        {idx + 1}. {scent} {idx === 0 && isHalloween ? '🎃 (Halloween Priority Scent)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-[#716d77]">
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="text-[11px] text-[#716d77] m-0 mt-2 font-medium flex items-center gap-1">
+                  {isHalloween ? (
+                    <>
+                      <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                      <span>Pumpkin Spice is curated #1 holiday favorite for this item.</span>
+                    </>
+                  ) : (
+                    <span>20 signature scents hand-crafted with premium fragrance oils.</span>
+                  )}
+                </p>
               </div>
-              <p className="text-[11px] text-[#716d77] m-0 mt-2 font-medium flex items-center gap-1">
-                {isHalloween ? (
-                  <>
-                    <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                    <span>Pumpkin Spice is curated #1 holiday favorite for this item.</span>
-                  </>
-                ) : (
-                  <span>20 signature scents hand-crafted with premium fragrance oils.</span>
-                )}
-              </p>
-            </div>
+            )}
 
             {/* AUTHORITATIVE PRODUCT OPTIONS (Non-Scent, Non-Jewelry options like Size/Style) */}
             {product.options &&
@@ -963,11 +1006,11 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </div>
               <div className="flex items-center gap-1.5">
                 <Truck className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>Free Shipping $50+</span>
+                <span>Free Shipping ${FREE_SHIPPING_THRESHOLD}+</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <RotateCcw className="w-4 h-4 text-blue-600 shrink-0" />
-                <span>30-Day Returns</span>
+                <span>{RETURN_POLICY_LABEL}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-[#D30915] shrink-0" />
