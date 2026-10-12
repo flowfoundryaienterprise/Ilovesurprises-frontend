@@ -519,3 +519,9 @@ This repository and its assets are marked as private and proprietary (`"private"
 ## ⭐ Final Project Summary
 
 The **I Love Surprises Platform** combines sensory e-commerce, multi-tier direct selling, and administrative operations into a single cohesive frontend architecture. Powered by React 19, TypeScript, Vite 8, and Tailwind CSS v4, it delivers an engaging unboxing experience for retail customers while equipping direct-selling consultants and store managers with robust business tools.
+
+## Developers 
+
+- Nithish - Lead Developer
+- Janarthanan - Frontend Developer
+- Ajay - Backend Devloper
