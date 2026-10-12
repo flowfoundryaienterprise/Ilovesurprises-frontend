@@ -522,6 +522,6 @@ The **I Love Surprises Platform** combines sensory e-commerce, multi-tier direct
 
 ## Developers 
 
-- Nithish - Lead Developer
-- Janarthanan - Frontend Developer
-- Ajay - Backend Devloper
+- Nithish - Lead Developer 😎
+- Janarthanan - Frontend Developer 👨‍💻
+- Ajay - Backend Devloper ✨
