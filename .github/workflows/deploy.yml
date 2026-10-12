@@ -15,10 +15,11 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST || secrets.HOST }}
-          username: ${{ secrets.VPS_USER || secrets.USERNAME }}
+          username: ${{ secrets.VPS_USER || secrets.USERNAME || 'root' }}
           key: ${{ secrets.VPS_SSH_KEY || secrets.SSH_KEY || secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.VPS_PASSPHRASE || '' }}
-          port: ${{ secrets.VPS_PORT || 22 }}
+          password: ${{ secrets.VPS_PASSWORD || secrets.PASSWORD || secrets.VPS_PASS }}
+          port: ${{ secrets.VPS_PORT || secrets.PORT || 22 }}
           script: |
             set -e
 
