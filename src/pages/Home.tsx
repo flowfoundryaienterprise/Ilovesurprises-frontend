@@ -42,6 +42,7 @@ export const Home: React.FC<HomeProps> = ({
   const isLoading = false;
   const [userSelectedCategory, setUserSelectedCategory] = useState<string | null>(null);
   const homeCategory = userSelectedCategory ?? selectedCategory ?? 'All Surprises';
+  console.log("ci-cd pipelines are working!")
 
   // Pre-warm primary catalog collections in browser idle time
   useEffect(() => {
