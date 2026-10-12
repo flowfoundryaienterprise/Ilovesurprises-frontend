@@ -60,6 +60,24 @@ const LOCAL_REVIEWS_KEY = 'ilovesurprises_user_reviews_v1';
 const RING_SIZES = [5, 6, 7, 8, 9, 10];
 const JEWELRY_TYPES = ['Ring', 'Necklace', 'Earrings', 'Bracelet'];
 
+/**
+ * Detects whether an option is a Jewelry Type or Ring Size option.
+ * Prevents duplicate option blocks from being rendered when
+ * the dedicated luxury jewelry reveal & ring size selector is active.
+ */
+export function isJewelryOrRingOption(opt: { name?: string; values?: string[] }): boolean {
+  if (!opt) return false;
+  const name = (opt.name || '').toLowerCase().trim();
+  if (/jewelry|reveal|ring/i.test(name)) return true;
+  if (name === 'size' && opt.values?.some((v) => /^(?:[5-9]|1[0-2])$/.test(String(v).trim()))) {
+    return true;
+  }
+  if (opt.values?.some((v) => /^(?:ring|necklace|earrings?|bracelets?)$/i.test(String(v).trim()))) {
+    return true;
+  }
+  return false;
+}
+
 // Authoritative 20 Scents in exact founder non-alphabetized order
 export const FOUNDER_SCENTS = [
   'Birthday Cake',
@@ -120,7 +138,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
 
     if (product.surpriseType === 'jewelry') return true;
     if (cat.includes('jewelry') || val.includes('jewelry')) return true;
-    if (product.options?.some((o) => /jewelry|reveal|ring/i.test(o.name))) return true;
+    if (product.options?.some((o) => isJewelryOrRingOption(o))) return true;
     return /\b(ring|rings|necklace|necklaces|earring|earrings|bracelet|bracelets|jewelry)\b/i.test(name);
   }, [product]);
 
@@ -253,16 +271,42 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   useEffect(() => {
     if (product.options && product.options.length > 0) {
       const initial: Record<string, string> = {};
+      let initialRingSize: number = 7;
+      let initialJewelryType: string = 'Ring';
+
       product.options.forEach((opt) => {
         if (opt.values && opt.values.length > 0) {
           initial[opt.name] = opt.values[0];
+          if (isJewelryOrRingOption(opt)) {
+            const numVal = parseInt(opt.values[0], 10);
+            if (!isNaN(numVal) && RING_SIZES.includes(numVal)) {
+              initialRingSize = numVal;
+            }
+            const foundJewelryType = opt.values.find((v) => JEWELRY_TYPES.includes(v));
+            if (foundJewelryType) {
+              initialJewelryType = foundJewelryType;
+            }
+          }
         }
       });
+
+      if (isJewelrySurprise) {
+        initial['Jewelry Reveal Type'] = initialJewelryType;
+        if (initialJewelryType === 'Ring') {
+          initial['Ring Size'] = String(initialRingSize);
+        }
+        setSelectedJewelryType(initialJewelryType);
+        setSelectedRingSize(initialJewelryType === 'Ring' ? initialRingSize : undefined);
+      }
       setSelectedOptions(initial);
     } else {
       setSelectedOptions({});
+      if (isJewelrySurprise) {
+        setSelectedJewelryType('Ring');
+        setSelectedRingSize(7);
+      }
     }
-  }, [product.id, product.options]);
+  }, [product.id, product.options, isJewelrySurprise]);
 
   // Find matching variant based on selected options
   const matchedVariant = useMemo(() => {
@@ -298,35 +342,53 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   // Sync / clear ring size when switching jewelry type or when product changes
   const handleJewelryTypeSelect = (type: string) => {
     setSelectedJewelryType(type);
-    if (type === 'Ring') {
-      setSelectedRingSize((prev) => (prev && RING_SIZES.includes(prev) ? prev : 7));
-      setSelectedOptions((prev) => {
-        const next = { ...prev };
-        delete next['Jewelry Reveal Type'];
-        delete next['Jewelry Type'];
-        next['Jewelry Reveal Type'] = 'Ring';
-        next['Ring Size'] = String(selectedRingSize || 7);
-        return next;
+    setSelectedOptions((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((k) => {
+        if (/jewelry|reveal/i.test(k) || (type !== 'Ring' && /ring/i.test(k))) {
+          delete next[k];
+        }
       });
-    } else {
-      setSelectedRingSize(undefined);
-      setSelectedOptions((prev) => {
-        const next = { ...prev };
-        delete next['Ring Size'];
-        delete next['Jewelry Reveal Type'];
-        delete next['Jewelry Type'];
-        next['Jewelry Reveal Type'] = type;
-        return next;
-      });
-    }
+      next['Jewelry Reveal Type'] = type;
+      if (product.options) {
+        product.options.forEach((opt) => {
+          if (opt.values?.some((v) => v.toLowerCase() === type.toLowerCase())) {
+            next[opt.name] = opt.values.find((v) => v.toLowerCase() === type.toLowerCase()) || type;
+          }
+        });
+      }
+      if (type === 'Ring') {
+        const ringSize = selectedRingSize || 7;
+        setSelectedRingSize(ringSize);
+        next['Ring Size'] = String(ringSize);
+        if (product.options) {
+          product.options.forEach((opt) => {
+            if (isJewelryOrRingOption(opt) && opt.values?.some((v) => String(v).trim() === String(ringSize))) {
+              next[opt.name] = String(ringSize);
+            }
+          });
+        }
+      } else {
+        setSelectedRingSize(undefined);
+      }
+      return next;
+    });
   };
 
   const handleRingSizeSelect = (size: number) => {
     setSelectedRingSize(size);
-    setSelectedOptions((prev) => ({
-      ...prev,
-      'Ring Size': String(size),
-    }));
+    setSelectedOptions((prev) => {
+      const next = { ...prev };
+      next['Ring Size'] = String(size);
+      if (product.options) {
+        product.options.forEach((opt) => {
+          if (isJewelryOrRingOption(opt) && opt.values?.some((v) => String(v).trim() === String(size))) {
+            next[opt.name] = String(size);
+          }
+        });
+      }
+      return next;
+    });
   };
 
   // Consultant Attribution
@@ -425,10 +487,11 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     const otherOpts =
       product.options && product.options.length > 0
         ? Object.entries(selectedOptions)
-            .filter(([k]) => {
-              const kl = k.toLowerCase();
+            .filter(([k, v]) => {
+              const kl = k.toLowerCase().trim();
               if (kl.includes('scent') || kl.includes('fragrance')) return false;
-              if (/jewelry|reveal|ring/i.test(kl)) return false;
+              if (isJewelryOrRingOption({ name: k, values: [String(v)] })) return false;
+              if (isJewelrySurprise && kl === 'size') return false;
               return true;
             })
             .map(([k, v]) => `${k}: ${v}`)
@@ -456,10 +519,11 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     const otherOpts =
       product.options && product.options.length > 0
         ? Object.entries(selectedOptions)
-            .filter(([k]) => {
-              const kl = k.toLowerCase();
+            .filter(([k, v]) => {
+              const kl = k.toLowerCase().trim();
               if (kl.includes('scent') || kl.includes('fragrance')) return false;
-              if (/jewelry|reveal|ring/i.test(kl)) return false;
+              if (isJewelryOrRingOption({ name: k, values: [String(v)] })) return false;
+              if (isJewelrySurprise && kl === 'size') return false;
               return true;
             })
             .map(([k, v]) => `${k}: ${v}`)
@@ -807,7 +871,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 .filter((opt) => {
                   const nameLower = opt.name.toLowerCase();
                   if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
-                  if (/jewelry|reveal|ring/i.test(nameLower)) return false;
+                  if (isJewelryOrRingOption(opt)) return false;
                   return true;
                 })
                 .length > 0 && (
@@ -816,7 +880,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                     .filter((opt) => {
                       const nameLower = opt.name.toLowerCase();
                       if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
-                      if (/jewelry|reveal|ring/i.test(nameLower)) return false;
+                      if (isJewelryOrRingOption(opt)) return false;
                       return true;
                     })
                     .map((opt) => {
