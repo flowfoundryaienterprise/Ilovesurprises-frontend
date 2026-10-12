@@ -8,43 +8,74 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Deploy Frontend to VPS
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          host: ${{ secrets.VPS_HOST || secrets.HOST }}
+          username: ${{ secrets.VPS_USER || secrets.USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY || secrets.SSH_KEY || secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.VPS_PASSPHRASE || '' }}
+          port: ${{ secrets.VPS_PORT || 22 }}
           script: |
             set -e
 
-            echo "=== Building and Deploying Frontend ==="
-            rm -rf /tmp/fe_build
-            git clone --depth 1 -b main https://github.com/flowfoundryaienterprise/Ilovesurprises-frontend.git /tmp/fe_build
-            cd /tmp/fe_build
-            echo "Frontend commit: $(git log -1 --oneline)"
-            npm ci || npm install
-            npm run build
-
-            echo "=== Distributing Frontend Build to Nginx Web Roots ==="
-            for ROOT in $(grep -hoP 'root\s+\K[^;]+' /etc/nginx/sites-enabled/* 2>/dev/null); do
-              if [ -d "$ROOT" ] && [ "$ROOT" != "/var/www/ilovesurprises-backend" ]; then
-                echo "Copying to Nginx root: $ROOT"
-                sudo rm -rf "$ROOT"/* 2>/dev/null || rm -rf "$ROOT"/* 2>/dev/null || true
-                sudo cp -r /tmp/fe_build/dist/* "$ROOT"/ 2>/dev/null || cp -r /tmp/fe_build/dist/* "$ROOT"/ 2>/dev/null || true
+            echo "=== Locating Frontend Repository on VPS ==="
+            FE_DIR=""
+            for DIR in /var/www/Ilovesurprises-frontend /var/www/ilovesurprises-frontend /var/www/ilovesurprises-platform /var/www/frontend /home/*/Ilovesurprises-frontend /root/Ilovesurprises-frontend; do
+              if [ -d "$DIR/.git" ]; then
+                FE_DIR="$DIR"
+                break
               fi
             done
 
-            for TARGET in /var/www/html /var/www/ilovesurprises-platform/dist /var/www/ilovesurprises-frontend/dist /var/www/frontend/dist /usr/share/nginx/html; do
-              if [ -d "$TARGET" ]; then
-                echo "Copying to fallback target: $TARGET"
-                sudo rm -rf "$TARGET"/* 2>/dev/null || rm -rf "$TARGET"/* 2>/dev/null || true
-                sudo cp -r /tmp/fe_build/dist/* "$TARGET"/ 2>/dev/null || cp -r /tmp/fe_build/dist/* "$TARGET"/ 2>/dev/null || true
-              fi
-            done
+            if [ -n "$FE_DIR" ]; then
+              echo "Found existing frontend repository at: $FE_DIR"
+              cd "$FE_DIR"
 
+              echo "Pulling latest code from origin/main..."
+              git fetch origin main
+              git reset --hard origin/main
+
+              echo "Installing dependencies..."
+              npm ci || npm install --prefer-offline || npm install
+
+              echo "Building production bundle..."
+              npm run build
+
+              echo "=== Syncing dist to Nginx web roots ==="
+              for ROOT in $(grep -hoP 'root\s+\K[^;]+' /etc/nginx/sites-enabled/* 2>/dev/null); do
+                if [ -d "$ROOT" ] && [ "$ROOT" != "$FE_DIR" ] && [ "$ROOT" != "/var/www/ilovesurprises-backend" ]; then
+                  echo "Copying dist to Nginx root: $ROOT"
+                  sudo cp -r "$FE_DIR"/dist/* "$ROOT"/ 2>/dev/null || cp -r "$FE_DIR"/dist/* "$ROOT"/ 2>/dev/null || true
+                fi
+              done
+
+              for FALLBACK in /var/www/html /usr/share/nginx/html; do
+                if [ -d "$FALLBACK" ] && [ "$FALLBACK" != "$FE_DIR" ]; then
+                  echo "Copying to fallback: $FALLBACK"
+                  sudo cp -r "$FE_DIR"/dist/* "$FALLBACK"/ 2>/dev/null || cp -r "$FE_DIR"/dist/* "$FALLBACK"/ 2>/dev/null || true
+                fi
+              done
+            else
+              echo "Warning: No existing .git repo found in standard paths. Attempting clone..."
+              rm -rf /tmp/fe_build
+              git clone --depth 1 -b main https://github.com/flowfoundryaienterprise/Ilovesurprises-frontend.git /tmp/fe_build || true
+              if [ -d "/tmp/fe_build" ]; then
+                cd /tmp/fe_build
+                npm ci || npm install
+                npm run build
+                for ROOT in $(grep -hoP 'root\s+\K[^;]+' /etc/nginx/sites-enabled/* 2>/dev/null); do
+                  if [ -d "$ROOT" ] && [ "$ROOT" != "/var/www/ilovesurprises-backend" ]; then
+                    sudo cp -r /tmp/fe_build/dist/* "$ROOT"/ 2>/dev/null || true
+                  fi
+                done
+                rm -rf /tmp/fe_build
+              fi
+            fi
+
+            echo "Reloading Nginx web server..."
             sudo systemctl reload nginx 2>/dev/null || sudo nginx -s reload 2>/dev/null || true
-            rm -rf /tmp/fe_build
-            echo "Frontend Deployment finished successfully!"
+            echo "=== Frontend Deployment Complete! ==="
