@@ -19,6 +19,63 @@ export interface ApprovedCollectionMeta {
 }
 
 export const APPROVED_COLLECTIONS_MAP: Record<string, ApprovedCollectionMeta> = {
+  "halloween": {
+    "collectionId": "col_halloween_curated",
+    "name": "Halloween Candles",
+    "canonicalHandle": "halloween",
+    "aliases": [
+      "halloween",
+      "halloween-candles",
+      "halloween-collection"
+    ],
+    "category": "Candles",
+    "referenceCount": 10,
+    "actualCount": 10,
+    "title": "Halloween Candles & Melts",
+    "description": "<p>Discover spooky, sweet, and mesmerizing Halloween creations concealing guaranteed cash and jewelry reveals.</p>",
+    "imageUrl": "https://cdn.shopify.com/s/files/1/0172/4672/products/4_Mockup_Jewelry_JewelryCandles_37b9e8df-fc51-4b27-9db3-6236ee9d84b6.jpg?v=1602742369",
+    "productHandles": [
+      "pumpkin-spice-cash-money-candle",
+      "worlds-largest-giant-halloween-pumpkin-cash-wax-melt",
+      "giant-cash-money-surprise-skull",
+      "spooky-nights-collection-cash-wax-melt-bundle",
+      "pumpkin-express-collection-cash-wax-melt-bundle",
+      "pumpkin-spice-cereal-cash-candles",
+      "pumpkin-spice-jewelry-cereal-candles",
+      "pumpkin-spice-everything-nice-jewelry-candle",
+      "pumpkin-spice-cereal-bowl-cash-wax-melts",
+      "pumpkin-spice-cash-cereal-slimes"
+    ]
+  },
+  "christmas-candles-1": {
+    "collectionId": "col_christmas_curated",
+    "name": "Christmas Candles",
+    "canonicalHandle": "christmas-candles-1",
+    "aliases": [
+      "christmas-candles-1",
+      "christmas-candles",
+      "christmas",
+      "holiday-candles"
+    ],
+    "category": "Candles",
+    "referenceCount": 10,
+    "actualCount": 10,
+    "title": "Christmas & Holiday Candles",
+    "description": "<p>Celebrate the holidays with festive fragrance candles containing real cash up to $2,500 and authentic jewelry reveals.</p>",
+    "imageUrl": "https://cdn.shopify.com/s/files/1/0172/4672/files/1_Mockup_Jewelry_JewelryCandles_f3e6a9f6-1ca0-4e31-893f-c30932549d5a.jpg",
+    "productHandles": [
+      "believe-in-the-magic-of-christmas",
+      "a-christmas-story-christmas-cash-candle",
+      "here-comes-santa-claus-cash-money-candle",
+      "the-grinch-cash-candle",
+      "copy-of-believe-in-the-magic-of-christmas-cash-candle",
+      "christmas-tree-farm-jewelry-cereal-candles",
+      "christmas-in-october-jewelry-candle",
+      "christmas-in-march-jewelry-candle",
+      "around-the-christmas-tree-cash-wax-melt",
+      "christmas-cookies-cash-wax-melts"
+    ]
+  },
   "cash-money-candles": {
     "collectionId": "243231195325",
     "name": "Cash Candles",

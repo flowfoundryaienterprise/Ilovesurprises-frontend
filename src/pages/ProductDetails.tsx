@@ -69,10 +69,13 @@ export function isJewelryOrRingOption(opt: { name?: string; values?: string[] })
   if (!opt) return false;
   const name = (opt.name || '').toLowerCase().trim();
   if (/jewelry|reveal|ring/i.test(name)) return true;
-  if (name === 'size' && opt.values?.some((v) => /^(?:[5-9]|1[0-2])$/.test(String(v).trim()))) {
+  if (name.includes('size') && opt.values?.some((v) => /^(?:size\s*)?(?:[5-9]|1[0-2])(?:\s*us)?$/i.test(String(v).trim()))) {
     return true;
   }
-  if (opt.values?.some((v) => /^(?:ring|necklace|earrings?|bracelets?)$/i.test(String(v).trim()))) {
+  if (opt.values?.some((v) => /ring|necklace|earring|bracelet/i.test(String(v).trim()))) {
+    return true;
+  }
+  if (opt.values?.some((v) => /^(?:size\s*)?(?:[5-9]|1[0-2])(?:\s*us)?$/i.test(String(v).trim()))) {
     return true;
   }
   return false;
@@ -872,6 +875,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                   const nameLower = opt.name.toLowerCase();
                   if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
                   if (isJewelryOrRingOption(opt)) return false;
+                  if (isJewelrySurprise && (nameLower.includes('jewelry') || nameLower.includes('reveal') || nameLower.includes('ring') || nameLower.includes('size'))) return false;
                   return true;
                 })
                 .length > 0 && (
@@ -881,6 +885,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                       const nameLower = opt.name.toLowerCase();
                       if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
                       if (isJewelryOrRingOption(opt)) return false;
+                      if (isJewelrySurprise && (nameLower.includes('jewelry') || nameLower.includes('reveal') || nameLower.includes('ring') || nameLower.includes('size'))) return false;
                       return true;
                     })
                     .map((opt) => {

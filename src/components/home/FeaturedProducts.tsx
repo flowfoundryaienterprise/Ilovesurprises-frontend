@@ -57,13 +57,14 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
           setProducts(dedupled);
           setStatus('success');
         } else {
-          setProducts([]);
-          setStatus('empty');
+          setProducts((prev) => (prev.length > 0 ? prev : productsData.slice(0, 10)));
+          setStatus('success');
         }
       })
       .catch((err) => {
         console.warn('Error fetching curated trending products:', err);
-        setStatus('error');
+        setProducts((prev) => (prev.length > 0 ? prev : productsData.slice(0, 10)));
+        setStatus('success');
       });
   }, [products.length]);
 

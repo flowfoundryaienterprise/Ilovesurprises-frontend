@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowRight, DollarSign, Flame, Gift, Gem } from 'lucide-react';
 import { adminService } from '../../services/adminService';
-import { productService } from '../../services/productService';
+import { productService, getUnifiedCatalog } from '../../services/productService';
 import { deduplicateProducts } from '../../utils/productUtils';
 import { ProductCard } from '../products/ProductCard';
 import { ProductCardSkeleton } from '../ui/ProductCardSkeleton';
@@ -109,12 +109,34 @@ const CASH_FALLBACK_PRODUCTS: Product[] = productsData
   .filter((p) => p.name.toLowerCase().includes('cash') || p.category.toLowerCase().includes('cash'))
   .slice(0, 10);
 
-const HALLOWEEN_FALLBACK_PRODUCTS: Product[] = productsData
-  .filter((p) => p.name.toLowerCase().includes('halloween') || p.category.toLowerCase().includes('halloween'))
+const HALLOWEEN_FALLBACK_PRODUCTS: Product[] = getUnifiedCatalog()
+  .filter((p) => {
+    const s = (p.slug || '').toLowerCase();
+    const n = (p.name || '').toLowerCase();
+    return (
+      s.includes('halloween') ||
+      s.includes('pumpkin') ||
+      s.includes('spooky') ||
+      s.includes('skull') ||
+      n.includes('halloween') ||
+      n.includes('pumpkin')
+    );
+  })
   .slice(0, 10);
 
-const CHRISTMAS_FALLBACK_PRODUCTS: Product[] = productsData
-  .filter((p) => p.name.toLowerCase().includes('christmas') || p.name.toLowerCase().includes('holiday') || p.category.toLowerCase().includes('christmas'))
+const CHRISTMAS_FALLBACK_PRODUCTS: Product[] = getUnifiedCatalog()
+  .filter((p) => {
+    const s = (p.slug || '').toLowerCase();
+    const n = (p.name || '').toLowerCase();
+    return (
+      s.includes('christmas') ||
+      s.includes('holiday') ||
+      s.includes('santa') ||
+      s.includes('grinch') ||
+      n.includes('christmas') ||
+      n.includes('holiday')
+    );
+  })
   .slice(0, 10);
 
 export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProps> = ({
@@ -248,6 +270,12 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
           const additional = ZODIAC_FALLBACK_PRODUCTS.filter((p) => !existingNames.has(p.name.toLowerCase().trim()));
           prods = deduplicateProducts([...prods, ...additional]).slice(0, 10);
         }
+        if (prods.length === 0) {
+          if (colId === 'zodiac-cash-money-candles') prods = ZODIAC_FALLBACK_PRODUCTS;
+          else if (colId === 'cash-candles') prods = CASH_FALLBACK_PRODUCTS;
+          else if (colId === 'halloween') prods = HALLOWEEN_FALLBACK_PRODUCTS;
+          else if (colId === 'christmas-candles-1') prods = CHRISTMAS_FALLBACK_PRODUCTS;
+        }
         setCollectionStates((prev) => ({
           ...prev,
           [colId]: {
@@ -258,22 +286,18 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
       })
       .catch((err) => {
         console.warn(`Error fetching products for collection ${colId}:`, err);
-        if (colId === 'zodiac-cash-money-candles') {
-          setCollectionStates((prev) => ({
-            ...prev,
-            [colId]: {
-              status: 'success',
-              products: ZODIAC_FALLBACK_PRODUCTS,
-            },
-          }));
-          return;
-        }
+        let fallbackProds: Product[] = [];
+        if (colId === 'zodiac-cash-money-candles') fallbackProds = ZODIAC_FALLBACK_PRODUCTS;
+        else if (colId === 'cash-candles') fallbackProds = CASH_FALLBACK_PRODUCTS;
+        else if (colId === 'halloween') fallbackProds = HALLOWEEN_FALLBACK_PRODUCTS;
+        else if (colId === 'christmas-candles-1') fallbackProds = CHRISTMAS_FALLBACK_PRODUCTS;
+
         setCollectionStates((prev) => ({
           ...prev,
           [colId]: {
-            status: 'error',
-            products: [],
-            errorMessage: err?.message || 'Failed to load products',
+            status: fallbackProds.length > 0 ? 'success' : 'error',
+            products: fallbackProds,
+            errorMessage: fallbackProds.length > 0 ? undefined : (err?.message || 'Failed to load products'),
           },
         }));
       });
