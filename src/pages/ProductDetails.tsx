@@ -868,24 +868,38 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </div>
             )}
 
-            {/* AUTHORITATIVE PRODUCT OPTIONS (Non-Scent, Non-Jewelry options like Size/Style) */}
+            {/* AUTHORITATIVE PRODUCT OPTIONS (Non-Scent, Non-Jewelry options like Style/Color) */}
             {product.options &&
               product.options
                 .filter((opt) => {
-                  const nameLower = opt.name.toLowerCase();
+                  const nameLower = (opt.name || '').toLowerCase().trim();
                   if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
-                  if (isJewelryOrRingOption(opt)) return false;
-                  if (isJewelrySurprise && (nameLower.includes('jewelry') || nameLower.includes('reveal') || nameLower.includes('ring') || nameLower.includes('size'))) return false;
+                  if (
+                    nameLower.includes('jewelry') ||
+                    nameLower.includes('reveal') ||
+                    nameLower.includes('ring') ||
+                    nameLower.includes('size') ||
+                    isJewelryOrRingOption(opt)
+                  ) {
+                    return false;
+                  }
                   return true;
                 })
                 .length > 0 && (
                 <div className="mb-5 space-y-4">
                   {product.options
                     .filter((opt) => {
-                      const nameLower = opt.name.toLowerCase();
+                      const nameLower = (opt.name || '').toLowerCase().trim();
                       if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
-                      if (isJewelryOrRingOption(opt)) return false;
-                      if (isJewelrySurprise && (nameLower.includes('jewelry') || nameLower.includes('reveal') || nameLower.includes('ring') || nameLower.includes('size'))) return false;
+                      if (
+                        nameLower.includes('jewelry') ||
+                        nameLower.includes('reveal') ||
+                        nameLower.includes('ring') ||
+                        nameLower.includes('size') ||
+                        isJewelryOrRingOption(opt)
+                      ) {
+                        return false;
+                      }
                       return true;
                     })
                     .map((opt) => {
@@ -929,7 +943,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1">
-                      <span>Select Jewelry Reveal Type:</span>
+                      <span>Jewelry Reveal Type:</span>
                     </span>
                     <span className="text-xs font-bold text-[#D30915]">{selectedJewelryType}</span>
                   </div>
@@ -957,7 +971,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1">
-                        <span>Select Ring Size (US):</span>
+                        <span>Ring Size (US):</span>
                       </span>
                       <div className="flex items-center gap-2">
                         <button
