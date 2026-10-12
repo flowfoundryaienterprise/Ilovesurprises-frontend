@@ -2212,6 +2212,11 @@ export const Header: React.FC<HeaderProps> = ({
                         <a
                           key={cat.id}
                           href={getCategoryHref(cat)}
+                          onTouchStart={() => {
+                            if (cat.slug && cat.slug !== 'home') {
+                              productService.getProductsByCollection(cat.slug, { page: 1, limit: 16, sort: 'featured' }).catch(() => {});
+                            }
+                          }}
                           onClick={(e) => {
                             if (!isModifiedEvent(e)) {
                               e.preventDefault();
@@ -2262,6 +2267,11 @@ export const Header: React.FC<HeaderProps> = ({
                               <a
                                 key={sub.id}
                                 href={getSubCategoryHref(sub)}
+                                onTouchStart={() => {
+                                  if (sub.slug) {
+                                    productService.getProductsByCollection(sub.slug, { page: 1, limit: 16, sort: 'featured' }).catch(() => {});
+                                  }
+                                }}
                                 onClick={(e) => {
                                   if (!isModifiedEvent(e)) {
                                     e.preventDefault();

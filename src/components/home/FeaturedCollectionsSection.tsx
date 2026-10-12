@@ -109,6 +109,14 @@ const CASH_FALLBACK_PRODUCTS: Product[] = productsData
   .filter((p) => p.name.toLowerCase().includes('cash') || p.category.toLowerCase().includes('cash'))
   .slice(0, 10);
 
+const HALLOWEEN_FALLBACK_PRODUCTS: Product[] = productsData
+  .filter((p) => p.name.toLowerCase().includes('halloween') || p.category.toLowerCase().includes('halloween'))
+  .slice(0, 10);
+
+const CHRISTMAS_FALLBACK_PRODUCTS: Product[] = productsData
+  .filter((p) => p.name.toLowerCase().includes('christmas') || p.name.toLowerCase().includes('holiday') || p.category.toLowerCase().includes('christmas'))
+  .slice(0, 10);
+
 export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProps> = ({
   cart = [],
   wishlistIds = [],
@@ -136,8 +144,12 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
         initial[id] = { status: 'success', products: prods };
       } else if (id === 'zodiac-cash-money-candles') {
         initial[id] = { status: 'success', products: ZODIAC_FALLBACK_PRODUCTS };
-      } else if (id === 'cash-candles' && CASH_FALLBACK_PRODUCTS.length > 0) {
+      } else if (id === 'cash-candles') {
         initial[id] = { status: 'success', products: CASH_FALLBACK_PRODUCTS };
+      } else if (id === 'halloween') {
+        initial[id] = { status: 'success', products: HALLOWEEN_FALLBACK_PRODUCTS.length > 0 ? HALLOWEEN_FALLBACK_PRODUCTS : productsData.slice(0, 10) };
+      } else if (id === 'christmas-candles-1') {
+        initial[id] = { status: 'success', products: CHRISTMAS_FALLBACK_PRODUCTS.length > 0 ? CHRISTMAS_FALLBACK_PRODUCTS : productsData.slice(10, 20) };
       } else {
         initial[id] = { status: 'loading', products: [] };
       }

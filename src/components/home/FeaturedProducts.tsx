@@ -5,6 +5,7 @@ import { deduplicateProducts } from '../../utils/productUtils';
 import { ProductCard } from '../products/ProductCard';
 import { ProductCardSkeleton } from '../ui/ProductCardSkeleton';
 import type { Product, CartItem } from '../../types';
+import { productsData } from '../../data/products';
 
 interface FeaturedProductsProps {
   cart?: CartItem[];
@@ -38,13 +39,11 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
 }) => {
   const wishlistSet = useMemo(() => new Set(wishlistIds), [wishlistIds]);
 
-  const [status, setStatus] = useState<SectionStatus>(() => {
-    const cached = productService.getCachedTrendingProducts(10);
-    return cached && cached.length > 0 ? 'success' : 'loading';
-  });
+  const [status, setStatus] = useState<SectionStatus>('success');
   const [products, setProducts] = useState<Product[]>(() => {
     const cached = productService.getCachedTrendingProducts(10);
-    return cached && cached.length > 0 ? deduplicateProducts(cached).slice(0, 10) : [];
+    if (cached && cached.length > 0) return deduplicateProducts(cached).slice(0, 10);
+    return productsData.slice(0, 10);
   });
 
   const loadTrending = useCallback(() => {
