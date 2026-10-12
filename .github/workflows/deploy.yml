@@ -4,41 +4,34 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
   deploy:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy Frontend to VPS
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.VPS_HOST || secrets.HOST }}
-          username: ${{ secrets.VPS_USER || secrets.USERNAME || 'root' }}
-          key: ${{ secrets.VPS_SSH_KEY || secrets.VPS_SSII_KEY || secrets.SSH_KEY || secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.VPS_PASSPHRASE || '' }}
-          password: ${{ secrets.VPS_PASSWORD || secrets.PASSWORD || secrets.VPS_PASS }}
-          port: ${{ secrets.VPS_PORT || secrets.PORT || 22 }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
 
-            APP_DIR="/var/www/ilovesurprises-frontend"
+            cd /var/www/ilovesurprises-frontend
 
-            echo "=== Navigating to $APP_DIR ==="
-            cd "$APP_DIR"
-
-            echo "=== Pulling latest code from origin/main ==="
-            git fetch origin main
+            echo "Pulling latest code..."
+            git fetch origin
             git reset --hard origin/main
 
-            echo "=== Installing dependencies ==="
-            npm ci || npm install
+            echo "Installing dependencies..."
+            npm ci
 
-            echo "=== Building production bundle ==="
+            echo "Building application..."
             npm run build
 
-            echo "=== Reloading Nginx ==="
-            sudo systemctl reload nginx || sudo nginx -s reload
+            echo "Reloading Nginx..."
+            sudo systemctl reload nginx
 
-            echo "=== Frontend Deployment Complete! ==="
+            echo "Deployment complete!"
