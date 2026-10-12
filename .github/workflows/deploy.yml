@@ -1,0 +1,50 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy Frontend to VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+
+            echo "=== Building and Deploying Frontend ==="
+            rm -rf /tmp/fe_build
+            git clone --depth 1 -b main https://github.com/flowfoundryaienterprise/Ilovesurprises-frontend.git /tmp/fe_build
+            cd /tmp/fe_build
+            echo "Frontend commit: $(git log -1 --oneline)"
+            npm ci || npm install
+            npm run build
+
+            echo "=== Distributing Frontend Build to Nginx Web Roots ==="
+            for ROOT in $(grep -hoP 'root\s+\K[^;]+' /etc/nginx/sites-enabled/* 2>/dev/null); do
+              if [ -d "$ROOT" ] && [ "$ROOT" != "/var/www/ilovesurprises-backend" ]; then
+                echo "Copying to Nginx root: $ROOT"
+                sudo rm -rf "$ROOT"/* 2>/dev/null || rm -rf "$ROOT"/* 2>/dev/null || true
+                sudo cp -r /tmp/fe_build/dist/* "$ROOT"/ 2>/dev/null || cp -r /tmp/fe_build/dist/* "$ROOT"/ 2>/dev/null || true
+              fi
+            done
+
+            for TARGET in /var/www/html /var/www/ilovesurprises-platform/dist /var/www/ilovesurprises-frontend/dist /var/www/frontend/dist /usr/share/nginx/html; do
+              if [ -d "$TARGET" ]; then
+                echo "Copying to fallback target: $TARGET"
+                sudo rm -rf "$TARGET"/* 2>/dev/null || rm -rf "$TARGET"/* 2>/dev/null || true
+                sudo cp -r /tmp/fe_build/dist/* "$TARGET"/ 2>/dev/null || cp -r /tmp/fe_build/dist/* "$TARGET"/ 2>/dev/null || true
+              fi
+            done
+
+            sudo systemctl reload nginx 2>/dev/null || sudo nginx -s reload 2>/dev/null || true
+            rm -rf /tmp/fe_build
+            echo "Frontend Deployment finished successfully!"
