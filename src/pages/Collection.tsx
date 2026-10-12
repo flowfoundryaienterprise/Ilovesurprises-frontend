@@ -39,10 +39,60 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
   onNavigateToShop,
   onNavigateToHome,
 }) => {
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [sortBy, setSortBy] = useState<SortOption>('featured');
+  // Initialize page and sort from URL query parameters (supports direct navigation & refreshing)
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    if (typeof window === 'undefined') return 1;
+    const params = new URLSearchParams(window.location.search);
+    const p = parseInt(params.get('page') || '1', 10);
+    return Number.isFinite(p) && p > 0 ? p : 1;
+  });
+
+  const [sortBy, setSortBy] = useState<SortOption>(() => {
+    if (typeof window === 'undefined') return 'featured';
+    const params = new URLSearchParams(window.location.search);
+    const s = params.get('sort');
+    if (s === 'price-asc' || s === 'price-desc' || s === 'newest' || s === 'featured') {
+      return s as SortOption;
+    }
+    return 'featured';
+  });
+
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState<boolean>(false);
   const [isRetrying, setIsRetrying] = useState<boolean>(false);
+
+  // Sync URL search parameters cleanly on page and sort changes without reloading
+  const updateUrlParams = useCallback((page: number, sort: SortOption) => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (page > 1) {
+      url.searchParams.set('page', String(page));
+    } else {
+      url.searchParams.delete('page');
+    }
+    if (sort !== 'featured') {
+      url.searchParams.set('sort', sort);
+    } else {
+      url.searchParams.delete('sort');
+    }
+    window.history.pushState({ page, sort, collectionHandle }, '', url.toString());
+  }, [collectionHandle]);
+
+  // Listen for browser back / forward navigation (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const p = parseInt(params.get('page') || '1', 10);
+      setCurrentPage(Number.isFinite(p) && p > 0 ? p : 1);
+      const s = params.get('sort');
+      if (s === 'price-asc' || s === 'price-desc' || s === 'newest' || s === 'featured') {
+        setSortBy(s as SortOption);
+      } else {
+        setSortBy('featured');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Responsive limit: 15 on Laptop/Desktop (3 complete rows of 5), 16 on Mobile/Tablet (8 complete rows of 2)
   const [isDesktop, setIsDesktop] = useState<boolean>(() => {
@@ -74,6 +124,27 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
     limit: pageLimit,
     sort: sortBy,
   });
+
+  // Clamp current page if URL specifies a page greater than totalPages
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+      updateUrlParams(totalPages, sortBy);
+    }
+  }, [totalPages, currentPage, sortBy, updateUrlParams]);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    const validPage = Math.max(1, Math.min(totalPages || 1, newPage));
+    setCurrentPage(validPage);
+    updateUrlParams(validPage, sortBy);
+    window.scrollTo({ top: 200, behavior: 'smooth' });
+  }, [totalPages, sortBy, updateUrlParams]);
+
+  const handleSortChange = useCallback((newSort: SortOption) => {
+    setSortBy(newSort);
+    setCurrentPage(1);
+    updateUrlParams(1, newSort);
+  }, [updateUrlParams]);
 
   const handleRetry = useCallback(async () => {
     setIsRetrying(true);
@@ -114,7 +185,9 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
 
   // Reset page when collection handle changes
   useEffect(() => {
-    setCurrentPage(1);
+    const params = new URLSearchParams(window.location.search);
+    const p = parseInt(params.get('page') || '1', 10);
+    setCurrentPage(Number.isFinite(p) && p > 0 ? p : 1);
     setIsDescriptionExpanded(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [collectionHandle]);
@@ -256,10 +329,7 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
             <select
               id="collection-sort"
               value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value as SortOption);
-                setCurrentPage(1);
-              }}
+              onChange={(e) => handleSortChange(e.target.value as SortOption)}
               className="appearance-none bg-white border border-[#e5dfe5] hover:border-[#D30915] rounded-[10px] px-3 py-1.5 pr-8 text-xs font-bold text-[#141219] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D30915]/20 shadow-2xs transition-colors"
             >
               <option value="featured">Featured</option>
@@ -365,10 +435,7 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
           <button
             type="button"
             disabled={currentPage <= 1}
-            onClick={() => {
-              setCurrentPage((p) => Math.max(1, p - 1));
-              window.scrollTo({ top: 200, behavior: 'smooth' });
-            }}
+            onClick={() => handlePageChange(currentPage - 1)}
             className="px-3.5 py-1.5 rounded-[10px] text-xs font-bold border border-[#e5dfe5] bg-white text-[#141219] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#fff1f2] hover:text-[#D30915] transition-colors cursor-pointer"
           >
             ← Previous
@@ -393,10 +460,7 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
                 <button
                   key={`page-${pageNum}`}
                   type="button"
-                  onClick={() => {
-                    setCurrentPage(pageNum);
-                    window.scrollTo({ top: 200, behavior: 'smooth' });
-                  }}
+                  onClick={() => handlePageChange(pageNum)}
                   className={`w-8 h-8 rounded-[8px] text-xs font-black transition-all cursor-pointer ${
                     isActive
                       ? 'bg-[#D30915] text-white shadow-2xs'
@@ -412,10 +476,7 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
           <button
             type="button"
             disabled={currentPage >= totalPages}
-            onClick={() => {
-              setCurrentPage((p) => Math.min(totalPages, p + 1));
-              window.scrollTo({ top: 200, behavior: 'smooth' });
-            }}
+            onClick={() => handlePageChange(currentPage + 1)}
             className="px-3.5 py-1.5 rounded-[10px] text-xs font-bold border border-[#e5dfe5] bg-white text-[#141219] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#fff1f2] hover:text-[#D30915] transition-colors cursor-pointer"
           >
             Next →

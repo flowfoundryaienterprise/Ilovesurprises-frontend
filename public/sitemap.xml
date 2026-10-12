@@ -3,329 +3,1371 @@
   <!-- Core Public Pages -->
   <url>
     <loc>https://ilovesurprises.com/</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/shop</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/candles</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/categories</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/affiliate</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/rewards</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/about</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/contact</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/appraise-your-jewelry</loc>
-    <lastmod>2026-03-06</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
+  </url>
+
+  <!-- Policy and Information Pages -->
+  <url>
+    <loc>https://ilovesurprises.com/shipping</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/refund-policy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/terms</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/privacy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/faqs</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/official-rules</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
 
   <!-- Product Categories -->
   <url>
     <loc>https://ilovesurprises.com/categories?category=Cash%20Candles</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/categories?category=Jewelry%20Candles</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/categories?category=Bath%20%26%20Body</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/categories?category=Wax%20Melts</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/categories?category=Soaps</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/categories?category=Slimes</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Curated Collection Pages (Canonical) -->
+  <url>
+    <loc>https://ilovesurprises.com/candles/cash-money-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/candles/zodiac-cash-money-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cereal-candles-cereal-cash-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/jewelry-cereal-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/candles/jewelry-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/astrology-birthdate-cash-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/military-cash-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-coffee-candles-coffee-mug-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/candles/funny-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/soda-pop-candles-soda-candles-soda-cash-candles-soda-money-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/wine-bottle-cash-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-anime-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/foodie-jewelry-candles-jewelry-candles-for-foodies</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-wax-melts</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-wax-melt-surprise-bundles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-surprise-bear-and-cash-wax-melt-bundles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/giant-jewelry-wax-melts</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cereal-bowl-cash-wax-melts-cereal-bowl-melts</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cereal-bowl-jewelry-wax-melts</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-wax-melt</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/happy-birthday-cash-wax-melts</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/jewelry-wax-melts</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-bath-bombs</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/rose-cash-surprise-bear-jumbo-cash-bath-bomb-collection</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/astrology-cash-bath-bombs</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-bath-bombs-bundles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/jewelry-bath-bombs</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/sugar-scrubs</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/jewelry-sugar-scrubs-1</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/money-bath-salts</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/jewelry-surprise-mystery-boxes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/jewelry-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-chocolates</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/jewelry-chocolates</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-slimes-a-cash-surprise-in-every-jar-of-slime</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/jewelry-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/astrology-cash-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/jewelry-slimes-a-jewelry-surprise-in-every-jar-of-slime</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/funny-cash-greeting-cards</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/jewelry-greeting-cards-1</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <!-- Product Catalog -->
   <url>
-    <loc>https://ilovesurprises.com/product/cash-money-candle-classic-cola</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/apple-cider-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/cash-money-candle-wild-blue-cola</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/aquarius-astrology-birthday-candy</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/mountain-citrus-fizz-cash-candle</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/aquarius-astrology-birthday-cash-candles</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/dr-fizz-cherry-soda-pop-cash-candle</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/aquarius-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/better-than-cash-money-candle-deluxe-gold</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/sparkling-rose-gold-jewelry-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/french-lavender-vanilla-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/midnight-jasmine-diamond-ring-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/golden-honeycomb-luxe-jewelry-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/best-friends-forever-duo-reveal-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/velvet-orchid-cashmere-jewelry-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/vanilla-bourbon-warm-amber-jewelry-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/mahogany-teakwood-smoked-suede-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/sugar-plum-fairy-frosted-berries-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/eucalyptus-mint-spring-rain-jewelry-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/spiced-cinnamon-crisp-apple-jewelry-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/sun-drenched-citrus-blue-agave-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/island-hibiscus-tropical-guava-candle</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/sea-salt-coastal-coconut-jewelry-candle</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/aquarius-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/product/aquarius-zodiac-mystery-ring-candle</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/cancer-zodiac-mystery-ring-candle</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/aries-astrology-birthday-candy</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/capricorn-zodiac-mystery-ring-candle</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/aries-astrology-birthday-cash-candles</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/gemini-zodiac-mystery-ring-candle</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/aries-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/cash-bath-bomb-heartfelt-hugs</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/surprise-bath-bomb-pink-peony-luxe</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/hydrating-velvet-body-souffle-ring</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/electric-snack-pop-surprise-bath-bomb</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/fizzy-strawberry-bliss-cash-bath-bomb</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/playful-kitten-figurine-jewelry-wax-melts</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/puppy-love-figurine-jewelry-wax-melts</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/rainbow-gummy-bear-jewelry-wax-melts</loc>
-    <lastmod>2026-03-01</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://ilovesurprises.com/product/artisan-cheese-figurine-jewelry-wax-melts</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/aries-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/product/artisan-birthday-cake-goat-milk-soap</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/happy-birthday-celebration-goat-milk-soap</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/artisan-cheese-figurine-jewelry-wax-melts</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/man-cave-cedarwood-bourbon-soap-bar</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/back-and-body-hurts-happy-birthday-jewelry-candle</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/calming-french-lavender-goat-milk-soap</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/best-friends-forever-duo-reveal-candle</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/triple-butter-honey-oatmeal-goat-milk-soap</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/better-than-cash-money-candle-deluxe-gold</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/product/birthday-cake-cash-confetti-slime</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ilovesurprises.com/product/sweet-rainbow-sprinkles-reveal-slime</loc>
-    <lastmod>2026-03-01</lastmod>
+    <loc>https://ilovesurprises.com/product/blue-raspberry-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/bourbon-whiskey-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/brown-sugar-boba-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/bubblegum-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/cabin-fever-cash-money-goat-milk-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/calming-french-lavender-goat-milk-soap</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/cancer-astrology-birthday-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/cancer-astrology-birthday-cash-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/cancer-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/cancer-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/cancer-zodiac-mystery-ring-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/capricorn-astrology-birthday-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/capricorn-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/capricorn-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/capricorn-zodiac-mystery-ring-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/cash-bath-bomb-heartfelt-hugs</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/cash-money-candle-classic-cola</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/cash-money-candle-wild-blue-cola</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/cherry-blossom-cash-money-goat-milk-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/cookies-and-cream-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/dr-fizz-cherry-soda-pop-cash-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/electric-snack-pop-surprise-bath-bomb</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/eucalyptus-mint-spring-rain-jewelry-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/every-love-song-is-about-you-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/fizzy-strawberry-bliss-cash-bath-bomb</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/forever-and-always-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/french-lavender-vanilla-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/fruity-pebbles-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/gemini-astrology-birthday-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/gemini-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/gemini-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/gemini-zodiac-mystery-ring-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/go-shawty-its-yo-birthday-cash-money-goat-milk-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/golden-honeycomb-luxe-jewelry-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/grape-soda-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/happy-birthday-celebration-goat-milk-soap</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/happy-birthday-to-you-cash-money-soaps-1</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/happy-valentines-day-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/happy-valentines-day-you-light-up-my-heart-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/honeysuckle-gardenia-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/hydrating-velvet-body-souffle-ring</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/i-can-do-all-things-through-christ-cash-money-goat-milk-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/i-love-you-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/im-beary-glad-youre-mine-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/island-hibiscus-tropical-guava-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/kansas-city-chiefs-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/las-angeles-chargers-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/las-vegas-raiders-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/lemonade-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/leo-astrology-birthday-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/leo-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/leo-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/libra-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/libra-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/love-potion-9-cash-money-goat-milk-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/love-you-beary-much-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/love-you-forever-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/luv-u-like-candy-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/made-for-munchin-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/made-you-smile-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/made-you-smile-didnt-i-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/mahogany-teakwood-smoked-suede-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/main-character-energy-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/man-cave-cedarwood-bourbon-soap-bar</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/meeting-fuel-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/miami-dolphins-game-day-jewelry-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/miami-dolphins-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/miami-dolphins-game-day-jewelry-candles-copy-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/midday-munchies-fix-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/midnight-jasmine-diamond-ring-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/minnesota-vikings-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/mint-chocolate-chip-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/miss-you-more-than-candy-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/monday-survival-tube-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/mood-laid-back-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/mood-sugar-rush-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/mountain-citrus-fizz-cash-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/mouth-party-starts-now-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/my-hearts-a-gummy-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/new-england-patriots-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/new-orleans-saints-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/new-york-giants-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/new-york-jets-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/no-sharing-required-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/not-for-sharing-just-kidding-maybe-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/not-today-broccoli-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/one-bite-closer-to-bliss-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/one-taste-game-over-cash-candy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/pisces-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/pisces-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/pittsburgh-steelers-game-day-jewelry-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/pittsburgh-steelers-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/playful-kitten-figurine-jewelry-wax-melts</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/proud-navy-sister-military-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/proud-navy-veteran-military-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/proud-pow-military-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/pumpkin-spice-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/puppy-love-figurine-jewelry-wax-melts</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/rainbow-gummy-bear-jewelry-wax-melts</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/rockin-raspberry-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/sagittarius-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/sagittarius-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/san-francisco-49ers-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/scorpio-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/scorpio-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/sea-salt-coastal-coconut-jewelry-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/seattle-seahawks-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/semper-fi-united-states-marines-military-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/so-beary-lucky-to-have-you-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/so-glad-youre-in-my-life-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/sparkling-rose-gold-jewelry-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/spiced-cinnamon-crisp-apple-jewelry-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/strawberry-cheesecake-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ilovesurprises.com/product/style-clash-galaxy-gloss-jewelry-slime</loc>
-    <lastmod>2026-03-01</lastmod>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/sugar-plum-fairy-frosted-berries-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/sun-drenched-citrus-blue-agave-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/support-the-air-force-military-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/support-the-marines-military-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/support-the-military-military-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/support-the-navy-military-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/support-the-troops-military-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/surprise-bath-bomb-pink-peony-luxe</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/sweet-pea-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/sweet-rainbow-sprinkles-reveal-slime</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/tampa-bay-buccaneers-game-day-jewelry-candles-copy</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/taurus-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/taurus-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/the-potato-gram-cash-potatoes-money-potatoes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/to-the-one-i-love-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/triple-butter-honey-oatmeal-goat-milk-soap</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/vanilla-bean-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/vanilla-bourbon-warm-amber-jewelry-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/velvet-orchid-cashmere-jewelry-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/very-berry-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/virgo-astrology-birthday-cash-money-soaps</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/virgo-zodiac-cash-money-candle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/washington-commanders-game-day-jewelry-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/watermelon-cash-cereal-slimes</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/with-all-my-love-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/you-are-worth-the-wait-military-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/you-make-everything-better-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/you-make-my-heart-melt-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/youre-my-beary-favorite-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/youre-my-favorite-marine-military-candles</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/youre-my-favorite-place-in-the-world-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/youre-my-happily-ever-after-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ilovesurprises.com/product/youre-the-one-cash-candle-and-cash-surprise-bear-valentines-day-bundle</loc>
+    <lastmod>2026-03-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

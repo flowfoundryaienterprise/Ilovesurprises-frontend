@@ -2,26 +2,38 @@
 User-agent: *
 Allow: /
 Allow: /shop
+Allow: /candles
+Allow: /candles/
 Allow: /categories
 Allow: /product/
+Allow: /collections/
 Allow: /affiliate
 Allow: /about
 Allow: /contact
 Allow: /rewards
+Allow: /shipping
+Allow: /refund-policy
+Allow: /terms
+Allow: /privacy
+Allow: /faqs
+Allow: /official-rules
+Allow: /appraise-your-jewelry
 
-# Disallow private, admin, checkout, and account areas
+# Disallow private, checkout, account, internal search, and admin areas
 Disallow: /admin
 Disallow: /admin/
 Disallow: /account
 Disallow: /account/
+Disallow: /cart
 Disallow: /checkout
 Disallow: /checkout/
-Disallow: /shipping
 Disallow: /payment
 Disallow: /buy-now
 Disallow: /order-confirmation/
 Disallow: /thank-you
 Disallow: /order-success
+Disallow: /*?q=*
+Disallow: /*?search=*
 
 # XML Sitemap
 Sitemap: https://ilovesurprises.com/sitemap.xml

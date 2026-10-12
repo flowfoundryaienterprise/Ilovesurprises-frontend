@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Ruler,
   Check,
@@ -103,20 +104,28 @@ export const RingSizerModal: React.FC<RingSizerModalProps> = ({
 
   const circlePixelSize = interactiveDiameterMm * pixelsPerMm;
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="ring-sizer-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-[#eedbe6] text-[#141219] flex flex-col max-h-[90vh]">
+      <div
+        className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-[#eedbe6] text-[#141219] flex flex-col max-h-[85vh] sm:max-h-[88vh] my-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Top Header */}
-        <div className="p-5 sm:p-6 pb-4 border-b border-[#eedbe6] relative bg-[#fdfafc]">
+        <div className="p-4 sm:p-5 pb-3 sm:pb-4 border-b border-[#eedbe6] relative bg-[#fdfafc] shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white hover:bg-gray-100 text-[#716d77] hover:text-[#141219] flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 rounded-full bg-white hover:bg-gray-100 text-[#716d77] hover:text-[#141219] flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -135,7 +144,7 @@ export const RingSizerModal: React.FC<RingSizerModalProps> = ({
           </p>
 
           {/* Interactive Navigation Tabs */}
-          <div className="flex items-center gap-1.5 mt-4 p-1 bg-[#f4ebf1] rounded-xl text-xs font-bold">
+          <div className="flex items-center gap-1.5 mt-3 sm:mt-4 p-1 bg-[#f4ebf1] rounded-xl text-xs font-bold">
             <button
               type="button"
               onClick={() => setActiveTab('ring')}
@@ -173,7 +182,7 @@ export const RingSizerModal: React.FC<RingSizerModalProps> = ({
         </div>
 
         {/* Scrollable Main Content */}
-        <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-4 sm:space-y-5">
           {/* ================================================================
               TAB 1: PLACE A RING ON SCREEN
           ================================================================ */}
@@ -244,7 +253,7 @@ export const RingSizerModal: React.FC<RingSizerModalProps> = ({
               )}
 
               {/* Visual Ring Circle Target Area */}
-              <div className="flex flex-col items-center justify-center py-6 bg-[#faf7f9] rounded-2xl border border-[#eedbe6] relative min-h-[220px]">
+              <div className="flex flex-col items-center justify-center py-4 sm:py-5 bg-[#faf7f9] rounded-2xl border border-[#eedbe6] relative min-h-[160px] sm:min-h-[190px]">
                 {/* Physical Ring Circle */}
                 <div
                   style={{
@@ -262,7 +271,7 @@ export const RingSizerModal: React.FC<RingSizerModalProps> = ({
                   </span>
                 </div>
 
-                <div className="mt-4 text-center">
+                <div className="mt-3 text-center">
                   <div className="text-xs uppercase font-bold text-[#716d77] tracking-wider mb-0.5">
                     Closest Candle Reveal Match
                   </div>
@@ -477,7 +486,7 @@ export const RingSizerModal: React.FC<RingSizerModalProps> = ({
         </div>
 
         {/* Modal Bottom Action Footer */}
-        <div className="p-4 sm:p-5 bg-[#fdfafc] border-t border-[#eedbe6] flex items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 bg-[#fdfafc] border-t border-[#eedbe6] flex items-center justify-between gap-3 shrink-0">
           <div>
             <span className="text-[10px] uppercase font-bold text-[#8a858f] block">Chosen Ring Size</span>
             <span className="text-base sm:text-lg font-black text-[#D30915]">
@@ -512,6 +521,7 @@ export const RingSizerModal: React.FC<RingSizerModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

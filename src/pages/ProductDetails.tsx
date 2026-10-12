@@ -22,6 +22,7 @@ import {
   Flame,
   Ruler,
   Heart,
+  Sparkles,
 } from 'lucide-react';
 import { ProductGallery } from '../components/products/ProductGallery';
 import { ProductCard } from '../components/products/ProductCard';
@@ -102,15 +103,24 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   const isCurrentProductWishlisted = wishlistIds.includes(product.id);
 
   // Detect whether this is a jewelry surprise product
+  // Detect whether this is a jewelry surprise product
   const isJewelrySurprise = useMemo(() => {
-    if (product.surpriseType === 'cash' || (product.category || '').toLowerCase().includes('cash')) {
-      return false;
-    }
-    if (product.surpriseType === 'jewelry') return true;
     const cat = (product.category || '').toLowerCase();
     const name = (product.name || '').toLowerCase();
     const val = (product.surpriseValue || '').toLowerCase();
+
+    // Cash candles, cash wax melts, cash soaps, etc. (unless explicitly a cash + jewelry combo)
+    if (
+      product.surpriseType === 'cash' ||
+      cat.includes('cash') ||
+      (/\bcash\b/i.test(name) && !/\bjewelry\b/i.test(name))
+    ) {
+      return false;
+    }
+
+    if (product.surpriseType === 'jewelry') return true;
     if (cat.includes('jewelry') || val.includes('jewelry')) return true;
+    if (product.options?.some((o) => /jewelry|reveal|ring/i.test(o.name))) return true;
     return /\b(ring|rings|necklace|necklaces|earring|earrings|bracelet|bracelets|jewelry)\b/i.test(name);
   }, [product]);
 
@@ -129,6 +139,51 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     if (/candle|wax melt|wax-melt|bath bomb|soap|slime/i.test(name)) return true;
     return false;
   }, [product]);
+
+  // Detect whether product is already a dedicated fixed-scent item (e.g. Birthday Cake Cash Candle, Bahama Mama Cash Candle)
+  const isFixedScentProduct = useMemo(() => {
+    const nameLower = (product.name || '').toLowerCase();
+
+    // Customizable candles where customer explicitly chooses fragrance
+    if (/choose your scent|pick your scent|custom scent|custom fragrance/i.test(nameLower)) {
+      return false;
+    }
+
+    // If backend options explicitly has a "Scent" or "Fragrance" option with multiple distinct values
+    const backendScentOpt = product.options?.find((o) => /scent|fragrance/i.test(o.name));
+    if (backendScentOpt && backendScentOpt.values && backendScentOpt.values.length > 1) {
+      return false;
+    }
+
+    // Check if the product name mentions any founder scent
+    const hasFounderScent = FOUNDER_SCENTS.some((s) => {
+      const sLower = s.toLowerCase();
+      if (sLower === 'unscented') return nameLower.includes('unscented');
+      return nameLower.includes(sLower);
+    });
+    if (hasFounderScent) return true;
+
+    // Check common distinctive scent keywords in product title
+    const scentKeywords = [
+      'birthday cake', 'bahama mama', 'pumpkin spice', 'apple pie', 'sugar cookie',
+      'blueberry muffin', 'cinnamon apple', 'cinnamon bun', 'lavender vanilla', 'fresh linen',
+      'calming lavender', 'strawberry fields', 'jamaican me crazy', 'cafe mocha',
+      'fresh cut roses', 'honeysuckle jasmine', 'cozy cabin', 'french vanilla',
+      'black raspberry', 'vanilla', 'lavender', 'apple cider', 'peppermint', 'pine'
+    ];
+    if (scentKeywords.some((kw) => nameLower.includes(kw))) {
+      return true;
+    }
+
+    // Non-candle categories that do not have custom fragrance
+    if (/greeting card|card|candy|chocolate/i.test(nameLower)) {
+      return true;
+    }
+
+    return false;
+  }, [product.name, product.options]);
+
+  const showScentDropdown = isScentedProduct && !isFixedScentProduct;
 
   // Order scents: Pumpkin Spice is ALWAYS #1 for Halloween products, then remaining scents in founder order
   const orderedScents = useMemo(() => {
@@ -373,13 +428,14 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             .filter(([k]) => {
               const kl = k.toLowerCase();
               if (kl.includes('scent') || kl.includes('fragrance')) return false;
-              if (isJewelrySurprise && /jewelry|reveal|ring/i.test(kl)) return false;
+              if (/jewelry|reveal|ring/i.test(kl)) return false;
               return true;
             })
             .map(([k, v]) => `${k}: ${v}`)
             .join(', ')
         : '';
-    const formattedSize = [isScentedProduct && selectedScent ? `Scent: ${selectedScent}` : '', otherOpts || selectedSize]
+    const activeScent = isFixedScentProduct ? initialScent : selectedScent;
+    const formattedSize = [isScentedProduct && activeScent ? `Scent: ${activeScent}` : '', otherOpts || selectedSize]
       .filter(Boolean)
       .join(' | ');
 
@@ -403,13 +459,14 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             .filter(([k]) => {
               const kl = k.toLowerCase();
               if (kl.includes('scent') || kl.includes('fragrance')) return false;
-              if (isJewelrySurprise && /jewelry|reveal|ring/i.test(kl)) return false;
+              if (/jewelry|reveal|ring/i.test(kl)) return false;
               return true;
             })
             .map(([k, v]) => `${k}: ${v}`)
             .join(', ')
         : '';
-    const formattedSize = [isScentedProduct && selectedScent ? `Scent: ${selectedScent}` : '', otherOpts || selectedSize]
+    const activeScent = isFixedScentProduct ? initialScent : selectedScent;
+    const formattedSize = [isScentedProduct && activeScent ? `Scent: ${activeScent}` : '', otherOpts || selectedSize]
       .filter(Boolean)
       .join(' | ');
 
@@ -679,8 +736,8 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </p>
             </div>
 
-            {/* Clean Dropdown Scent Selection (Exact 20 Scents in Founder Order) - Only for Scented Products */}
-            {isScentedProduct && (
+            {/* Clean Dropdown Scent Selection (Exact 20 Scents in Founder Order) - Only for Customizable Scented Products */}
+            {isScentedProduct && showScentDropdown && (
               <div className="mb-5 p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] shadow-2xs">
                 <div className="flex items-center justify-between mb-2">
                   <label htmlFor="scent-dropdown" className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1.5 cursor-pointer">
@@ -722,13 +779,35 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </div>
             )}
 
+            {/* Curated Signature Fragrance Display for Fixed-Scent Candles (e.g. Birthday Cake, Bahama Mama) */}
+            {isScentedProduct && isFixedScentProduct && (
+              <div className="mb-5 p-3.5 sm:p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-[#fdeef3] border border-[#eedbe6] flex items-center justify-center text-[#D30915] shrink-0">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-black uppercase tracking-wider text-[#716d77] block">
+                      Curated Signature Fragrance:
+                    </span>
+                    <h5 className="text-xs sm:text-sm font-black text-[#141219] m-0">
+                      {initialScent}
+                    </h5>
+                  </div>
+                </div>
+                <span className="text-[11px] font-black uppercase tracking-wider text-[#D30915] bg-[#fff1f2] border border-[#fecdd3] px-2.5 py-1 rounded-full shrink-0">
+                  Pre-Poured
+                </span>
+              </div>
+            )}
+
             {/* AUTHORITATIVE PRODUCT OPTIONS (Non-Scent, Non-Jewelry options like Size/Style) */}
             {product.options &&
               product.options
                 .filter((opt) => {
                   const nameLower = opt.name.toLowerCase();
                   if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
-                  if (isJewelrySurprise && /jewelry|reveal|ring/i.test(nameLower)) return false;
+                  if (/jewelry|reveal|ring/i.test(nameLower)) return false;
                   return true;
                 })
                 .length > 0 && (
@@ -737,7 +816,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                     .filter((opt) => {
                       const nameLower = opt.name.toLowerCase();
                       if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
-                      if (isJewelrySurprise && /jewelry|reveal|ring/i.test(nameLower)) return false;
+                      if (/jewelry|reveal|ring/i.test(nameLower)) return false;
                       return true;
                     })
                     .map((opt) => {

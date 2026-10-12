@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { AppView } from '../../App';
 import type { Product } from '../../types';
+import { getApprovedCollectionMeta } from '../../data/approvedCollectionsData';
 
 interface SEOHeadProps {
   view: AppView;
@@ -151,6 +152,8 @@ export function SEOHead({ view, product, category, repUsername, accountTab, coll
       case 'collection': {
         const rawHandle = collectionHandle || '';
         const cleanCol = rawHandle.replace(/^\/collections?\//, '').replace(/\/$/, '').trim().toLowerCase();
+        const approvedMeta = getApprovedCollectionMeta(cleanCol);
+
         const colPath =
           cleanCol === 'cash-candles' ||
           cleanCol === 'jewelry-candles' ||
@@ -161,18 +164,34 @@ export function SEOHead({ view, product, category, repUsername, accountTab, coll
             : cleanCol === 'candles'
             ? '/candles'
             : cleanCol ? `/${cleanCol}` : '/candles';
-        const displayTitle = cleanCol
+
+        const displayTitle = approvedMeta?.name || (cleanCol
           ? cleanCol.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-          : 'Candles';
+          : 'Candles');
+
+        const title = approvedMeta?.title
+          ? `${approvedMeta.title} ${BRAND_SUFFIX}`
+          : `${displayTitle} ${BRAND_SUFFIX}`;
+
+        let cleanDescription = approvedMeta?.description ? stripHtml(approvedMeta.description) : '';
+        if (cleanDescription.length > 160) {
+          cleanDescription = cleanDescription.slice(0, 157).trim() + '...';
+        }
+        if (!cleanDescription) {
+          cleanDescription = `Explore authentic handcrafted surprise reveals in ${displayTitle} with real cash prizes ($2–$2,500) or fine jewelry inside every product.`;
+        }
+
+        const ogImage = approvedMeta?.imageUrl
+          ? (approvedMeta.imageUrl.startsWith('http') ? approvedMeta.imageUrl : `${SITE_ORIGIN}${approvedMeta.imageUrl}`)
+          : DEFAULT_IMAGE;
 
         seo = {
-          title: `${displayTitle} ${BRAND_SUFFIX}`,
-          description:
-            `Explore authentic handcrafted surprise reveals in ${displayTitle} with real cash prizes ($2–$2,500) or fine jewelry inside every product.`,
+          title,
+          description: cleanDescription,
           canonical: `${SITE_ORIGIN}${colPath}`,
           isPrivate: false,
           ogType: 'website',
-          ogImage: DEFAULT_IMAGE,
+          ogImage,
           breadcrumbs: [
             { name: 'Home', url: `${SITE_ORIGIN}/` },
             { name: 'Candles', url: `${SITE_ORIGIN}/candles` },
@@ -653,7 +672,7 @@ export function SEOHead({ view, product, category, repUsername, accountTab, coll
       document.head.appendChild(scriptTag);
     }
     scriptTag.text = JSON.stringify(schemas, null, 2);
-  }, [view, product, category, repUsername, accountTab]);
+  }, [view, product, category, repUsername, accountTab, collectionHandle]);
 
   return null;
 }
