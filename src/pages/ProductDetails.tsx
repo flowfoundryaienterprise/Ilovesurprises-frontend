@@ -68,10 +68,7 @@ const JEWELRY_TYPES = ['Ring', 'Necklace', 'Earrings', 'Bracelet'];
 export function isJewelryOrRingOption(opt: { name?: string; values?: string[] }): boolean {
   if (!opt) return false;
   const name = (opt.name || '').toLowerCase().trim();
-  if (/jewelry|reveal|ring/i.test(name)) return true;
-  if (name.includes('size') && opt.values?.some((v) => /^(?:size\s*)?(?:[5-9]|1[0-2])(?:\s*us)?$/i.test(String(v).trim()))) {
-    return true;
-  }
+  if (/jewelry|reveal|ring|size/i.test(name)) return true;
   if (opt.values?.some((v) => /ring|necklace|earring|bracelet/i.test(String(v).trim()))) {
     return true;
   }

@@ -764,17 +764,16 @@ export function mapRowToProduct(row: any): Product {
       ? row.scent_notes
       : [];
 
-  // Options & Variants (Preserve real backend options; do not duplicate jewelry selectors)
+  // Options & Variants (Exclude redundant jewelry and scent options; handled by dedicated selectors)
   const options: ProductOption[] = [];
   if (Array.isArray(row.options) && row.options.length > 0) {
-    options.push(...row.options);
-  }
-  if (Array.isArray(row.scentOptions) && row.scentOptions.length > 0) {
-    options.push({
-      name: 'Fragrance Scent',
-      position: 1,
-      values: row.scentOptions.map((s: any) => s.name || s),
+    const customOptions = row.options.filter((opt: any) => {
+      const n = (opt?.name || '').toLowerCase().trim();
+      if (n.includes('scent') || n.includes('fragrance')) return false;
+      if (n.includes('jewelry') || n.includes('reveal') || n.includes('ring') || n.includes('size')) return false;
+      return true;
     });
+    options.push(...customOptions);
   }
 
   let variants: ProductVariant[] = [];
