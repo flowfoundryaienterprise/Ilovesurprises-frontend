@@ -865,82 +865,13 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </div>
             )}
 
-            {/* AUTHORITATIVE PRODUCT OPTIONS (Non-Scent, Non-Jewelry options like Style/Color) */}
-            {product.options &&
-              product.options
-                .filter((opt) => {
-                  const nameLower = (opt.name || '').toLowerCase().trim();
-                  if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
-                  if (
-                    nameLower.includes('jewelry') ||
-                    nameLower.includes('reveal') ||
-                    nameLower.includes('ring') ||
-                    nameLower.includes('size') ||
-                    isJewelryOrRingOption(opt)
-                  ) {
-                    return false;
-                  }
-                  return true;
-                })
-                .length > 0 && (
-                <div className="mb-5 space-y-4">
-                  {product.options
-                    .filter((opt) => {
-                      const nameLower = (opt.name || '').toLowerCase().trim();
-                      if (nameLower.includes('scent') || nameLower.includes('fragrance')) return false;
-                      if (
-                        nameLower.includes('jewelry') ||
-                        nameLower.includes('reveal') ||
-                        nameLower.includes('ring') ||
-                        nameLower.includes('size') ||
-                        isJewelryOrRingOption(opt)
-                      ) {
-                        return false;
-                      }
-                      return true;
-                    })
-                    .map((opt) => {
-                      const currentVal = selectedOptions[opt.name] || opt.values[0];
-                      return (
-                        <div key={opt.name} className="p-3.5 rounded-[16px] bg-[#fffbfd] border border-[#eedbe6]">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-[11px] font-black uppercase tracking-wider text-[#141219]">
-                              {opt.name}:
-                            </span>
-                            <span className="text-xs font-bold text-[#D30915]">{currentVal}</span>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {opt.values.map((val) => {
-                              const isSelected = currentVal === val;
-                              return (
-                                <button
-                                  key={val}
-                                  type="button"
-                                  onClick={() => setSelectedOptions((prev) => ({ ...prev, [opt.name]: val }))}
-                                  className={`py-2 px-3 rounded-[12px] text-xs font-bold border transition-all cursor-pointer ${
-                                    isSelected
-                                      ? 'border-[#D30915] bg-[#fff1f2] text-[#D30915] font-black shadow-xs ring-2 ring-[#D30915]/15'
-                                      : 'border-[#ebdce5] bg-white text-[#55505a] hover:border-[#f1b8cb] hover:bg-[#fffdfd]'
-                                  }`}
-                                >
-                                  {val}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
-
             {isJewelrySurprise && (
               <div className="mb-6 p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] space-y-4">
                 {/* Jewelry Type Selector */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1">
-                      <span>Jewelry Reveal Type:</span>
+                      <span>SELECT JEWELRY REVEAL TYPE:</span>
                     </span>
                     <span className="text-xs font-bold text-[#D30915]">{selectedJewelryType}</span>
                   </div>
@@ -968,7 +899,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1">
-                        <span>Ring Size (US):</span>
+                        <span>SELECT RING SIZE (US):</span>
                       </span>
                       <div className="flex items-center gap-2">
                         <button
