@@ -67,7 +67,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
       {
         heading: 'Cereal & Foodie Editions',
         items: [
-          { id: 'cereal-bowl-candles', name: 'Cereal Bowl Candles', slug: 'cereal-bowl-candles-cereal-candles', isPopular: true },
+          { id: 'cereal-bowl-candles', name: 'Cereal Bowl Candles', slug: 'cereal-bowl-candles', isPopular: true },
           { id: 'cereal-cash-candles', name: 'Cereal Cash Candles', slug: 'cereal-candles-cereal-cash-candles' },
           { id: 'jewelry-cereal-candles', name: 'Jewelry Cereal Candles', slug: 'jewelry-cereal-candles' },
           { id: 'coffee-mug-cash-candles', name: 'Coffee Mug Cash Candles', slug: 'cash-coffee-candles-coffee-mug-candles' },
@@ -91,7 +91,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
       badge: '★ Best Seller',
       priceStart: '$28.99',
       ctaText: 'Shop All Candles',
-      targetCategory: 'Jewelry Candles',
+      targetCategory: 'Candles',
     },
     viewAllLabel: 'View All Candles',
     viewAllCategory: 'Candles',
@@ -232,11 +232,11 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
       badge: '💎 Up to $7,500',
       priceStart: '$34.99',
       ctaText: 'Explore Jewelry',
-      targetCategory: 'Jewelry Candles',
+      targetCategory: 'Jewelry',
       targetQuery: 'Jewelry',
     },
     viewAllLabel: 'View All Jewelry',
-    viewAllCategory: 'Jewelry Candles',
+    viewAllCategory: 'Jewelry',
   },
   {
     id: 'candy',
@@ -257,7 +257,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     spotlight: {
       title: 'Gourmet Surprise Candy',
       subtitle: 'Delicious artisan gummies and candies featuring cash & jewelry reveals.',
-      image: '/assets/ilovesurprises/categories/Coke_CSH_Sodapop-CND_JC.jpg',
+      image: '/assets/ilovesurprises/categories/cash_candy.jpg',
       badge: '🍬 Sweet Reveals',
       priceStart: '$12.99',
       ctaText: 'Shop Candy',
@@ -285,7 +285,7 @@ export const NAVIGATION_CATEGORIES: NavigationCategory[] = [
     spotlight: {
       title: 'Belgian Chocolate Reveals',
       subtitle: 'Decadent handcrafted chocolates concealing real cash or fine jewelry.',
-      image: '/assets/ilovesurprises/categories/BDayCake.webp',
+      image: '/assets/ilovesurprises/categories/chocolates.jpg',
       badge: '🍫 Pure Cocoa',
       priceStart: '$15.99',
       ctaText: 'Shop Chocolates',

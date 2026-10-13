@@ -1465,7 +1465,8 @@ export const productService = {
       'funny-candles': 'funny-candles',
       'military-cash-candles': 'military-cash-candles',
       'soda-pop-cash-candles': 'soda-pop-candles-soda-candles-soda-cash-candles-soda-money-candles',
-      'cereal-bowl-candles': 'cereal-bowl-candles-cereal-candles',
+      'cereal-bowl-candles': 'cereal-candles-cereal-cash-candles',
+      'cereal-bowl-candles-cereal-candles': 'cereal-candles-cereal-cash-candles',
       'cereal-cash-candles': 'cereal-candles-cereal-cash-candles',
       'jewelry-cereal-candles': 'jewelry-cereal-candles',
       'coffee-mug-cash-candles': 'cash-coffee-candles-coffee-mug-candles',
@@ -1498,6 +1499,13 @@ export const productService = {
       'goat-milk-cash-money-soaps': 'goat-milk-soaps',
       'goat-milk-soaps': 'goat-milk-soaps',
       'goat-milk-soap': 'goat-milk-soap',
+      'gummy-surprise-pouches': 'cash-candy',
+      'sweet-treat-bundles': 'jewelry-candy',
+      'luxury-reveal-gift-boxes': 'cash-chocolates',
+      'cash-jewelry': 'jewelry-surprise-mystery-boxes',
+      'mens-jewelry': 'jewelry-surprise-mystery-boxes',
+      'artisan-herbal-soaps': 'goat-milk-soaps',
+      'soap-bundles-gift-sets': 'money-soaps',
     };
 
     const targetHandle = ALIAS_MAP[clean] || clean;
