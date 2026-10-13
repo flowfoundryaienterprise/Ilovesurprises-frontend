@@ -19,7 +19,7 @@ jobs:
           script: |
             set -e
 
-            cd /var/www/Ilovesurprises-frontend
+            cd /var/www/ilovesurprises-frontend
 
             echo "Pulling latest code..."
             git fetch origin
