@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Layers,
   Save,
@@ -13,6 +13,7 @@ import {
   Plus,
   Trash2,
   Image as ImageIcon,
+  Upload,
 } from 'lucide-react';
 import type {
   HomepageContentConfig,
@@ -36,6 +37,76 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
   const [activeTab, setActiveTab] = useState<ContentTab>('hero');
   const [editingCardId, setEditingCardId] = useState<string>(() => content.featuredCards[0]?.id || 'halloween');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewImageFit, setPreviewImageFit] = useState<'contain' | 'cover'>('contain');
+
+  const desktopFileInputRef = useRef<HTMLInputElement>(null);
+  const mobileFileInputRef = useRef<HTMLInputElement>(null);
+  const cardFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onSuccess: (dataUrl: string) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      onShowToast('Please select a valid image file (JPG, PNG, WebP, SVG)', { type: 'info' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawData = event.target?.result;
+      if (typeof rawData !== 'string') return;
+
+      // Small files or SVGs can be stored directly
+      if (file.type === 'image/svg+xml' || file.size < 600 * 1024) {
+        onSuccess(rawData);
+        onShowToast(`Uploaded "${file.name}" successfully`, { type: 'success' });
+        return;
+      }
+
+      // Optimize large photos to banner resolution to preserve localStorage quota
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1920;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          const optimizedUrl = canvas.toDataURL(mimeType, 0.88);
+          onSuccess(optimizedUrl);
+        } else {
+          onSuccess(rawData);
+        }
+        onShowToast(`Uploaded "${file.name}" successfully`, { type: 'success' });
+      };
+      img.onerror = () => {
+        onSuccess(rawData);
+        onShowToast(`Uploaded "${file.name}" successfully`, { type: 'success' });
+      };
+      img.src = rawData;
+    };
+    reader.onerror = () => {
+      onShowToast('Failed to read image file', { type: 'info' });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   // New FAQ form state
   const [newFaqQuestion, setNewFaqQuestion] = useState('');
@@ -273,13 +344,35 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
                 <label className="block text-xs font-bold text-[#141219] mb-1">
                   Desktop Hero Banner Image URI
                 </label>
-                <input
-                  type="text"
-                  value={currentHero.desktopBannerImage}
-                  onChange={(e) => handleUpdateHero({ desktopBannerImage: e.target.value })}
-                  placeholder="/assets/ilovesurprises/banners/Neww banner.jpeg"
-                  className="w-full h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-mono"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={currentHero.desktopBannerImage}
+                    onChange={(e) => handleUpdateHero({ desktopBannerImage: e.target.value })}
+                    placeholder="/assets/ilovesurprises/banners/Neww banner.jpeg"
+                    className="flex-1 h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-mono"
+                  />
+                  <input
+                    ref={desktopFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) =>
+                      handleImageUpload(e, (dataUrl) =>
+                        handleUpdateHero({ desktopBannerImage: dataUrl })
+                      )
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => desktopFileInputRef.current?.click()}
+                    className="h-10 px-3.5 rounded-xl border border-[#eedbe6] bg-white hover:bg-gray-50 text-xs font-bold text-[#141219] flex items-center gap-1.5 transition-all shadow-2xs hover:border-[#D30915] cursor-pointer shrink-0"
+                    title="Upload desktop banner image"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-[#D30915]" />
+                    <span>Upload</span>
+                  </button>
+                </div>
                 <span className="text-[10px] text-[#716d77] mt-0.5 block">
                   Recommended aspect ratio 3:1 or 1920x640px
                 </span>
@@ -289,13 +382,35 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
                 <label className="block text-xs font-bold text-[#141219] mb-1">
                   Mobile Hero Banner Image URI
                 </label>
-                <input
-                  type="text"
-                  value={currentHero.mobileBannerImage}
-                  onChange={(e) => handleUpdateHero({ mobileBannerImage: e.target.value })}
-                  placeholder="/assets/ilovesurprises/banners/mobile-banner.jpg"
-                  className="w-full h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-mono"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={currentHero.mobileBannerImage}
+                    onChange={(e) => handleUpdateHero({ mobileBannerImage: e.target.value })}
+                    placeholder="/assets/ilovesurprises/banners/mobile-banner.jpg"
+                    className="flex-1 h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-mono"
+                  />
+                  <input
+                    ref={mobileFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) =>
+                      handleImageUpload(e, (dataUrl) =>
+                        handleUpdateHero({ mobileBannerImage: dataUrl })
+                      )
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => mobileFileInputRef.current?.click()}
+                    className="h-10 px-3.5 rounded-xl border border-[#eedbe6] bg-white hover:bg-gray-50 text-xs font-bold text-[#141219] flex items-center gap-1.5 transition-all shadow-2xs hover:border-[#D30915] cursor-pointer shrink-0"
+                    title="Upload mobile banner image"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-[#D30915]" />
+                    <span>Upload</span>
+                  </button>
+                </div>
                 <span className="text-[10px] text-[#716d77] mt-0.5 block">
                   Optimized for vertical mobile screens (e.g. 750x480px)
                 </span>
@@ -399,156 +514,200 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
 
       {/* TAB 2: FEATURED CURATED COLLECTIONS */}
       {activeTab === 'featured' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-          <div className="lg:col-span-7 bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#eedbe6] shadow-xs space-y-4">
-            <span className="text-xs font-extrabold uppercase text-[#716d77] tracking-wider">
-              Select Showcase Card to Customize
-            </span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
+          <div className="lg:col-span-6 bg-white p-5 sm:p-7 rounded-2xl sm:rounded-3xl border border-[#eedbe6] shadow-xs flex flex-col justify-between space-y-4">
+            <div className="space-y-4">
+              <span className="text-xs font-extrabold uppercase text-[#716d77] tracking-wider block">
+                Select Showcase Card to Customize
+              </span>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {content.featuredCards.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setEditingCardId(c.id)}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer space-y-1 ${
-                    editingCardId === c.id
-                      ? 'border-[#D30915] bg-[#fff1f2] ring-2 ring-[#D30915]/20'
-                      : 'border-[#eedbe6] hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="text-xs font-bold text-[#141219] truncate">{c.title}</div>
-                  <div className="text-[10px] text-[#716d77] truncate">{c.badge}</div>
-                  <div className="flex items-center justify-between pt-1">
-                    <span
-                      className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                        c.active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {c.active ? 'Active' : 'Hidden'}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {currentEditingCard && (
-              <div className="pt-4 border-t border-[#f4e2ed] space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-[#141219]">Editing: {currentEditingCard.title}</h3>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id={`cardActive-${currentEditingCard.id}`}
-                      checked={currentEditingCard.active}
-                      onChange={(e) => handleUpdateCard(currentEditingCard.id, { active: e.target.checked })}
-                      className="w-4 h-4 accent-[#D30915] cursor-pointer"
-                    />
-                    <label htmlFor={`cardActive-${currentEditingCard.id}`} className="text-xs font-bold cursor-pointer">
-                      Display on Homepage
-                    </label>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#141219] mb-1">Display Title *</label>
-                    <input
-                      type="text"
-                      value={currentEditingCard.title}
-                      onChange={(e) => handleUpdateCard(currentEditingCard.id, { title: e.target.value })}
-                      className="w-full h-9 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#141219] mb-1">Highlight Badge *</label>
-                    <input
-                      type="text"
-                      value={currentEditingCard.badge}
-                      onChange={(e) => handleUpdateCard(currentEditingCard.id, { badge: e.target.value })}
-                      className="w-full h-9 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-bold text-[#D30915]"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-[#141219] mb-1">Tagline / Subtitle</label>
-                  <input
-                    type="text"
-                    value={currentEditingCard.tagline}
-                    onChange={(e) => handleUpdateCard(currentEditingCard.id, { tagline: e.target.value })}
-                    className="w-full h-9 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#141219] mb-1">CTA Button Text</label>
-                    <input
-                      type="text"
-                      value={currentEditingCard.ctaText}
-                      onChange={(e) => handleUpdateCard(currentEditingCard.id, { ctaText: e.target.value })}
-                      className="w-full h-9 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#141219] mb-1">Target Category Key</label>
-                    <input
-                      type="text"
-                      value={currentEditingCard.categoryKey}
-                      onChange={(e) => handleUpdateCard(currentEditingCard.id, { categoryKey: e.target.value })}
-                      className="w-full h-9 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-[#141219] mb-1">Showcase Image URI</label>
-                  <input
-                    type="text"
-                    value={currentEditingCard.image}
-                    onChange={(e) => handleUpdateCard(currentEditingCard.id, { image: e.target.value })}
-                    className="w-full h-9 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-mono"
-                  />
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {content.featuredCards.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setEditingCardId(c.id)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
+                      editingCardId === c.id
+                        ? 'border-[#D30915] bg-[#fff1f2] ring-2 ring-[#D30915]/20'
+                        : 'border-[#eedbe6] hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="text-xs font-bold text-[#141219] truncate">{c.title}</div>
+                    <div className="text-[10px] text-[#716d77] truncate">{c.badge}</div>
+                    <div className="flex items-center justify-between pt-1">
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                          c.active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {c.active ? 'Active' : 'Hidden'}
+                      </span>
+                    </div>
+                  </button>
+                ))}
               </div>
-            )}
+
+              {currentEditingCard && (
+                <div className="pt-4 border-t border-[#f4e2ed] space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black text-[#141219]">Editing: {currentEditingCard.title}</h3>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`cardActive-${currentEditingCard.id}`}
+                        checked={currentEditingCard.active}
+                        onChange={(e) => handleUpdateCard(currentEditingCard.id, { active: e.target.checked })}
+                        className="w-4 h-4 accent-[#D30915] cursor-pointer"
+                      />
+                      <label htmlFor={`cardActive-${currentEditingCard.id}`} className="text-xs font-bold cursor-pointer">
+                        Display on Homepage
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#141219] mb-1">Display Title *</label>
+                      <input
+                        type="text"
+                        value={currentEditingCard.title}
+                        onChange={(e) => handleUpdateCard(currentEditingCard.id, { title: e.target.value })}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#141219] mb-1">Highlight Badge *</label>
+                      <input
+                        type="text"
+                        value={currentEditingCard.badge}
+                        onChange={(e) => handleUpdateCard(currentEditingCard.id, { badge: e.target.value })}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-bold text-[#D30915]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#141219] mb-1">Tagline / Subtitle</label>
+                    <input
+                      type="text"
+                      value={currentEditingCard.tagline}
+                      onChange={(e) => handleUpdateCard(currentEditingCard.id, { tagline: e.target.value })}
+                      className="w-full h-10 px-3.5 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#141219] mb-1">CTA Button Text</label>
+                      <input
+                        type="text"
+                        value={currentEditingCard.ctaText}
+                        onChange={(e) => handleUpdateCard(currentEditingCard.id, { ctaText: e.target.value })}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#141219] mb-1">Target Category Key</label>
+                      <input
+                        type="text"
+                        value={currentEditingCard.categoryKey}
+                        onChange={(e) => handleUpdateCard(currentEditingCard.id, { categoryKey: e.target.value })}
+                        className="w-full h-10 px-3.5 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#141219] mb-1">Showcase Image URI</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={currentEditingCard.image}
+                        onChange={(e) => handleUpdateCard(currentEditingCard.id, { image: e.target.value })}
+                        className="flex-1 h-10 px-3.5 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-mono"
+                      />
+                      <input
+                        ref={cardFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) =>
+                          handleImageUpload(e, (dataUrl) =>
+                            handleUpdateCard(currentEditingCard.id, { image: dataUrl })
+                          )
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() => cardFileInputRef.current?.click()}
+                        className="h-10 px-3.5 rounded-xl border border-[#eedbe6] bg-white hover:bg-gray-50 text-xs font-bold text-[#141219] flex items-center gap-1.5 transition-all shadow-2xs hover:border-[#D30915] cursor-pointer shrink-0"
+                        title="Upload showcase image"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-[#D30915]" />
+                        <span>Upload</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Quick Preview Card */}
-          <div className="lg:col-span-5 bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#eedbe6] shadow-xs space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#716d77]">
-              <Eye className="w-4 h-4 text-[#D30915]" />
-              <span>Card Appearance Preview</span>
+          {/* Quick Preview Card - Balanced Size */}
+          <div className="lg:col-span-6 bg-white p-5 sm:p-7 rounded-2xl sm:rounded-3xl border border-[#eedbe6] shadow-xs space-y-4 flex flex-col justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#716d77]">
+                <Eye className="w-4 h-4 text-[#D30915]" />
+                <span className="font-extrabold text-[#141219]">Card Appearance Preview</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md font-bold">
+                  100% Full View
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImageFit((prev) => (prev === 'contain' ? 'cover' : 'contain'))}
+                  className="text-[10px] font-bold text-[#716d77] hover:text-[#D30915] px-2.5 py-1 rounded-lg border border-[#eedbe6] bg-[#faf7f9] hover:bg-red-50 transition-colors cursor-pointer flex items-center gap-1"
+                  title="Toggle image fit between 100% full contain and crop-to-cover"
+                >
+                  <span>Fit:</span>
+                  <span className="text-[#D30915] uppercase font-black">
+                    {previewImageFit === 'contain' ? 'Contain (Full)' : 'Cover (Fill)'}
+                  </span>
+                </button>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-[#eedbe6] overflow-hidden bg-white shadow-md">
-              <div className="relative h-48 bg-gray-100 overflow-hidden">
+            <div className="w-full max-w-[430px] mx-auto rounded-2xl sm:rounded-3xl border border-[#eedbe6] overflow-hidden bg-white shadow-md transition-all">
+              <div className="relative w-full aspect-square min-h-[340px] sm:min-h-[380px] max-h-[420px] bg-[#faf7f9] overflow-hidden flex items-center justify-center p-3">
                 <img
                   src={currentEditingCard.image}
                   alt={currentEditingCard.title}
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full ${
+                    previewImageFit === 'contain' ? 'object-contain' : 'object-cover'
+                  } object-center transition-all duration-300`}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
                       '/assets/ilovesurprises/categories/Coke_CSH_Sodapop-CND_JC.jpg';
                   }}
                 />
-                <div className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-white/95 backdrop-blur-xs text-[11px] font-black text-[#D30915] shadow-xs">
+                <div className="absolute top-3.5 left-3.5 px-2.5 py-0.5 rounded-full bg-white/95 backdrop-blur-xs text-[11px] font-black text-[#D30915] shadow-xs border border-[#eedbe6]">
                   {currentEditingCard.badge}
                 </div>
               </div>
 
-              <div className="p-4 space-y-2">
-                <h4 className="text-base font-black text-[#141219] m-0 tracking-tight">
+              <div className="p-4 sm:p-5 space-y-2.5">
+                <h4 className="text-lg sm:text-xl font-black text-[#141219] m-0 tracking-tight">
                   {currentEditingCard.title}
                 </h4>
-                <p className="text-xs text-[#716d77] m-0 leading-relaxed">
+                <p className="text-xs sm:text-sm text-[#716d77] m-0 leading-relaxed font-medium">
                   {currentEditingCard.tagline}
                 </p>
-                <div className="pt-2">
-                  <div className="w-full py-2 rounded-xl bg-[#D30915] text-white text-xs font-bold text-center">
+                <div className="pt-1.5">
+                  <div className="w-full py-2.5 rounded-xl bg-[#D30915] text-white text-xs sm:text-sm font-black uppercase tracking-wider text-center shadow-xs">
                     {currentEditingCard.ctaText}
                   </div>
                 </div>
