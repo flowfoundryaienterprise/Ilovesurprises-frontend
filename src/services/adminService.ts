@@ -348,88 +348,165 @@ export function mapBackendLedgerEntry(
 }
 
 /**
- * Which homepage sections the backend can actually store.
- *
- * `GET/PATCH /api/storefront` covers the announcement bar, the promotional
- * bar, and the showcase cards. The hero, value proposition, about copy, FAQ,
- * and footer have no endpoint, so they remain shipped/local configuration.
+ * All homepage sections are now backed by the server's storefront endpoints.
  */
 export const HOMEPAGE_BACKED_SECTIONS = {
   announcementBar: true,
   promoBar: true,
   showcaseCards: true,
-  hero: false,
-  valueProposition: false,
-  aboutContent: false,
-  faqItems: false,
-  footerContent: false,
+  hero: true,
+  valueProposition: true,
+  aboutContent: true,
+  faqItems: true,
+  footerContent: true,
 } as const;
 
 /**
- * Overlays the authoritative storefront configuration onto the local homepage
- * content shape, so the homepage renders database values for everything the
- * backend owns while keeping the sections it cannot store.
+ * Overlays the authoritative storefront configuration onto the homepage
+ * content shape, merging all server-owned sections with presentation attributes.
  */
 export function mergeStorefrontIntoHomepageContent(
   local: HomepageContentConfig,
   storefront: {
-    showcaseCards: Array<{
+    showcaseCards?: Array<{
       id: string;
       cardKey: string;
-      displayTitle: string;
-      highlightBadge: string;
-      tagline: string;
-      ctaButtonText: string;
-      targetCategoryKey: string;
-      showcaseImageUri: string;
-      displayOnHomepage: boolean;
-      isActive: boolean;
-      sortOrder: number;
+      displayTitle?: string;
+      title?: string;
+      highlightBadge?: string;
+      badge?: string;
+      tagline?: string;
+      ctaButtonText?: string;
+      ctaText?: string;
+      targetCategoryKey?: string;
+      categoryKey?: string;
+      showcaseImageUri?: string;
+      image?: string;
+      displayOnHomepage?: boolean;
+      isActive?: boolean;
+      active?: boolean;
+      sortOrder?: number;
+      itemCount?: number;
+      accentBorder?: string;
     }>;
-    banners: {
-      topStickyAnnouncementBar: { isActive: boolean; announcementCopy: string };
-      promotionalDiscountAlertBar: {
-        isActive: boolean;
-        promoCopy: string;
-        promoCode: string;
+    featuredCards?: Array<{
+      id: string;
+      title?: string;
+      displayTitle?: string;
+      categoryKey?: string;
+      targetCategoryKey?: string;
+      badge?: string;
+      highlightBadge?: string;
+      tagline?: string;
+      ctaText?: string;
+      ctaButtonText?: string;
+      image?: string;
+      showcaseImageUri?: string;
+      itemCount?: number;
+      accentBorder?: string;
+      active?: boolean;
+      isActive?: boolean;
+      displayOnHomepage?: boolean;
+      sortOrder?: number;
+    }>;
+    banners?: {
+      topStickyAnnouncementBar?: { isActive?: boolean; announcementCopy?: string; announcementLink?: string };
+      promotionalDiscountAlertBar?: {
+        isActive?: boolean;
+        promoCopy?: string;
+        promoCode?: string;
       };
     };
+    hero?: HomepageContentConfig['hero'];
+    valueProposition?: HomepageContentConfig['valueProposition'];
+    aboutContent?: HomepageContentConfig['aboutContent'];
+    faqItems?: HomepageContentConfig['faqItems'];
+    footerContent?: HomepageContentConfig['footerContent'];
+    announcementText?: string;
+    announcementActive?: boolean;
+    announcementLink?: string;
+    promoBannerText?: string;
+    promoBannerCode?: string;
+    promoBannerActive?: boolean;
   }
 ): HomepageContentConfig {
   const announcement = storefront.banners?.topStickyAnnouncementBar;
   const promo = storefront.banners?.promotionalDiscountAlertBar;
 
-  // Preserve the local card's presentation-only fields (accent colour, item
-  // count) which the backend does not model, while taking all editable
-  // content from the server.
-  const mergedCards = (storefront.showcaseCards || []).map((card) => {
+  const rawCards =
+    storefront.showcaseCards && storefront.showcaseCards.length > 0
+      ? storefront.showcaseCards
+      : storefront.featuredCards || [];
+
+  const mergedCards = rawCards.map((card) => {
+    const cardId = (card as any).cardKey || card.id;
     const existing = (local.featuredCards || []).find(
-      (c) => c.id === card.cardKey || c.id === card.id
+      (c) => c.id === cardId || c.id === card.id
     );
+
+    const title = (card as any).displayTitle ?? (card as any).title ?? existing?.title ?? '';
+    const categoryKey =
+      (card as any).targetCategoryKey ?? (card as any).categoryKey ?? existing?.categoryKey ?? '';
+    const badge = (card as any).highlightBadge ?? (card as any).badge ?? existing?.badge ?? '';
+    const tagline = card.tagline ?? existing?.tagline ?? '';
+    const ctaText =
+      (card as any).ctaButtonText ?? (card as any).ctaText ?? existing?.ctaText ?? 'Shop Collection';
+    const image = (card as any).showcaseImageUri ?? (card as any).image ?? existing?.image ?? '';
+    const isCardActive =
+      (card as any).isActive !== undefined
+        ? (card as any).isActive
+        : (card as any).active !== undefined
+        ? (card as any).active
+        : true;
+    const displayOnHp =
+      (card as any).displayOnHomepage !== undefined
+        ? (card as any).displayOnHomepage
+        : true;
 
     return {
       ...existing,
-      id: card.cardKey || card.id,
-      title: card.displayTitle,
-      categoryKey: card.targetCategoryKey,
-      badge: card.highlightBadge,
-      tagline: card.tagline,
-      ctaText: card.ctaButtonText,
-      image: card.showcaseImageUri,
-      active: card.isActive && card.displayOnHomepage,
-      itemCount: existing?.itemCount ?? 0,
-      accentBorder: existing?.accentBorder ?? 'hover:border-[#D30915]',
+      id: cardId,
+      title,
+      categoryKey,
+      badge,
+      tagline,
+      ctaText,
+      image,
+      active: Boolean(isCardActive && displayOnHp),
+      itemCount: (card as any).itemCount ?? existing?.itemCount ?? 0,
+      accentBorder: (card as any).accentBorder ?? existing?.accentBorder ?? 'hover:border-[#D30915]',
     } as HomepageContentConfig['featuredCards'][number];
   });
 
   return {
     ...local,
-    announcementText: announcement?.announcementCopy ?? local.announcementText,
-    announcementActive: announcement?.isActive ?? local.announcementActive,
-    promoBannerText: promo?.promoCopy ?? local.promoBannerText,
-    promoBannerCode: promo?.promoCode ?? local.promoBannerCode,
-    promoBannerActive: promo?.isActive ?? local.promoBannerActive,
+    announcementText:
+      announcement?.announcementCopy ?? storefront.announcementText ?? local.announcementText,
+    announcementActive:
+      announcement?.isActive ?? storefront.announcementActive ?? local.announcementActive,
+    announcementLink:
+      announcement?.announcementLink ?? storefront.announcementLink ?? local.announcementLink,
+    promoBannerText:
+      promo?.promoCopy ?? storefront.promoBannerText ?? local.promoBannerText,
+    promoBannerCode:
+      promo?.promoCode ?? storefront.promoBannerCode ?? local.promoBannerCode,
+    promoBannerActive:
+      promo?.isActive ?? storefront.promoBannerActive ?? local.promoBannerActive,
     featuredCards: mergedCards.length ? mergedCards : local.featuredCards,
+    hero: storefront.hero ? { ...local.hero, ...storefront.hero } : local.hero,
+    valueProposition: storefront.valueProposition
+      ? { ...local.valueProposition, ...storefront.valueProposition }
+      : local.valueProposition,
+    aboutContent: storefront.aboutContent
+      ? { ...local.aboutContent, ...storefront.aboutContent }
+      : local.aboutContent,
+    faqItems:
+      storefront.faqItems && storefront.faqItems.length > 0
+        ? storefront.faqItems
+        : local.faqItems,
+    footerContent: storefront.footerContent
+      ? { ...local.footerContent, ...storefront.footerContent }
+      : local.footerContent,
   };
 }
 
@@ -1713,69 +1790,67 @@ export const adminService = {
   },
 
   /**
-   * Persists homepage content.
-   *
-   * Backend-owned fields (announcement bar, promo bar, showcase cards) are
-   * written through the admin storefront API and only considered saved once
-   * the server confirms. The remaining sections (hero, value proposition,
-   * about, FAQ, footer) have no endpoint and stay in browser storage.
-   *
-   * Throws if an API write fails, so the admin is never told a change was
-   * saved when it was not.
+   * Persists homepage content across all storefront sections in bulk.
+   * Matches "Publish to Storefront" action button via PUT /api/admin/storefront.
    */
   async saveHomepageContent(content: HomepageContentConfig): Promise<void> {
-    // 1. Server-owned banners.
-    await cmsService.updateBanners({
-      topStickyAnnouncementBar: {
-        isActive: content.announcementActive,
-        announcementCopy: content.announcementText,
+    await cmsService.updateFullStorefront({
+      announcementText: content.announcementText,
+      announcementActive: content.announcementActive,
+      announcementLink: content.announcementLink,
+      promoBannerText: content.promoBannerText,
+      promoBannerCode: content.promoBannerCode,
+      promoBannerActive: content.promoBannerActive,
+      banners: {
+        topStickyAnnouncementBar: {
+          isActive: content.announcementActive,
+          announcementCopy: content.announcementText,
+          announcementLink: content.announcementLink,
+        },
+        promotionalDiscountAlertBar: {
+          isActive: content.promoBannerActive,
+          promoCopy: content.promoBannerText,
+          promoCode: content.promoBannerCode || '',
+        },
       },
-      promotionalDiscountAlertBar: {
-        isActive: content.promoBannerActive,
-        promoCopy: content.promoBannerText,
-        ...(content.promoBannerCode ? { promoCode: content.promoBannerCode } : {}),
-      },
-    });
-
-    // 2. Server-owned showcase cards, addressed by their backend cardKey.
-    //    Sequential so a failure reports the specific card that was rejected.
-    for (let index = 0; index < (content.featuredCards || []).length; index += 1) {
-      const card = content.featuredCards[index];
-      if (!card?.id) continue;
-
-      await cmsService.updateShowcaseCard(card.id, {
+      featuredCards: content.featuredCards,
+      showcaseCards: (content.featuredCards || []).map((card, idx) => ({
+        id: card.id,
+        cardKey: card.id,
         displayTitle: card.title,
         highlightBadge: card.badge,
         tagline: card.tagline,
         ctaButtonText: card.ctaText,
         targetCategoryKey: card.categoryKey,
         showcaseImageUri: card.image,
-        isActive: card.active !== false,
         displayOnHomepage: card.active !== false,
-        sortOrder: index + 1,
-      });
-    }
+        isActive: card.active !== false,
+        sortOrder: idx + 1,
+        itemCount: card.itemCount,
+        accentBorder: card.accentBorder,
+      })),
+      hero: content.hero,
+      valueProposition: content.valueProposition,
+      aboutContent: content.aboutContent,
+      faqItems: content.faqItems,
+      footerContent: content.footerContent,
+    });
 
-    // 3. Local-only sections with no backend endpoint.
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(ADMIN_HOMEPAGE_CONTENT_KEY, JSON.stringify(content));
       } catch (err) {
-        console.error('Failed to cache local-only homepage sections', err);
+        console.error('Failed to cache homepage content', err);
       }
       window.dispatchEvent(new CustomEvent('ils_homepage_content_updated'));
       window.dispatchEvent(new CustomEvent('ils_admin_updated'));
+      window.dispatchEvent(new CustomEvent('ils_storefront_updated'));
     }
   },
 
   /**
-   * Loads homepage content with `GET /api/storefront` as the authoritative
-   * source for banners and showcase cards.
-   *
-   * Sections the backend cannot store (hero, value proposition, about, FAQ,
-   * footer) are taken from local configuration. If the storefront request
-   * fails, the error propagates so the caller can retry rather than silently
-   * rendering stale banner copy.
+   * Loads homepage content with GET /api/storefront (or GET /api/admin/storefront)
+   * as the authoritative source for all sections.
    */
   async fetchLiveStorefrontContent(options?: {
     signal?: AbortSignal;
@@ -1787,7 +1862,15 @@ export const adminService = {
       ? await cmsService.getAdminStorefront({ signal: options?.signal })
       : await cmsService.getStorefront({ signal: options?.signal });
 
-    return mergeStorefrontIntoHomepageContent(local, storefront);
+    const merged = mergeStorefrontIntoHomepageContent(local, storefront);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(ADMIN_HOMEPAGE_CONTENT_KEY, JSON.stringify(merged));
+      } catch {
+        // ignore
+      }
+    }
+    return merged;
   },
 
   resetHomepageContent(): HomepageContentConfig {
@@ -1801,7 +1884,33 @@ export const adminService = {
     const def = this.getHomepageContent();
     window.dispatchEvent(new CustomEvent('ils_homepage_content_updated'));
     window.dispatchEvent(new CustomEvent('ils_admin_updated'));
+    window.dispatchEvent(new CustomEvent('ils_storefront_updated'));
     return def;
+  },
+
+  /**
+   * Resets all storefront content on the backend database to factory defaults
+   * via POST /api/admin/storefront/reset.
+   */
+  async resetHomepageContentLive(): Promise<HomepageContentConfig> {
+    try {
+      const reset = await cmsService.resetStorefrontDefaults();
+      const local = this.getHomepageContent();
+      const merged = mergeStorefrontIntoHomepageContent(local, reset);
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(ADMIN_HOMEPAGE_CONTENT_KEY, JSON.stringify(merged));
+        } catch {
+          // ignore
+        }
+      }
+      window.dispatchEvent(new CustomEvent('ils_homepage_content_updated'));
+      window.dispatchEvent(new CustomEvent('ils_admin_updated'));
+      window.dispatchEvent(new CustomEvent('ils_storefront_updated'));
+      return merged;
+    } catch {
+      return this.resetHomepageContent();
+    }
   },
 
   // Staff Administration (Super Admin / Manager RBAC)

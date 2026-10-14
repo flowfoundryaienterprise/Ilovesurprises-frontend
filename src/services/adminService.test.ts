@@ -533,6 +533,114 @@ describe('cmsService (storefront content)', () => {
     );
     expect(fetchMock.mock.calls[0][1].method).toBe('PATCH');
   });
+
+  it('bulk updates the full storefront via PUT /api/admin/storefront', async () => {
+    fetchMock.mockImplementation(() =>
+      jsonResponse({
+        status: 'success',
+        data: storefront,
+      })
+    );
+
+    const result = await cmsService.updateFullStorefront({
+      announcementText: 'Live announcement',
+      hero: { headline: 'Live headline' },
+    });
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/storefront');
+    expect(fetchMock.mock.calls[0][1].method).toBe('PUT');
+    expect(result.showcaseCards.length).toBe(2);
+  });
+
+  it('resets all storefront settings to defaults via POST /api/admin/storefront/reset', async () => {
+    fetchMock.mockImplementation(() =>
+      jsonResponse({
+        status: 'success',
+        data: storefront,
+      })
+    );
+
+    await cmsService.resetStorefrontDefaults();
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/storefront/reset');
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+  });
+
+  it('updates hero section copy and banners via PATCH /api/admin/storefront/hero', async () => {
+    fetchMock.mockImplementation(() =>
+      jsonResponse({
+        status: 'success',
+        data: { hero: { headline: 'New Hero Headline' } },
+      })
+    );
+
+    await cmsService.updateHero({ headline: 'New Hero Headline' });
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/storefront/hero');
+    expect(fetchMock.mock.calls[0][1].method).toBe('PATCH');
+  });
+
+  it('creates and deletes benefit tiles via REST endpoints', async () => {
+    fetchMock.mockImplementation(() =>
+      jsonResponse({
+        status: 'success',
+        data: { benefitTile: { id: 'tile-1', title: 'Tile 1' } },
+      })
+    );
+
+    await cmsService.createBenefitTile({ title: 'Tile 1', subtitle: 'Sub 1' });
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/storefront/hero/tiles');
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+
+    fetchMock.mockImplementation(() =>
+      jsonResponse({
+        status: 'success',
+        data: { id: 'tile-1' },
+      })
+    );
+
+    await cmsService.deleteBenefitTile('tile-1');
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/api/admin/storefront/hero/tiles/tile-1');
+    expect(fetchMock.mock.calls[1][1].method).toBe('DELETE');
+  });
+
+  it('creates and deletes FAQs via REST endpoints', async () => {
+    fetchMock.mockImplementation(() =>
+      jsonResponse({
+        status: 'success',
+        data: { faqItem: { id: 'faq-1', question: 'Q?', answer: 'A!' } },
+      })
+    );
+
+    await cmsService.createFaq({ question: 'Q?', answer: 'A!' });
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/storefront/faqs');
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+
+    fetchMock.mockImplementation(() =>
+      jsonResponse({
+        status: 'success',
+        data: { id: 'faq-1' },
+      })
+    );
+
+    await cmsService.deleteFaq('faq-1');
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/api/admin/storefront/faqs/faq-1');
+    expect(fetchMock.mock.calls[1][1].method).toBe('DELETE');
+  });
+
+  it('uploads an image to /api/admin/storefront/upload', async () => {
+    fetchMock.mockImplementation(() =>
+      jsonResponse({
+        status: 'success',
+        data: { url: '/uploads/img-123.jpg', absoluteUrl: 'http://localhost:3000/uploads/img-123.jpg' },
+      })
+    );
+
+    const res = await cmsService.uploadImage('data:image/png;base64,AAAA');
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/storefront/upload');
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+    expect(res.url).toBe('/uploads/img-123.jpg');
+  });
 });
 
 describe('mergeStorefrontIntoHomepageContent', () => {

@@ -22,9 +22,10 @@ import type {
   FaqContentItem,
 } from '../../types/admin';
 import { adminService } from '../../services/adminService';
+import { cmsService } from '../../services/cmsService';
 import { ApiError } from '../../services/apiClient';
 import { StorefrontPreviewModal } from './StorefrontPreviewModal';
-import { AdminSectionError, AdminFeatureUnavailable } from './AdminSectionState';
+import { AdminSectionError } from './AdminSectionState';
 
 interface AdminContentProps {
   onShowToast: (message: string, options?: { title?: string; type?: 'success' | 'info' }) => void;
@@ -60,6 +61,7 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
   const [isLoadingContent, setIsLoadingContent] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ContentTab>('hero');
   const [editingCardId, setEditingCardId] = useState<string>(() => content.featuredCards[0]?.id || 'halloween');
@@ -99,9 +101,14 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
     return () => controller.abort();
   }, [loadContent]);
 
-  const handleImageUpload = (
+  /**
+   * Dual-mode Image Upload Engine:
+   * First attempts to upload the raw file directly to the backend via POST /api/admin/storefront/upload.
+   * If server upload fails (e.g. offline during dev), safely falls back to local data URL.
+   */
+  const handleImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    onSuccess: (dataUrl: string) => void
+    onSuccess: (url: string) => void
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -111,57 +118,67 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const rawData = event.target?.result;
-      if (typeof rawData !== 'string') return;
+    setIsUploadingImage(true);
+    onShowToast(`Uploading "${file.name}" to server...`, { type: 'info' });
 
-      // Small files or SVGs can be stored directly
-      if (file.type === 'image/svg+xml' || file.size < 600 * 1024) {
-        onSuccess(rawData);
-        onShowToast(`Uploaded "${file.name}" successfully`, { type: 'success' });
-        return;
-      }
+    try {
+      const result = await cmsService.uploadImage(file);
+      const uploadedUrl = result.url || result.absoluteUrl;
+      onSuccess(uploadedUrl);
+      onShowToast(`Uploaded "${file.name}" successfully`, { type: 'success' });
+    } catch (uploadErr) {
+      console.warn('Server upload failed, falling back to client-side data URL', uploadErr);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const rawData = event.target?.result;
+        if (typeof rawData !== 'string') return;
 
-      // Optimize large photos to banner resolution to preserve localStorage quota
-      const img = new Image();
-      img.onload = () => {
-        const maxDim = 1920;
-        let { width, height } = img;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-          const optimizedUrl = canvas.toDataURL(mimeType, 0.88);
-          onSuccess(optimizedUrl);
-        } else {
+        if (file.type === 'image/svg+xml' || file.size < 600 * 1024) {
           onSuccess(rawData);
+          onShowToast(`Image loaded locally`, { type: 'info' });
+          return;
         }
-        onShowToast(`Uploaded "${file.name}" successfully`, { type: 'success' });
+
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1920;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            onSuccess(canvas.toDataURL(mimeType, 0.88));
+          } else {
+            onSuccess(rawData);
+          }
+          onShowToast(`Image loaded locally`, { type: 'info' });
+        };
+        img.onerror = () => {
+          onSuccess(rawData);
+          onShowToast(`Image loaded locally`, { type: 'info' });
+        };
+        img.src = rawData;
       };
-      img.onerror = () => {
-        onSuccess(rawData);
-        onShowToast(`Uploaded "${file.name}" successfully`, { type: 'success' });
+      reader.onerror = () => {
+        onShowToast('Failed to read image file', { type: 'info' });
       };
-      img.src = rawData;
-    };
-    reader.onerror = () => {
-      onShowToast('Failed to read image file', { type: 'info' });
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingImage(false);
+      e.target.value = '';
+    }
   };
 
   // New FAQ form state
@@ -199,11 +216,78 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
     handleUpdateHero({ benefitTiles: updatedTiles });
   };
 
+  const handleAddBenefitTile = () => {
+    const newId = `tile-${Date.now()}`;
+    const newTile: HeroBenefitTile = {
+      id: newId,
+      title: 'New Benefit Title',
+      subtitle: 'New benefit subtitle description',
+      iconName: 'Gem',
+      actionType: 'shop',
+    };
+    handleUpdateHero({ benefitTiles: [...currentHero.benefitTiles, newTile] });
+    onShowToast('Added new benefit quick-action tile', { type: 'success' });
+  };
+
+  const handleRemoveBenefitTile = (index: number) => {
+    if (currentHero.benefitTiles.length <= 1) {
+      onShowToast('At least 1 benefit tile is required', { type: 'info' });
+      return;
+    }
+    const updated = currentHero.benefitTiles.filter((_, idx) => idx !== index);
+    handleUpdateHero({ benefitTiles: updated });
+    onShowToast('Benefit tile removed', { type: 'info' });
+  };
+
   const handleUpdateCard = (cardId: string, updates: Partial<HomepageFeaturedCard>) => {
     setContent((prev) => ({
       ...prev,
       featuredCards: prev.featuredCards.map((c) => (c.id === cardId ? { ...c, ...updates } : c)),
     }));
+  };
+
+  const handleAddCard = () => {
+    const newId = `collection-${Date.now()}`;
+    const newCard: HomepageFeaturedCard = {
+      id: newId,
+      title: 'New Showcase Collection',
+      categoryKey: 'Candles',
+      badge: 'Featured',
+      tagline: 'Special surprise collection reveal',
+      ctaText: 'Shop Collection',
+      image: 'https://cdn.shopify.com/s/files/1/0172/4672/products/4_Mockup_Jewelry_JewelryCandles_37b9e8df-fc51-4b27-9db3-6236ee9d84b6.jpg?v=1602742369',
+      itemCount: 1,
+      accentBorder: 'hover:border-[#D30915]',
+      active: true,
+    };
+    setContent((prev) => ({
+      ...prev,
+      featuredCards: [...prev.featuredCards, newCard],
+    }));
+    setEditingCardId(newId);
+    onShowToast('Added new showcase collection card. Configure its details below.', { type: 'success' });
+  };
+
+  const handleRemoveCard = (cardId: string) => {
+    if (content.featuredCards.length <= 1) {
+      onShowToast('At least one showcase card must remain in the priority catalog', { type: 'info' });
+      return;
+    }
+    const cardToDelete = content.featuredCards.find((c) => c.id === cardId);
+    if (!window.confirm(`Delete showcase collection "${cardToDelete?.title || cardId}"?`)) {
+      return;
+    }
+    setContent((prev) => {
+      const remaining = prev.featuredCards.filter((c) => c.id !== cardId);
+      if (editingCardId === cardId && remaining.length > 0) {
+        setEditingCardId(remaining[0].id);
+      }
+      return {
+        ...prev,
+        featuredCards: remaining,
+      };
+    });
+    onShowToast('Showcase collection card removed', { type: 'info' });
   };
 
   const handleAddFaq = (e: React.FormEvent) => {
@@ -224,7 +308,7 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
     }));
     setNewFaqQuestion('');
     setNewFaqAnswer('');
-    onShowToast('New FAQ question added', { type: 'success' });
+    onShowToast('New FAQ question added to catalog', { type: 'success' });
   };
 
   const handleRemoveFaq = (faqId: string) => {
@@ -254,7 +338,7 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
       const persisted = await adminService.fetchLiveStorefrontContent({ admin: true });
       setContent(persisted);
 
-      onShowToast('Storefront content saved and published.', {
+      onShowToast('Storefront content saved and published live across all sections.', {
         title: 'Storefront Published',
         type: 'success',
       });
@@ -268,11 +352,20 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
     }
   };
 
-  const handleResetDefaults = () => {
+  const handleResetDefaults = async () => {
     if (window.confirm('Reset all storefront content, hero, banners, FAQs, and collections to default settings?')) {
-      const def = adminService.resetHomepageContent();
-      setContent(def);
-      onShowToast('Reset all storefront content to system defaults', { type: 'info' });
+      try {
+        setIsSaving(true);
+        const def = await adminService.resetHomepageContentLive();
+        setContent(def);
+        onShowToast('All storefront content reset to system factory defaults', { type: 'success' });
+      } catch (err) {
+        const def = adminService.resetHomepageContent();
+        setContent(def);
+        onShowToast('Reset local storefront content to defaults', { type: 'info' });
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -298,7 +391,8 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
           <button
             type="button"
             onClick={handleResetDefaults}
-            className="px-3.5 py-2.5 rounded-xl border border-[#eedbe6] text-xs font-bold text-[#716d77] hover:text-[#141219] hover:bg-gray-50 transition-all flex items-center gap-1.5 cursor-pointer"
+            disabled={isSaving || isLoadingContent}
+            className="px-3.5 py-2.5 rounded-xl border border-[#eedbe6] text-xs font-bold text-[#716d77] hover:text-[#141219] hover:bg-gray-50 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset Defaults</span>
@@ -316,7 +410,7 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
           <button
             type="button"
             onClick={handleSaveAll}
-            disabled={isSaving || isLoadingContent}
+            disabled={isSaving || isLoadingContent || isUploadingImage}
             className="px-4 py-2.5 rounded-xl bg-[#D30915] hover:bg-[#B60711] text-white text-xs font-black uppercase tracking-wider transition-all shadow-sm hover:shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Save className={`w-4 h-4 ${isSaving ? 'animate-pulse' : ''}`} />
@@ -325,12 +419,24 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
         </div>
       </div>
 
-      {/* Which sections actually persist to the database */}
-      <AdminFeatureUnavailable
-        feature="The hero, value proposition, About copy, FAQ, and footer sections"
-        requirement="The backend stores the announcement bar, promotional bar, and featured collection cards — those publish to the database and appear for customers. The remaining sections have no API endpoint yet."
-        localOnly
-      />
+      {/* Backend Synchronization Live Badge */}
+      <div className="bg-emerald-50/90 border border-emerald-200 p-3.5 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2.5 text-emerald-900 font-bold">
+          <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+          <div>
+            <span className="font-black text-emerald-950 block sm:inline mr-1">
+              Storefront Database Synced:
+            </span>
+            <span className="text-emerald-800">
+              Hero banners, benefit tiles, showcase collections, announcements, value props, brand story, FAQ catalog, and footer are database-backed.
+            </span>
+          </div>
+        </div>
+        <div className="shrink-0 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-lg">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>REST API Synced</span>
+        </div>
+      </div>
 
       {/* Load failure: the editor is not showing live content */}
       {loadError && (
@@ -530,15 +636,25 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
             </div>
           </div>
 
-          {/* 4 Benefit Tiles Configuration */}
+          {/* Benefit Tiles Configuration */}
           <div className="bg-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#eedbe6] shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-[#141219] uppercase tracking-wider flex items-center gap-2 m-0">
-                <span>4 Hero Benefit Quick-Action Tiles</span>
-              </h3>
-              <span className="text-xs text-[#716d77] font-semibold">
-                Shown immediately below the hero banner
-              </span>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="text-sm font-black text-[#141219] uppercase tracking-wider flex items-center gap-2 m-0">
+                  <span>Hero Benefit Quick-Action Tiles ({currentHero.benefitTiles.length})</span>
+                </h3>
+                <span className="text-xs text-[#716d77] font-semibold">
+                  Shown immediately below the hero banner
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddBenefitTile}
+                className="px-3 py-1.5 rounded-xl border border-[#D30915] bg-[#fff1f2] hover:bg-[#ffe4e6] text-[#D30915] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Benefit Tile</span>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -564,6 +680,16 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
                         <option value="Users">Users (Team)</option>
                         <option value="ShieldCheck">Shield (Guaranteed)</option>
                       </select>
+                      {currentHero.benefitTiles.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBenefitTile(idx)}
+                          className="text-rose-600 hover:text-rose-800 p-1 cursor-pointer transition-colors"
+                          title="Delete tile"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -617,9 +743,19 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
           <div className="lg:col-span-6 bg-white p-5 sm:p-7 rounded-2xl sm:rounded-3xl border border-[#eedbe6] shadow-xs flex flex-col justify-between space-y-4">
             <div className="space-y-4">
-              <span className="text-xs font-extrabold uppercase text-[#716d77] tracking-wider block">
-                Select Showcase Card to Customize
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase text-[#716d77] tracking-wider block">
+                  Select Showcase Card to Customize
+                </span>
+                <button
+                  type="button"
+                  onClick={handleAddCard}
+                  className="px-2.5 py-1 rounded-lg border border-[#D30915] bg-[#fff1f2] hover:bg-[#ffe4e6] text-[#D30915] text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add Card</span>
+                </button>
+              </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {content.featuredCards.map((c) => (
@@ -652,17 +788,29 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
                 <div className="pt-4 border-t border-[#f4e2ed] space-y-3.5">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-black text-[#141219]">Editing: {currentEditingCard.title}</h3>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id={`cardActive-${currentEditingCard.id}`}
-                        checked={currentEditingCard.active}
-                        onChange={(e) => handleUpdateCard(currentEditingCard.id, { active: e.target.checked })}
-                        className="w-4 h-4 accent-[#D30915] cursor-pointer"
-                      />
-                      <label htmlFor={`cardActive-${currentEditingCard.id}`} className="text-xs font-bold cursor-pointer">
-                        Display on Homepage
-                      </label>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`cardActive-${currentEditingCard.id}`}
+                          checked={currentEditingCard.active}
+                          onChange={(e) => handleUpdateCard(currentEditingCard.id, { active: e.target.checked })}
+                          className="w-4 h-4 accent-[#D30915] cursor-pointer"
+                        />
+                        <label htmlFor={`cardActive-${currentEditingCard.id}`} className="text-xs font-bold cursor-pointer">
+                          Display on Homepage
+                        </label>
+                      </div>
+                      {content.featuredCards.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCard(currentEditingCard.id)}
+                          className="text-rose-600 hover:text-rose-800 p-1 cursor-pointer transition-colors"
+                          title="Delete card"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
 

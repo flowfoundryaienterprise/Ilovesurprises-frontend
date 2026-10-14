@@ -309,6 +309,8 @@ export interface HeroBenefitTile {
   subtitle: string;
   iconName?: 'Gem' | 'Gift' | 'Store' | 'Users' | 'Sparkles' | 'ShieldCheck';
   actionType?: 'shop' | 'consultant' | 'scroll';
+  sortOrder?: number;
+  isActive?: boolean;
 }
 
 export interface HeroContentConfig {
@@ -340,6 +342,8 @@ export interface FaqContentItem {
   question: string;
   answer: string;
   category: string;
+  sortOrder?: number;
+  isActive?: boolean;
 }
 
 export interface FooterContentConfig {
