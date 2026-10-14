@@ -182,21 +182,33 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
   const wishlistSet = useMemo(() => new Set(wishlistIds), [wishlistIds]);
 
   useEffect(() => {
-    // 1. Fetch live storefront configuration from backend API if available
-    if (typeof (adminService as any).fetchLiveStorefrontContent === 'function') {
-      (adminService as any).fetchLiveStorefrontContent().then((content: any) => {
-        if (content) {
-          setHomepageConfig(content);
-        }
-      }).catch(() => { });
-    }
+    const controller = new AbortController();
 
-    // 2. Listen to updates
-    const handleUpdate = () => {
-      setHomepageConfig(adminService.getHomepageContent());
+    // Showcase card content (titles, badges, taglines, CTAs, images, order,
+    // visibility) is stored in the database and served by GET /api/storefront,
+    // so an admin edit appears here after a refetch without a frontend build.
+    const loadStorefrontContent = () => {
+      adminService
+        .fetchLiveStorefrontContent({ signal: controller.signal })
+        .then((content) => {
+          if (!controller.signal.aborted && content) {
+            setHomepageConfig(content);
+          }
+        })
+        .catch(() => {
+          /* Keep the currently rendered configuration on failure. */
+        });
     };
-    window.addEventListener('ils_homepage_content_updated', handleUpdate);
-    return () => window.removeEventListener('ils_homepage_content_updated', handleUpdate);
+
+    loadStorefrontContent();
+
+    window.addEventListener('ils_homepage_content_updated', loadStorefrontContent);
+    window.addEventListener('ils_storefront_updated', loadStorefrontContent);
+    return () => {
+      controller.abort();
+      window.removeEventListener('ils_homepage_content_updated', loadStorefrontContent);
+      window.removeEventListener('ils_storefront_updated', loadStorefrontContent);
+    };
   }, []);
 
   // Guarantee Founder Hierarchy:

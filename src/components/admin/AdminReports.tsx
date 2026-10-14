@@ -13,6 +13,9 @@ import {
 import type {
   AdminReportData,
   AdminOrderItem,
+  AdminCustomerItem,
+  RepresentativeAdminRecord,
+  AdminCommissionRecord,
 } from '../../types/admin';
 import { adminService } from '../../services/adminService';
 
@@ -54,22 +57,45 @@ export const AdminReports: React.FC<AdminReportsProps> = ({
   const [activeReportTab, setActiveReportTab] = useState<ReportTab>('overview');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Live real datasets for reporting
+  // Datasets backing the per-tab CSV exports, loaded from the backend.
+  // Orders stay empty until the backend exposes an order endpoint.
   const [orders, setOrders] = useState<AdminOrderItem[]>([]);
-  const customers = useMemo(() => adminService.getCustomers(), []);
-  const representatives = useMemo(() => adminService.getRepresentatives(), []);
-  const commissions = useMemo(() => adminService.getCommissionLedger(), []);
+  const [customers, setCustomers] = useState<AdminCustomerItem[]>([]);
+  const [representatives, setRepresentatives] = useState<RepresentativeAdminRecord[]>([]);
+  const [commissions, setCommissions] = useState<AdminCommissionRecord[]>([]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
     adminService.getCommerceOrders().then((liveOrders) => {
-      setOrders(liveOrders);
+      if (!signal.aborted) setOrders(liveOrders);
     });
+
+    // Export datasets are supplementary to the charts above; a failure here
+    // must not break the report view, so each settles independently and the
+    // corresponding export simply has nothing to write.
+    adminService
+      .fetchCustomers({ signal })
+      .then((live) => { if (!signal.aborted) setCustomers(live); })
+      .catch(() => {});
+
+    adminService
+      .fetchRepresentatives({ signal })
+      .then((live) => { if (!signal.aborted) setRepresentatives(live); })
+      .catch(() => {});
+
+    adminService
+      .fetchCommissions({ signal })
+      .then((live) => { if (!signal.aborted) setCommissions(live); })
+      .catch(() => {});
+
+    return () => controller.abort();
   }, []);
 
   const handleTimeframeClick = (tf: '7d' | '30d' | '90d' | 'ytd') => {
     setSelectedTimeframe(tf);
     onTimeframeChange(tf);
-    onShowToast(`Report updated for timeframe: ${tf.toUpperCase()}`, { type: 'info' });
   };
 
   // CSV Exporters for each individual report screen

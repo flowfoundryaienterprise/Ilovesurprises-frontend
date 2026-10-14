@@ -100,6 +100,15 @@ export function mapBackendCartItemToFrontend(
   };
 }
 
+/**
+ * In-flight add-to-cart requests, keyed by product plus selected options, so a
+ * double submission reuses the first request instead of adding twice.
+ */
+const inFlightAddRequests = new Map<
+  string,
+  Promise<{ items: CartItem[]; subtotal?: number }>
+>();
+
 export const cartService = {
   /**
    * Retrieves cart from local storage cache
@@ -182,6 +191,57 @@ export const cartService = {
       throw new Error(`"${params.product.name}" is currently out of stock.`);
     }
 
+    if (typeof params.product.stock === 'number' && params.product.stock <= 0) {
+      throw new Error(`"${params.product.name}" is currently out of stock.`);
+    }
+
+    if (!Number.isFinite(params.quantity) || params.quantity < 1) {
+      throw new Error('Please choose a quantity of at least 1.');
+    }
+
+    // Reject an invalid submission before it reaches the server: a product
+    // with ring sizes or jewellery types must have one selected, otherwise the
+    // cart line would not identify what was actually ordered.
+    if (params.product.ringSizes?.length && !params.selectedRingSize) {
+      throw new Error('Please select a ring size before adding this to your cart.');
+    }
+    if (params.product.jewelryTypes?.length && !params.selectedJewelryType) {
+      throw new Error('Please select a jewelry type before adding this to your cart.');
+    }
+
+    /**
+     * Collapse duplicate add-to-cart submissions. A double click, or a second
+     * tap before the first response arrives, otherwise adds the item twice.
+     * Identical in-flight requests share one promise; the key includes the
+     * selected options so adding a different variant is never blocked.
+     */
+    const inFlightKey = [
+      params.product.id || params.product.slug,
+      params.selectedRingSize ?? '',
+      params.selectedJewelryType ?? '',
+      params.selectedSize ?? '',
+      params.quantity,
+    ].join('|');
+
+    const existingRequest = inFlightAddRequests.get(inFlightKey);
+    if (existingRequest) return existingRequest;
+
+    const request = this.performAddItem(params).finally(() => {
+      inFlightAddRequests.delete(inFlightKey);
+    });
+
+    inFlightAddRequests.set(inFlightKey, request);
+    return request;
+  },
+
+  /** Performs the actual add-to-cart request. See `addItem` for guards. */
+  async performAddItem(params: {
+    product: Product;
+    quantity: number;
+    selectedRingSize?: number;
+    selectedJewelryType?: string;
+    selectedSize?: string;
+  }): Promise<{ items: CartItem[]; subtotal?: number }> {
     try {
       const res = await apiClient.post<any>('/api/cart/items', {
         productId: params.product.id || params.product.slug,

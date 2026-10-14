@@ -238,20 +238,35 @@ export const Header: React.FC<HeaderProps> = ({
   });
 
   useEffect(() => {
-    // 1. Fetch live storefront configuration from backend API
-    adminService.fetchLiveStorefrontContent().then((content) => {
-      if (content?.announcementText) {
-        setAnnouncementText(content.announcementText);
-      }
-    }).catch(() => { });
+    const controller = new AbortController();
 
-    // 2. Listen to updates
-    const handleUpdate = () => {
-      const current = adminService.getHomepageContent();
-      if (current.announcementText) setAnnouncementText(current.announcementText);
+    // The announcement bar is stored in the database and served by
+    // GET /api/storefront, so it is read from the API rather than hardcoded.
+    // On failure the shipped default copy stays visible.
+    const loadAnnouncement = () => {
+      adminService
+        .fetchLiveStorefrontContent({ signal: controller.signal })
+        .then((content) => {
+          if (controller.signal.aborted) return;
+          if (content?.announcementText) {
+            setAnnouncementText(content.announcementText);
+          }
+        })
+        .catch(() => {
+          /* Keep the current copy if the storefront request fails. */
+        });
     };
-    window.addEventListener('ils_homepage_content_updated', handleUpdate);
-    return () => window.removeEventListener('ils_homepage_content_updated', handleUpdate);
+
+    loadAnnouncement();
+
+    // Re-read after an admin save so the change appears without a rebuild.
+    window.addEventListener('ils_homepage_content_updated', loadAnnouncement);
+    window.addEventListener('ils_storefront_updated', loadAnnouncement);
+    return () => {
+      controller.abort();
+      window.removeEventListener('ils_homepage_content_updated', loadAnnouncement);
+      window.removeEventListener('ils_storefront_updated', loadAnnouncement);
+    };
   }, []);
 
   // Typewriter Search Bar Animation: Types letters out, holds, then backspaces to next

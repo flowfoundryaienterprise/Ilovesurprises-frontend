@@ -1,5 +1,6 @@
 import type { SavedAddress, UserProfile, UserSettings } from '../types';
-import { apiClient } from './apiClient';
+import { apiClient, ApiError, unwrap, type ApiResponse } from './apiClient';
+import { mapBackendUser, type BackendUser } from './userMapping';
 
 const ADDRESSES_STORAGE_KEY = 'ilovesurprises_addresses_v1';
 const USER_STORAGE_KEY = 'ilovesurprises_user_v1';
@@ -41,34 +42,33 @@ export const accountService = {
    */
   async fetchProfile(): Promise<UserProfile | null> {
     const token = apiClient.getAuthToken();
-    if (token) {
-      try {
-        const response = await apiClient.get<any>('/api/users/me');
-        const user = response?.data?.user;
-        if (user) {
-          const current = this.getStoredUser();
-          const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
-          const updated: UserProfile = {
-            id: user.id,
-            name: fullName || current?.name || user.email.split('@')[0],
-            email: user.email,
-            role: (user.role || 'customer').toLowerCase() as any,
-            avatar: current?.avatar || '/assets/ilovesurprises/Profile/profile image.webp',
-            createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : current?.createdAt || new Date().toISOString(),
-            mobile: current?.mobile,
-          };
-          this.updateStoredUser(updated);
-          return updated;
-        }
-      } catch (err: any) {
-        if (err.statusCode === 401) {
-          apiClient.setAuthToken(null);
-          this.updateStoredUser(null);
-          return null;
-        }
+
+    // No token means no session; a cached profile is not proof of one.
+    if (!token) {
+      if (this.getStoredUser()) {
+        this.updateStoredUser(null);
       }
+      return null;
     }
-    return this.getStoredUser();
+
+    try {
+      const response = await apiClient.get<ApiResponse<{ user: BackendUser }>>(
+        '/api/users/me'
+      );
+      const user = unwrap<{ user: BackendUser }>(response, '/api/users/me').user;
+
+      const updated = mapBackendUser(user, this.getStoredUser());
+      this.updateStoredUser(updated);
+      return updated;
+    } catch (err: any) {
+      if (err instanceof ApiError && err.isUnauthorized) {
+        // apiClient has already discarded the token.
+        this.updateStoredUser(null);
+        return null;
+      }
+      // Transient failure: keep showing the last verified profile.
+      return this.getStoredUser();
+    }
   },
 
   /**
@@ -85,46 +85,30 @@ export const accountService = {
       lastName = parts.slice(1).join(' ') || undefined;
     }
 
-    if (token) {
-      try {
-        const response = await apiClient.patch<any>('/api/users/me', {
-          firstName,
-          lastName,
-        });
-        const user = response?.data?.user;
-        if (user) {
-          const current = this.getStoredUser();
-          const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
-          const updated: UserProfile = {
-            id: user.id,
-            name: fullName || data.name || current?.name || user.email.split('@')[0],
-            email: user.email,
-            role: (user.role || 'customer').toLowerCase() as any,
-            avatar: current?.avatar || '/assets/ilovesurprises/Profile/profile image.webp',
-            createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : current?.createdAt || new Date().toISOString(),
-          };
-          this.updateStoredUser(updated);
-          window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
-          return updated;
-        }
-      } catch (err: any) {
-        console.warn('Backend update profile notice:', err.message);
-      }
+    if (!token) {
+      throw new ApiError(
+        'You must be signed in to update your profile.',
+        401,
+        'unauthorized',
+        { endpoint: '/api/users/me', method: 'PATCH' }
+      );
     }
 
-    // Local fallback update
+    // Errors propagate: a profile update is only reported as successful once
+    // the backend has persisted it. There is no local write-through fallback,
+    // because that would show the user a change the database never accepted.
+    const response = await apiClient.patch<ApiResponse<{ user: BackendUser }>>(
+      '/api/users/me',
+      { firstName, lastName }
+    );
+
+    const user = unwrap<{ user: BackendUser }>(response, '/api/users/me').user;
+
     const current = this.getStoredUser();
-    if (current) {
-      const updated: UserProfile = {
-        ...current,
-        name: data.name || [firstName, lastName].filter(Boolean).join(' ') || current.name,
-      };
-      this.updateStoredUser(updated);
-      window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
-      return updated;
-    }
-
-    return null;
+    const updated = mapBackendUser(user, current);
+    this.updateStoredUser(updated);
+    window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
+    return updated;
   },
 
   /**

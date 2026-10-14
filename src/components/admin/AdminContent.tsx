@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Layers,
   Save,
@@ -22,7 +22,9 @@ import type {
   FaqContentItem,
 } from '../../types/admin';
 import { adminService } from '../../services/adminService';
+import { ApiError } from '../../services/apiClient';
 import { StorefrontPreviewModal } from './StorefrontPreviewModal';
+import { AdminSectionError, AdminFeatureUnavailable } from './AdminSectionState';
 
 interface AdminContentProps {
   onShowToast: (message: string, options?: { title?: string; type?: 'success' | 'info' }) => void;
@@ -30,10 +32,35 @@ interface AdminContentProps {
 
 type ContentTab = 'hero' | 'featured' | 'banners' | 'valueprop' | 'about' | 'faq' | 'footer';
 
+/** Turns a save/load failure into an actionable editor message. */
+function describeContentError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.isForbidden) {
+      return 'Your account does not have permission to edit storefront content. An administrator role is required.';
+    }
+    if (err.isUnauthorized) {
+      return 'Your session has expired. Please sign in again and retry.';
+    }
+    if (err.kind === 'network') {
+      return 'Could not reach the API, so nothing was saved. Check that the backend is running and try again.';
+    }
+    if (err.kind === 'timeout') {
+      return 'The save timed out and may not have been applied. Reload to check the current content.';
+    }
+    return err.displayMessage;
+  }
+  if (err instanceof Error) return err.message;
+  return 'The storefront content could not be saved.';
+}
+
 export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
   const [content, setContent] = useState<HomepageContentConfig>(() =>
     adminService.getHomepageContent()
   );
+  const [isLoadingContent, setIsLoadingContent] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ContentTab>('hero');
   const [editingCardId, setEditingCardId] = useState<string>(() => content.featuredCards[0]?.id || 'halloween');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -42,6 +69,35 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
   const desktopFileInputRef = useRef<HTMLInputElement>(null);
   const mobileFileInputRef = useRef<HTMLInputElement>(null);
   const cardFileInputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Loads the current storefront content from the backend so the editor shows
+   * what is actually stored, not a local draft.
+   */
+  const loadContent = useCallback(
+    async (signal?: AbortSignal) => {
+      setIsLoadingContent(true);
+      setLoadError(null);
+      try {
+        const live = await adminService.fetchLiveStorefrontContent({
+          signal,
+          admin: true,
+        });
+        if (!signal?.aborted) setContent(live);
+      } catch (err) {
+        if (!signal?.aborted) setLoadError(describeContentError(err));
+      } finally {
+        if (!signal?.aborted) setIsLoadingContent(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadContent(controller.signal);
+    return () => controller.abort();
+  }, [loadContent]);
 
   const handleImageUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -186,12 +242,30 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
     }));
   };
 
-  const handleSaveAll = () => {
-    adminService.saveHomepageContent(content);
-    onShowToast('Storefront content updated live across all sections!', {
-      title: 'Storefront Published',
-      type: 'success',
-    });
+  const handleSaveAll = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      await adminService.saveHomepageContent(content);
+
+      // Re-read from the backend so the editor shows exactly what was stored.
+      const persisted = await adminService.fetchLiveStorefrontContent({ admin: true });
+      setContent(persisted);
+
+      onShowToast('Storefront content saved and published.', {
+        title: 'Storefront Published',
+        type: 'success',
+      });
+    } catch (err) {
+      // No success toast: the save did not reach the database.
+      const message = describeContentError(err);
+      setSaveError(message);
+      onShowToast(message, { title: 'Save failed', type: 'info' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleResetDefaults = () => {
@@ -242,13 +316,39 @@ export const AdminContent: React.FC<AdminContentProps> = ({ onShowToast }) => {
           <button
             type="button"
             onClick={handleSaveAll}
-            className="px-4 py-2.5 rounded-xl bg-[#D30915] hover:bg-[#B60711] text-white text-xs font-black uppercase tracking-wider transition-all shadow-sm hover:shadow-md flex items-center gap-1.5 cursor-pointer"
+            disabled={isSaving || isLoadingContent}
+            className="px-4 py-2.5 rounded-xl bg-[#D30915] hover:bg-[#B60711] text-white text-xs font-black uppercase tracking-wider transition-all shadow-sm hover:shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Save className="w-4 h-4" />
-            <span>Publish to Storefront</span>
+            <Save className={`w-4 h-4 ${isSaving ? 'animate-pulse' : ''}`} />
+            <span>{isSaving ? 'Publishing…' : 'Publish to Storefront'}</span>
           </button>
         </div>
       </div>
+
+      {/* Which sections actually persist to the database */}
+      <AdminFeatureUnavailable
+        feature="The hero, value proposition, About copy, FAQ, and footer sections"
+        requirement="The backend stores the announcement bar, promotional bar, and featured collection cards — those publish to the database and appear for customers. The remaining sections have no API endpoint yet."
+        localOnly
+      />
+
+      {/* Load failure: the editor is not showing live content */}
+      {loadError && (
+        <AdminSectionError
+          title="Could not load the published storefront content"
+          message={`${loadError} The fields below show local defaults, not what customers currently see.`}
+          onRetry={() => loadContent()}
+        />
+      )}
+
+      {/* Save failure: nothing was written */}
+      {saveError && (
+        <AdminSectionError
+          title="Your changes were not saved"
+          message={saveError}
+          onRetry={handleSaveAll}
+        />
+      )}
 
       {/* 2. Navigation Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto border-b border-[#eedbe6] bg-white p-2 rounded-2xl scrollbar-none">

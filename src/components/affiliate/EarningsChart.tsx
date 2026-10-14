@@ -6,7 +6,7 @@ import {
   Flame,
   Info,
 } from 'lucide-react';
-import { affiliateService } from '../../services/affiliateService';
+import type { CommissionRecord } from '../../types';
 
 interface ChartPoint {
   label: string;
@@ -16,50 +16,106 @@ interface ChartPoint {
   orders: number;
 }
 
-export const EarningsChart: React.FC = () => {
+interface EarningsChartProps {
+  /**
+   * Server-calculated commission ledger rows, supplied by the dashboard.
+   * Each row's `orderDate` places it in the correct bucket.
+   */
+  commissions: CommissionRecord[];
+}
+
+/** Builds the empty buckets for a timeframe, ending at today. */
+function buildBuckets(
+  timeframe: 'monthly' | 'weekly' | 'daily'
+): Array<ChartPoint & { start: Date; end: Date }> {
+  const now = new Date();
+  const buckets: Array<ChartPoint & { start: Date; end: Date }> = [];
+
+  const push = (label: string, shortLabel: string, start: Date, end: Date) => {
+    buckets.push({ label, shortLabel, personal: 0, team: 0, orders: 0, start, end });
+  };
+
+  if (timeframe === 'daily') {
+    // The last 7 days, oldest first.
+    for (let i = 6; i >= 0; i -= 1) {
+      const day = new Date(now);
+      day.setDate(now.getDate() - i);
+      const start = new Date(day);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(day);
+      end.setHours(23, 59, 59, 999);
+      const label = start.toLocaleDateString('en-US', { weekday: 'short' });
+      push(label, label, start, end);
+    }
+    return buckets;
+  }
+
+  if (timeframe === 'weekly') {
+    // The last 4 weeks, oldest first.
+    for (let i = 3; i >= 0; i -= 1) {
+      const end = new Date(now);
+      end.setDate(now.getDate() - i * 7);
+      end.setHours(23, 59, 59, 999);
+      const start = new Date(end);
+      start.setDate(end.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+      const index = 4 - i;
+      push(`Week ${index}`, `W${index}`, start, end);
+    }
+    return buckets;
+  }
+
+  // The last 6 calendar months, oldest first.
+  for (let i = 5; i >= 0; i -= 1) {
+    const start = new Date(now.getFullYear(), now.getMonth() - i, 1, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
+    const label = start.toLocaleDateString('en-US', { month: 'short' });
+    push(label, label, start, end);
+  }
+  return buckets;
+}
+
+export const EarningsChart: React.FC<EarningsChartProps> = ({ commissions }) => {
   const [timeframe, setTimeframe] = useState<'monthly' | 'weekly' | 'daily'>('monthly');
   const [viewStyle, setViewStyle] = useState<'stacked' | 'grouped'>('stacked');
   const [activeHoverIndex, setActiveHoverIndex] = useState<number | null>(null);
   const chartContainerRef = React.useRef<HTMLDivElement>(null);
   const isTouchRef = React.useRef(false);
 
-  const commissions = useMemo(() => affiliateService.getCommissions(), []);
   const hasCommissions = commissions.length > 0;
 
+  /**
+   * Buckets each ledger entry into the period it actually falls in, using the
+   * backend's commission amounts verbatim. Entries outside the visible window
+   * are excluded rather than spread across every bucket.
+   */
   const data: ChartPoint[] = useMemo(() => {
-    if (!hasCommissions) {
-      if (timeframe === 'daily') {
-        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        return days.map((d) => ({ label: d, shortLabel: d, personal: 0, team: 0, orders: 0 }));
-      } else if (timeframe === 'weekly') {
-        return [
-          { label: 'Week 1', shortLabel: 'W1', personal: 0, team: 0, orders: 0 },
-          { label: 'Week 2', shortLabel: 'W2', personal: 0, team: 0, orders: 0 },
-          { label: 'Week 3', shortLabel: 'W3', personal: 0, team: 0, orders: 0 },
-          { label: 'Week 4', shortLabel: 'W4', personal: 0, team: 0, orders: 0 },
-        ];
-      } else {
-        const months = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
-        return months.map((m) => ({ label: m, shortLabel: m, personal: 0, team: 0, orders: 0 }));
-      }
-    }
+    const buckets = buildBuckets(timeframe);
 
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days.map((d) => {
-      let personal = 0;
-      let team = 0;
-      let orders = 0;
-      commissions.forEach((c) => {
-        if (c.level === 'personal') {
-          personal += c.commissionAmount;
-        } else {
-          team += c.commissionAmount;
-        }
-        orders += 1;
-      });
-      return { label: d, shortLabel: d, personal, team, orders };
+    commissions.forEach((c) => {
+      if (!c.orderDate) return;
+      const when = new Date(c.orderDate);
+      if (Number.isNaN(when.getTime())) return;
+
+      const bucket = buckets.find((b) => when >= b.start && when <= b.end);
+      if (!bucket) return;
+
+      if (c.level === 'personal') {
+        bucket.personal += c.commissionAmount;
+      } else {
+        bucket.team += c.commissionAmount;
+      }
+      bucket.orders += 1;
     });
-  }, [commissions, timeframe, hasCommissions]);
+
+    return buckets.map(({ label, shortLabel, personal, team, orders }) => ({
+      label,
+      shortLabel,
+      personal: Number(personal.toFixed(2)),
+      team: Number(team.toFixed(2)),
+      orders,
+    }));
+  }, [commissions, timeframe]);
 
   // Click outside to dismiss active tooltip on touch/click
   React.useEffect(() => {

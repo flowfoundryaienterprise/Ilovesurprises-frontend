@@ -35,16 +35,9 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
     if (latestOrder && (!orderId || latestOrder.id === orderId)) {
       return latestOrder;
     }
-    if (typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      const sessionId = searchParams.get('session_id') || searchParams.get('sessionId') || undefined;
-      const paymentIntentId = searchParams.get('payment_intent') || searchParams.get('paymentIntentId') || undefined;
-      const queryOrderId = searchParams.get('order_id') || searchParams.get('orderId') || undefined;
-      if (!sessionId && !paymentIntentId && !orderId && !queryOrderId) {
-        const allOrders = orderService.getOrders();
-        return allOrders.length > 0 ? allOrders[0] : null;
-      }
-    }
+    // Without an explicit order reference there is nothing to confirm.
+    // Adopting the most recent order would present an unrelated order as this
+    // purchase, and arriving on this page is not itself proof of payment.
     return null;
   });
 
@@ -118,10 +111,10 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
           }
         });
     } else {
-      const allOrders = orderService.getOrders();
-      if (allOrders.length > 0) {
-        setVerifiedOrder(allOrders[0]);
-      }
+      // No session, payment intent, or order id to verify against.
+      setVerificationError(
+        'We could not identify an order to confirm. If you completed a payment, check your email for the confirmation or contact support — do not assume the order was placed.'
+      );
     }
 
     return () => {
@@ -137,8 +130,9 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
     if (orderId) {
       return orderService.getOrderById(orderId) || null;
     }
-    const allOrders = orderService.getOrders();
-    return allOrders.length > 0 ? allOrders[0] : null;
+    // No fallback to "the latest order": only an order this page actually
+    // resolved and verified may be shown as the confirmed purchase.
+    return null;
   }, [verifiedOrder, orderId, latestOrder]);
 
   const totalItemsPurchased = React.useMemo(() => {

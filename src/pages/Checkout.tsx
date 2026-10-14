@@ -105,6 +105,17 @@ export const Checkout: React.FC<CheckoutProps> = ({
   }, []);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /**
+   * Whether payments can actually be taken. While the backend has no order or
+   * payment endpoints this is false, and the place-order controls are disabled
+   * so no customer can submit a checkout that cannot complete.
+   */
+  const checkoutAvailability = useMemo(
+    () => paymentService.getCheckoutAvailability(),
+    []
+  );
+  const canSubmitOrder = checkoutAvailability.available && !isSubmitting;
   const [paymentSubmissionError, setPaymentSubmissionError] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
@@ -300,9 +311,10 @@ export const Checkout: React.FC<CheckoutProps> = ({
 
   // Payment State
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod' | 'apple_pay' | 'google_pay' | 'paypal'>('card');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
+  // Card number, expiry, and CVV are deliberately NOT held in application
+  // state: they are entered in the payment provider's hosted fields, so the
+  // PAN and CVV never pass through this app. Only the cardholder name is
+  // collected, as the billing contact for the order.
   const [cardName, setCardName] = useState(shippingForm.fullName || user?.name || '');
   const [sameAsShippingBilling, setSameAsShippingBilling] = useState(true);
   const [paymentErrors, setPaymentErrors] = useState<Record<string, string>>({});
@@ -345,31 +357,9 @@ export const Checkout: React.FC<CheckoutProps> = ({
     }
   };
 
-  // Card Number Auto-Formatting (e.g. 4242 4242 4242 4242)
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 16);
-    const parts = raw.match(/[\s\S]{1,4}/g) || [];
-    setCardNumber(parts.join(' '));
-  };
-
-  // Card Expiry Auto-Formatting (e.g. MM/YY)
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let raw = e.target.value.replace(/\D/g, '').slice(0, 4);
-    if (raw.length >= 3) {
-      raw = `${raw.slice(0, 2)}/${raw.slice(2)}`;
-    }
-    setCardExpiry(raw);
-  };
-
-  // Card Brand Detection
-  const detectedCardBrand = useMemo(() => {
-    const clean = cardNumber.replace(/\s/g, '');
-    if (clean.startsWith('4')) return 'Visa';
-    if (clean.startsWith('51') || clean.startsWith('52') || clean.startsWith('53') || clean.startsWith('54') || clean.startsWith('55')) return 'Mastercard';
-    if (clean.startsWith('34') || clean.startsWith('37')) return 'Amex';
-    if (clean.startsWith('6011') || clean.startsWith('65')) return 'Discover';
-    return 'Credit Card';
-  }, [cardNumber]);
+  // Card formatting and brand detection are the payment provider's
+  // responsibility: without the card number in application state there is
+  // nothing here to format or inspect.
 
   // Validate Step 1: Shipping Form
   const validateShippingForm = (): boolean => {
@@ -406,22 +396,10 @@ export const Checkout: React.FC<CheckoutProps> = ({
     if (paymentMethod !== 'card') return true;
 
     const errors: Record<string, string> = {};
-    const cleanNum = cardNumber.replace(/\s/g, '');
 
-    if (!cleanNum || cleanNum.length < 15) {
-      errors.cardNumber = 'Valid 15-16 digit card number is required';
-    }
-    if (!cardExpiry || cardExpiry.length < 5) {
-      errors.cardExpiry = 'Valid expiry (MM/YY) is required';
-    } else {
-      const [m, _y] = cardExpiry.split('/').map(Number);
-      if (m < 1 || m > 12) {
-        errors.cardExpiry = 'Invalid month';
-      }
-    }
-    if (!cardCvv || cardCvv.length < 3) {
-      errors.cardCvv = 'CVV code required';
-    }
+    // The card number, expiry, and CVV live only in the payment provider's
+    // hosted fields and are validated there. Only the billing contact name is
+    // checked here.
     if (!cardName.trim()) {
       errors.cardName = 'Name on card is required';
     }
@@ -633,18 +611,11 @@ export const Checkout: React.FC<CheckoutProps> = ({
         totalPrice: item.product.price * item.quantity,
       }));
 
-      // Parse card details for gateway
-      let cardDetails;
-      if (paymentMethod === 'card') {
-        const [expMonthStr, expYearStr] = cardExpiry.split('/');
-        cardDetails = {
-          cardholderName: cardName.trim(),
-          last4: cardNumber.replace(/\s/g, '').slice(-4),
-          cardBrand: detectedCardBrand,
-          expMonth: parseInt(expMonthStr, 10),
-          expYear: parseInt(expYearStr, 10),
-        };
-      }
+      // Only the billing contact name is sent. The card brand and last four
+      // digits are reported back by the payment provider after authorization;
+      // they are never derived from a card number held in this app.
+      const cardDetails =
+        paymentMethod === 'card' ? { cardholderName: cardName.trim() } : undefined;
 
       // If user provided marketing consent, record in user settings
       if (marketingConsent) {
@@ -674,6 +645,17 @@ export const Checkout: React.FC<CheckoutProps> = ({
         returnUrl: `${window.location.origin}/order-confirmation`,
         cancelUrl: `${window.location.origin}/payment?payment_status=cancelled`,
       });
+
+      // Payments are not configured on the server: no order was created and
+      // no card was charged. Say so plainly instead of implying a failed
+      // attempt the customer should retry.
+      if (result.configurationRequired || result.status === 'unavailable') {
+        setPaymentSubmissionError(
+          result.error ||
+            'Online checkout is temporarily unavailable. No order was placed and you have not been charged.'
+        );
+        return;
+      }
 
       // Handle hosted gateway redirect (Stripe Checkout or PayPal Express)
       if (result.requiresRedirect && result.checkoutUrl) {
@@ -1868,6 +1850,29 @@ export const Checkout: React.FC<CheckoutProps> = ({
                   </button>
                 </div>
 
+                {/* Checkout unavailable: payments are not configured on the
+                    server, so the customer is told before filling anything in
+                    rather than after a failed submission. */}
+                {!checkoutAvailability.available && (
+                  <div
+                    role="alert"
+                    className="mb-4 p-3.5 sm:p-4 rounded-[16px] bg-amber-50/90 border border-amber-300 text-amber-900 text-xs flex items-start gap-2.5 shadow-2xs"
+                  >
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="flex-1 leading-relaxed">
+                      <div className="font-black text-amber-950">
+                        Online checkout is temporarily unavailable
+                      </div>
+                      <div className="mt-0.5 font-medium">
+                        We cannot take payments right now, so this order cannot
+                        be placed and you will not be charged. Your cart is
+                        saved — please try again later or contact us to complete
+                        your order.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Gateway Payment Notification Notice */}
                 {paymentNotice && (
                   <div className="mb-4 p-3.5 sm:p-4 rounded-[16px] bg-amber-50/90 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5 shadow-2xs animate-in fade-in duration-200">
@@ -1977,80 +1982,36 @@ export const Checkout: React.FC<CheckoutProps> = ({
                 {/* Render Selected Payment UI */}
                 {paymentMethod === 'card' && (
                   <div className="space-y-3.5 p-3.5 sm:p-4 rounded-[16px] bg-[#fffafc] border border-[#f2e4ee]">
-                    {/* Card Number */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-[#141219]">
-                          Card Number <span className="text-[#D30915]">*</span>
-                        </label>
-                        <span className="text-[11px] font-black text-[#D30915] uppercase">
-                          {detectedCardBrand}
-                        </span>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          required
-                          inputMode="numeric"
-                          placeholder="4242 4242 4242 4242"
-                          value={cardNumber}
-                          onChange={handleCardNumberChange}
-                          className={`w-full min-h-[46px] pl-10 pr-3.5 rounded-[13px] bg-white border text-base sm:text-sm text-[#141219] font-mono outline-none ${paymentErrors.cardNumber ? 'border-red-500' : 'border-[#e8dfe5] focus:border-[#D30915]'
-                            }`}
-                        />
-                        <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a858f]" />
-                      </div>
-                      {paymentErrors.cardNumber && (
-                        <p className="text-[11px] text-red-600 mt-1 font-semibold">{paymentErrors.cardNumber}</p>
-                      )}
-                    </div>
+                    {/*
+                      Card entry is handled by the payment provider's own
+                      hosted fields, not by this form.
 
-                    {/* Expiry & CVV */}
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-[#141219] mb-1">
-                          Expiration <span className="text-[#D30915]">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          inputMode="numeric"
-                          placeholder="MM/YY"
-                          value={cardExpiry}
-                          onChange={handleExpiryChange}
-                          className={`w-full min-h-[46px] px-3.5 rounded-[13px] bg-white border text-base sm:text-sm text-[#141219] font-mono outline-none ${paymentErrors.cardExpiry ? 'border-red-500' : 'border-[#e8dfe5] focus:border-[#D30915]'
-                            }`}
-                        />
-                        {paymentErrors.cardExpiry && (
-                          <p className="text-[11px] text-red-600 mt-1 font-semibold">{paymentErrors.cardExpiry}</p>
-                        )}
-                      </div>
+                      The raw card number, expiry, and CVV inputs that used to
+                      live here were captured into React state, which puts the
+                      full PAN and CVV inside application memory and in scope
+                      for PCI DSS. They are removed: the provider's element is
+                      mounted here once the backend exposes a payment intent to
+                      initialize it against, so card data goes straight from the
+                      iframe to the provider and never through this app.
 
-                      <div>
-                        <label className="block text-xs font-bold text-[#141219] mb-1">
-                          CVV Code <span className="text-[#D30915]">*</span>
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="password"
-                            required
-                            inputMode="numeric"
-                            maxLength={4}
-                            placeholder="•••"
-                            value={cardCvv}
-                            onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ''))}
-                            className={`w-full min-h-[46px] pl-3.5 pr-8 rounded-[13px] bg-white border text-base sm:text-sm text-[#141219] font-mono outline-none ${paymentErrors.cardCvv ? 'border-red-500' : 'border-[#e8dfe5] focus:border-[#D30915]'
-                              }`}
-                          />
-                          <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a858f]" />
+                      Only the cardholder name is collected, which is not card
+                      data and is used for the order's billing contact.
+                    */}
+                    <div className="p-3.5 rounded-[13px] bg-white border border-[#e8dfe5] flex items-start gap-2.5">
+                      <Lock className="w-4 h-4 text-[#8a858f] shrink-0 mt-0.5" />
+                      <div className="text-xs text-[#55505a] leading-relaxed">
+                        <div className="font-bold text-[#141219] mb-0.5">
+                          Card details are entered securely with our payment provider
                         </div>
-                        {paymentErrors.cardCvv && (
-                          <p className="text-[11px] text-red-600 mt-1 font-semibold">{paymentErrors.cardCvv}</p>
-                        )}
+                        <div>
+                          {checkoutAvailability.available
+                            ? 'You will enter your card details in our payment provider’s secure form. We never see or store your card number.'
+                            : 'Secure card entry is unavailable right now because payments are not configured on the server, so no card details are being collected.'}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Cardholder Name */}
+                    {/* Cardholder Name — billing contact, not card data */}
                     <div>
                       <label className="block text-xs font-bold text-[#141219] mb-1">
                         Cardholder Name <span className="text-[#D30915]">*</span>
@@ -2162,8 +2123,13 @@ export const Checkout: React.FC<CheckoutProps> = ({
 
                   <button
                     type="button"
-                    disabled={isSubmitting}
+                    disabled={!canSubmitOrder}
                     onClick={handlePlaceOrder}
+                    title={
+                      checkoutAvailability.available
+                        ? undefined
+                        : 'Online checkout is temporarily unavailable, so this order cannot be placed right now.'
+                    }
                     className={`h-[44px] px-7 rounded-[12px] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(211, 9, 21,0.3)] active:scale-97 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D30915]/50 focus-visible:ring-offset-2 ${isSubmitting
                         ? 'bg-[#B60711] text-white opacity-80 cursor-wait'
                         : 'bg-gradient-to-r from-[#D30915] via-[#ff3b81] to-[#B60711] hover:from-[#B60711] text-white hover:shadow-[0_6px_20px_rgba(211, 9, 21,0.45)] hover:-translate-y-0.5'
@@ -2172,7 +2138,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
                     {isSubmitting ? (
                       <>
                         <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                        <span>Authorizing Payment...</span>
+                        <span>Submitting your order...</span>
                       </>
                     ) : (
                       <>
@@ -2488,8 +2454,13 @@ export const Checkout: React.FC<CheckoutProps> = ({
             {currentStep === 'payment' && (
               <button
                 type="button"
-                disabled={isSubmitting}
+                disabled={!canSubmitOrder}
                 onClick={handlePlaceOrder}
+                    title={
+                      checkoutAvailability.available
+                        ? undefined
+                        : 'Online checkout is temporarily unavailable, so this order cannot be placed right now.'
+                    }
                 className={`w-full h-[46px] px-4 rounded-[14px] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-[0_4px_16px_rgba(211,9,21,0.35)] active:scale-95 transition-all cursor-pointer whitespace-nowrap ${isSubmitting
                     ? 'bg-[#B60711] text-white opacity-80 cursor-wait'
                     : 'bg-gradient-to-r from-[#D30915] via-[#ff3b81] to-[#B60711] hover:brightness-105 hover:shadow-[0_6px_20px_rgba(211,9,21,0.45)] text-white'

@@ -13,8 +13,12 @@ import {
   ShieldCheck,
   Navigation,
 } from 'lucide-react';
-import type { UserProfile, AffiliateStats, CommissionRecord, PayoutRecord } from '../types';
-import { affiliateService } from '../services/affiliateService';
+import type { UserProfile, AffiliateStats, CommissionRecord, PayoutRecord, ReferralMember } from '../types';
+import { affiliateService, mapDashboardToStats } from '../services/affiliateService';
+import {
+  AffiliateDashboardState,
+  describeAffiliateError,
+} from '../components/affiliate/AffiliateDashboardState';
 import { AffiliateOverview } from '../components/affiliate/AffiliateOverview';
 import { ReferralLinkCard } from '../components/affiliate/ReferralLinkCard';
 import { EarningsChart } from '../components/affiliate/EarningsChart';
@@ -55,25 +59,102 @@ export const AffiliateDashboard: React.FC<AffiliateDashboardProps> = ({
   onShowToast,
 }) => {
   const [activeTab, setActiveTab] = useState<AffiliateTab>(initialTab);
-  const [stats, setStats] = useState<AffiliateStats>(() => affiliateService.getStats());
-  const [commissions, setCommissions] = useState<CommissionRecord[]>(() => affiliateService.getCommissions());
-  const [payouts, setPayouts] = useState<PayoutRecord[]>(() => affiliateService.getPayouts());
-  const [treeData] = useState(() => affiliateService.getGenealogyTree());
-  const [flatMembers] = useState(() => affiliateService.getAllReferralsFlat());
+
+  // All affiliate figures are server-calculated. Until the backend responds
+  // there is nothing to show, so the dashboard renders a loading state rather
+  // than placeholder earnings.
+  const [stats, setStats] = useState<AffiliateStats | null>(null);
+  const [commissions, setCommissions] = useState<CommissionRecord[]>([]);
+  const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
+  const [treeData, setTreeData] = useState<ReferralMember[]>([]);
+  const [flatMembers, setFlatMembers] = useState<ReferralMember[]>([]);
+
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error' | 'not_enrolled'>(
+    'loading'
+  );
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [quickCopied, setQuickCopied] = useState(false);
 
-  // Sync listener for affiliate data updates
-  useEffect(() => {
-    const handleUpdate = () => {
-      setStats(affiliateService.getStats());
-      setCommissions(affiliateService.getCommissions());
-      setPayouts(affiliateService.getPayouts());
-    };
+  /**
+   * Loads the affiliate dashboard from the backend.
+   *
+   * A 404 means the signed-in user has no affiliate profile yet, which is a
+   * distinct state from a failure: the UI prompts enrollment instead of
+   * showing an error.
+   */
+  const loadAffiliateData = React.useCallback(async (signal?: AbortSignal) => {
+    setLoadState('loading');
+    setLoadError(null);
 
-    window.addEventListener('ils_affiliate_updated', handleUpdate);
-    return () => window.removeEventListener('ils_affiliate_updated', handleUpdate);
+    try {
+      const dashboard = await affiliateService.fetchDashboard({ signal });
+      if (signal?.aborted) return;
+
+      // Downline and ledger are independent: a failure in either must not
+      // discard the balances that did load.
+      const [genealogyResult, ledgerResult] = await Promise.allSettled([
+        affiliateService.fetchGenealogy({ signal }),
+        affiliateService.fetchLedgerPage({ limit: 100, signal }),
+      ]);
+
+      if (signal?.aborted) return;
+
+      const tree =
+        genealogyResult.status === 'fulfilled' ? genealogyResult.value : [];
+      const ledgerRecords =
+        ledgerResult.status === 'fulfilled' ? ledgerResult.value.records : [];
+
+      const flat: ReferralMember[] = [];
+      const walk = (list: ReferralMember[]) => {
+        list.forEach((m) => {
+          flat.push(m);
+          if (m.children?.length) walk(m.children);
+        });
+      };
+      walk(tree);
+
+      setTreeData(tree);
+      setFlatMembers(flat);
+      setCommissions(ledgerRecords);
+      setStats(
+        mapDashboardToStats(
+          dashboard,
+          flat.length,
+          flat.filter((m) => m.status === 'active').length
+        )
+      );
+
+      // No payout endpoint exists yet, so this stays empty.
+      setPayouts(await affiliateService.fetchPayouts());
+
+      setLoadState('ready');
+    } catch (err) {
+      if (signal?.aborted) return;
+
+      if (affiliateService.isNotEnrolled(err)) {
+        setLoadState('not_enrolled');
+        return;
+      }
+
+      setLoadState('error');
+      setLoadError(describeAffiliateError(err));
+    }
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadAffiliateData(controller.signal);
+
+    const handleUpdate = () => loadAffiliateData();
+    window.addEventListener('ils_affiliate_updated', handleUpdate);
+
+    return () => {
+      controller.abort();
+      window.removeEventListener('ils_affiliate_updated', handleUpdate);
+    };
+  }, [loadAffiliateData]);
 
   const handleTabChange = (tab: AffiliateTab) => {
     setActiveTab(tab);
@@ -81,6 +162,7 @@ export const AffiliateDashboard: React.FC<AffiliateDashboardProps> = ({
   };
 
   const handleQuickCopyLink = async () => {
+    if (!stats) return;
     const link = stats.referralLink || `${window.location.origin}/shop?rep=${stats.repUsername}`;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -103,6 +185,19 @@ export const AffiliateDashboard: React.FC<AffiliateDashboardProps> = ({
       onShowToast('Link copied to clipboard!', { type: 'success' });
     }
   };
+
+  // The dashboard body renders only once the backend has returned real
+  // figures. Loading, failure, and not-yet-enrolled are distinct states.
+  if (loadState !== 'ready' || !stats) {
+    return (
+      <AffiliateDashboardState
+        state={loadState}
+        message={loadError}
+        onRetry={() => loadAffiliateData()}
+        onNavigateToHome={onNavigateToHome}
+      />
+    );
+  }
 
   // Rank progress calculation
   const nextRankTarget = 3000;
@@ -437,7 +532,7 @@ export const AffiliateDashboard: React.FC<AffiliateDashboardProps> = ({
               />
 
               {/* Interactive Performance Graph */}
-              <EarningsChart />
+              <EarningsChart commissions={commissions} />
             </>
           )}
 

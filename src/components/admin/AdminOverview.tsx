@@ -13,12 +13,18 @@ import {
   CheckCircle2,
   Download,
 } from 'lucide-react';
-import type { AdminKPIs, AdminActivityItem, AdminTab, AdminCollectionItem, RepresentativeAdminRecord } from '../../types/admin';
+import type { AdminKPIs, AdminActivityItem, AdminTab, AdminCollectionItem } from '../../types/admin';
 import { adminService } from '../../services/adminService';
 
 interface AdminOverviewProps {
   kpis: AdminKPIs;
   activities: AdminActivityItem[];
+  /** Catalogue size, loaded from the backend by the dashboard container. */
+  productCount: number;
+  /** Customer account count, loaded from the backend. */
+  customerCount: number;
+  /** Representatives awaiting approval, loaded from the backend. */
+  pendingRepsCount: number;
   onNavigateTab: (tab: AdminTab) => void;
   onShowToast: (message: string, options?: { title?: string; type?: 'success' | 'info' }) => void;
 }
@@ -26,6 +32,9 @@ interface AdminOverviewProps {
 export const AdminOverview: React.FC<AdminOverviewProps> = ({
   kpis,
   activities,
+  productCount,
+  customerCount,
+  pendingRepsCount,
   onNavigateTab,
   onShowToast,
 }) => {
@@ -113,7 +122,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               </div>
             </div>
             <div className="text-xl font-black text-[#141219]">
-              {adminService.getCommerceProducts().length.toLocaleString()}
+              {productCount.toLocaleString()}
             </div>
             <div className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -171,7 +180,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               </div>
             </div>
             <div className="text-xl font-black text-[#141219]">
-              {adminService.getCustomers().length}
+              {customerCount.toLocaleString()}
             </div>
             <div className="text-[10px] text-emerald-700 font-bold">
               Active Profiles
@@ -193,7 +202,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               {kpis.activeRepresentatives}
             </div>
             <div className="text-[10px] text-amber-800 font-bold">
-              {adminService.getRepresentatives().filter((r: RepresentativeAdminRecord) => r.approvalStatus === 'pending').length} Pending
+              {pendingRepsCount} Pending
             </div>
           </div>
 

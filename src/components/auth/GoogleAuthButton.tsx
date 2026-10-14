@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { authService } from '../../services/auth';
+import { isGoogleAuthConfigured } from '../../services/googleIdentityService';
 import type { UserProfile } from '../../types';
 
 interface GoogleAuthButtonProps {
@@ -20,8 +21,13 @@ export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const isSubmittingRef = useRef(false);
 
+  // Google sign-in requires a public OAuth client ID. Without one there is no
+  // way to obtain a real credential, so the button is disabled rather than
+  // offering a sign-in that cannot succeed.
+  const isConfigured = isGoogleAuthConfigured();
+
   const handleClick = async () => {
-    if (isSubmittingRef.current || isLoading || disabled) return;
+    if (isSubmittingRef.current || isLoading || disabled || !isConfigured) return;
 
     isSubmittingRef.current = true;
     setIsLoading(true);
@@ -46,7 +52,12 @@ export const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
       type="button"
       id="btn-google-auth"
       onClick={handleClick}
-      disabled={disabled || isLoading}
+      disabled={disabled || isLoading || !isConfigured}
+      title={
+        isConfigured
+          ? undefined
+          : 'Google sign-in is not configured for this environment. Please sign in with your email and password.'
+      }
       className={`w-full h-[44px] sm:h-[46px] rounded-[13px] bg-white hover:bg-[#fff7f8] border border-[#e5dce2] hover:border-[#f1b8cb] text-[#1f1d24] text-xs sm:text-sm font-bold flex items-center justify-center gap-3 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-sm active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
       aria-label={label}
     >

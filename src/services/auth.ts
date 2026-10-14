@@ -1,5 +1,5 @@
 import type { UserProfile } from '../types';
-import { accountService } from './accountService';
+import { apiClient } from './apiClient';
 import { customerAuthService } from './customerAuthService';
 import { isAdminRole } from '../utils/roleUtils';
 
@@ -144,7 +144,11 @@ export const authService = {
   },
 
   /**
-   * Updates user password (supports reset token with backend API)
+   * Resets the account password using a reset token issued by
+   * `POST /api/auth/forgot-password`.
+   *
+   * A reset token is required: without one there is no way to authorize a
+   * password change, so this reports failure rather than claiming success.
    */
   async resetPassword(
     newPassword: string,
@@ -157,24 +161,23 @@ export const authService = {
       };
     }
 
-    if (token) {
-      return customerAuthService.resetPassword(token, newPassword);
+    if (!token) {
+      return {
+        success: false,
+        error:
+          'This password reset link is missing or incomplete. Please request a new reset email.',
+      };
     }
 
-    const current = accountService.getStoredUser();
-    if (current) {
-      accountService.updateStoredUser(current);
-    }
-
-    return {
-      success: true,
-      message:
-        'Your password has been successfully updated! You can now log in with your new password.',
-    };
+    return customerAuthService.resetPassword(token, newPassword);
   },
 
   /**
-   * Resends email verification link
+   * Email verification resend.
+   *
+   * The backend exposes no verification endpoint and does not gate sign-in on
+   * email verification, so there is nothing to resend. This reports the real
+   * state rather than fabricating a confirmation.
    */
   async resendVerification(email: string): Promise<{ success: boolean; message?: string; error?: string }> {
     const cleanEmail = email.trim().toLowerCase();
@@ -182,7 +185,11 @@ export const authService = {
       return { success: false, error: 'Please enter a valid email address.' };
     }
 
-    return { success: true, message: `Verification email has been resent to ${cleanEmail}.` };
+    return {
+      success: false,
+      error:
+        'Email verification is not enabled for this store yet, so there is nothing to resend. You can sign in with your email and password.',
+    };
   },
 
   /**
@@ -205,11 +212,11 @@ export const authService = {
   },
 
   /**
-   * Synchronizes user profile
+   * Re-reads the authenticated profile from the backend after an OAuth sign-in.
    */
   async syncOAuthUserProfile(user: any): Promise<UserProfile | null> {
     if (!user) return null;
-    return accountService.getStoredUser();
+    return customerAuthService.getCurrentUser();
   },
 
   /**
@@ -220,53 +227,36 @@ export const authService = {
   },
 
   /**
-   * Verifies whether the current session possesses administrator privileges.
+   * Verifies administrator privileges against the backend.
+   *
+   * The role is read from `GET /api/auth/me` on every check, so admin access
+   * depends on a valid JWT whose database-backed user holds the ADMIN role.
+   * Locally stored profile data is never sufficient to pass this check.
    */
   async verifyAdminSession(): Promise<{ isAdmin: boolean; user: UserProfile | null }> {
-    const user = accountService.getStoredUser();
-    if (!user) return { isAdmin: false, user: null };
-
-    const isAdmin = isAdminRole(user.role);
-    if (!isAdmin) {
+    if (!apiClient.getAuthToken()) {
       return { isAdmin: false, user: null };
+    }
+
+    const user = await customerAuthService.getCurrentUser();
+    if (!user) {
+      return { isAdmin: false, user: null };
+    }
+
+    if (!isAdminRole(user.role)) {
+      return { isAdmin: false, user };
     }
 
     return { isAdmin: true, user };
   },
 
   /**
-   * Authenticates administrator locally
-   */
-  async localAdminSignIn(payload: LoginPayload): Promise<AuthResponse> {
-    const identifier = payload.identifier.trim().toLowerCase();
-    if (!identifier || !payload.password) {
-      return {
-        success: false,
-        error: 'Please provide both email and password.',
-      };
-    }
-
-    const adminUser: UserProfile = {
-      id: 'admin_primary_1',
-      name: identifier.split('@')[0] || 'Administrator',
-      email: identifier,
-      role: 'admin',
-      avatar: '/assets/ilovesurprises/Profile/profile image.webp',
-      createdAt: new Date().toISOString(),
-    };
-
-    accountService.updateStoredUser(adminUser);
-    window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
-
-    return {
-      success: true,
-      user: adminUser,
-      token: 'demo-admin-token',
-    };
-  },
-
-  /**
-   * Authenticates an administrator
+   * Authenticates an administrator against the backend.
+   *
+   * This is the same `POST /api/auth/login` used by customers; the ADMIN role
+   * is then confirmed from the authenticated backend response. There is no
+   * local or demo admin path — a session is only granted when the backend
+   * authenticates the credentials AND reports the ADMIN role.
    */
   async adminLogin(payload: LoginPayload): Promise<AuthResponse & { isAdmin?: boolean }> {
     const cleanEmail = payload.identifier.trim().toLowerCase();
@@ -277,36 +267,48 @@ export const authService = {
       };
     }
 
-    const adminUser: UserProfile = {
-      id: 'admin_primary_1',
-      name: cleanEmail.split('@')[0] || 'Administrator',
-      email: cleanEmail,
-      role: 'admin',
-      avatar: '/assets/ilovesurprises/Profile/profile image.webp',
-      createdAt: new Date().toISOString(),
-    };
+    const res = await customerAuthService.loginWithEmailPassword({
+      identifier: cleanEmail,
+      password: payload.password,
+      rememberMe: payload.rememberMe,
+    });
 
-    accountService.updateStoredUser(adminUser);
-    window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
+    if (!res.success || !res.user) {
+      return { success: false, error: res.error, isAdmin: false };
+    }
+
+    if (!isAdminRole(res.user.role)) {
+      // Authenticated, but not an administrator. Drop the session created by
+      // this attempt so a non-admin is not silently left signed in behind the
+      // admin console.
+      await customerAuthService.logout();
+      return {
+        success: false,
+        error:
+          'Access denied. This account does not have administrator privileges.',
+        isAdmin: false,
+      };
+    }
 
     return {
       success: true,
-      user: adminUser,
-      token: 'demo-admin-token',
+      user: res.user,
+      token: res.token,
       isAdmin: true,
     };
   },
 
   /**
-   * Signs out the administrator
+   * Signs out the administrator, clearing the real session and token.
    */
   async adminLogout(): Promise<void> {
-    accountService.updateStoredUser(null);
-    window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
+    await customerAuthService.logout();
   },
 
   /**
-   * Dispatches an administrator password reset
+   * Dispatches an administrator password reset through the real backend
+   * endpoint. The backend intentionally returns the same generic message
+   * whether or not the address exists, so no account enumeration occurs.
    */
   async adminForgotPassword(email: string): Promise<ForgotPasswordResponse> {
     const cleanEmail = email.trim().toLowerCase();
@@ -318,9 +320,6 @@ export const authService = {
       };
     }
 
-    return {
-      success: true,
-      message: `Administrator password reset instructions dispatched to ${cleanEmail}. Please check your inbox.`,
-    };
+    return customerAuthService.forgotPassword(cleanEmail);
   },
 };

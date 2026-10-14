@@ -25,8 +25,10 @@ import {
 } from 'lucide-react';
 import type { UserProfile } from '../../types';
 import { representativeService } from '../../services/representativeService';
-import { adminService } from '../../services/adminService';
 import { accountService } from '../../services/accountService';
+import { affiliateService } from '../../services/affiliateService';
+import { customerAuthService } from '../../services/customerAuthService';
+import { ApiError } from '../../services/apiClient';
 
 export interface RepresentativeSubscriptionModalProps {
   isOpen: boolean;
@@ -167,10 +169,11 @@ export const RepresentativeSubscriptionModal: React.FC<RepresentativeSubscriptio
 
   // Payment Form States
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'apple_pay' | 'paypal'>('card');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvc, setCardCvc] = useState('');
+  // Card number, expiry, and CVC are not held in application state: there is
+  // no payment integration to send them to, and the full PAN and CVC must
+  // never pass through this app. Only the billing contact name is kept.
   const [cardholderName, setCardholderName] = useState(fullName || '');
+  const [enrollmentError, setEnrollmentError] = useState<string | null>(null);
   const [streetAddress, setStreetAddress] = useState('');
   const [city, setCity] = useState('');
   const [stateCode, setStateCode] = useState('');
@@ -300,101 +303,78 @@ export const RepresentativeSubscriptionModal: React.FC<RepresentativeSubscriptio
     setStep('payment');
   };
 
-  // Step 2: Process Payment & Finalize Activation
-  const handleCompleteSubscriptionPayment = (e: React.FormEvent) => {
+  /**
+   * Step 2: Enroll as a representative.
+   *
+   * Enrollment itself is real: `POST /api/affiliates/register` creates the
+   * affiliate profile, referral code, sponsor link, and genealogy node in
+   * PostgreSQL, and the backend assigns the AFFILIATE role. The role is then
+   * re-read from `GET /api/auth/me` so it comes from the server, never from a
+   * local write.
+   *
+   * The membership FEE is a separate matter: the backend exposes no
+   * subscription or payment endpoint, so no charge can be taken or verified.
+   * This previously ran a 1.4s timer, wrote a `paymentStatus: 'paid'`
+   * membership with a fabricated "Visa •••• 4242" snippet, self-promoted the
+   * user's role in localStorage, and announced "Payment confirmed". None of
+   * that happened on a server. It now enrolls the account and states plainly
+   * that no payment was taken.
+   */
+  const handleCompleteSubscriptionPayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    const cleanUsername = username.toLowerCase().trim();
 
     setIsSubmitting(true);
+    setEnrollmentError(null);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      // Enroll server-side. Requires an authenticated session.
+      await affiliateService.registerAffiliate({ username: cleanUsername });
 
-      // 1. Create or update attributed representative
-      representativeService.setAttributedRepresentative({
-        id: `rep-custom-${Date.now()}`,
-        name: fullName,
-        repUsername: username.toLowerCase().trim(),
-        avatar: avatarUrl || '/assets/ilovesurprises/Profile/profile%20image.webp',
-        tagline: 'Your Independent Surprise Consultant ✨',
-        rank: 'VIP Partner',
-        joinedYear: '2026',
-        storeUrl: `https://ilovesurprises.com/${username.toLowerCase().trim()}`,
-        favoriteProduct: 'Tahitian Vanilla & Gold Cash Candle',
-      });
-
-      // 2. Add membership record into adminService store
-      try {
-        const adminMemberships = adminService.getMemberships();
-        const newRecord = {
-          id: `mem-${Date.now()}`,
-          representativeId: `rep-${Date.now()}`,
-          repName: fullName,
-          repUsername: username.toLowerCase().trim(),
-          repAvatar: avatarUrl || '/assets/ilovesurprises/Profile/profile%20image.webp',
-          plan: selectedPlan,
-          planName: currentPlan.name,
-          price: currentPlan.price,
-          billingFrequency: (currentPlan.id === 'monthly'
-            ? 'monthly'
-            : currentPlan.id === 'six_month'
-            ? 'every_6_months'
-            : 'annually') as 'monthly' | 'every_6_months' | 'annually',
-          discountNotice: currentPlan.discountBadge || 'Standard Enrollment',
-          paymentStatus: 'paid' as const,
-          status: 'active' as const,
-          nextBillingDate: '2026-04-01',
-          renewalStatus: 'auto_renew' as const,
-          cancellationStatus: 'none' as const,
-          startedAt: new Date().toISOString().split('T')[0],
-          paymentMethodSnippet: `Visa •••• ${cardNumber.slice(-4) || '4242'}`,
-        };
-        adminMemberships.unshift(newRecord);
-        localStorage.setItem('ils_admin_memberships_v1', JSON.stringify(adminMemberships));
-      } catch {
-        // Fallback
-      }
-
-      // 3. Mark consultant subscription in persistent storage & update user profile
-      try {
-        localStorage.setItem('ils_consultant_subscribed', 'true');
-        localStorage.setItem('ils_consultant_username', username.toLowerCase().trim());
-        localStorage.setItem('ils_consultant_name', fullName);
-
-        const currentStored = accountService.getStoredUser() || user;
-        if (currentStored) {
-          const updatedUser: UserProfile = {
-            ...currentStored,
-            role: 'representative',
-            repUsername: username.toLowerCase().trim(),
-          };
-          accountService.updateStoredUser(updatedUser);
-        } else {
-          const newRepUser: UserProfile = {
-            id: `user-rep-${Date.now()}`,
-            name: fullName,
-            email: email || 'consultant@ilovesurprises.com',
-            role: 'representative',
-            repUsername: username.toLowerCase().trim(),
-            avatar: '/assets/ilovesurprises/Profile/profile%20image.webp',
-          };
-          accountService.updateStoredUser(newRepUser);
-        }
-
-        window.dispatchEvent(new CustomEvent('ils_consultant_subscribed', {
-          detail: { username: username.toLowerCase().trim(), fullName }
-        }));
+      // Pick up the role the backend assigned; never set it locally.
+      const refreshed = await customerAuthService.getCurrentUser();
+      if (refreshed) {
+        accountService.updateStoredUser({
+          ...refreshed,
+          repUsername: cleanUsername,
+        });
         window.dispatchEvent(new CustomEvent('ilovesurprises_user_updated'));
-      } catch (err) {
-        console.error('Error saving consultant subscription status', err);
       }
 
-      onShowToast?.(`Congratulations ${fullName}! Payment confirmed & storefront is active!`, {
-        title: '🎉 Enrollment Paid & Active',
-        type: 'success',
-      });
+      // Attribute browsing to this representative's own storefront.
+      representativeService.setAttributedRepresentative(cleanUsername);
+
+      window.dispatchEvent(
+        new CustomEvent('ils_consultant_subscribed', {
+          detail: { username: cleanUsername, fullName },
+        })
+      );
+      window.dispatchEvent(new CustomEvent('ils_affiliate_updated'));
+
+      // Accurate wording: the account is enrolled; the fee was not charged.
+      onShowToast?.(
+        `Your representative storefront is active, ${fullName}. No membership fee was charged — online payments are not enabled yet.`,
+        { title: 'Representative account created', type: 'success' }
+      );
 
       setStep('success');
-    }, 1400);
+    } catch (err: any) {
+      const message =
+        err instanceof ApiError
+          ? err.statusCode === 401
+            ? 'Please sign in before enrolling as a representative.'
+            : err.statusCode === 409
+              ? 'That handle is already taken. Please choose another.'
+              : err.displayMessage
+          : err?.message || 'Your representative account could not be created.';
+
+      setEnrollmentError(message);
+      onShowToast?.(message, { title: 'Enrollment failed', type: 'info' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCopyStoreUrl = () => {
@@ -1016,14 +996,12 @@ export const RepresentativeSubscriptionModal: React.FC<RepresentativeSubscriptio
 
                   {/* Checkout Security & Primary Action Button */}
                   <div className="space-y-3 pt-2">
-                    {/* Payment Simulator Badge */}
-                    <div className="p-2.5 rounded-xl bg-white border border-stone-200 flex items-center justify-between text-xs text-stone-600">
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="w-4 h-4 text-[#D30915]" />
-                        <span className="font-medium text-[11.5px]">Secure Checkout via Stripe • Visa •••• 4242</span>
-                      </div>
-                      <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                        256-Bit SSL
+                    {/* No stored card is displayed: none is collected, and
+                        claiming a card on file would be untrue. */}
+                    <div className="p-2.5 rounded-xl bg-white border border-stone-200 flex items-center gap-2 text-xs text-stone-600">
+                      <CreditCard className="w-4 h-4 text-stone-400" />
+                      <span className="font-medium text-[11.5px]">
+                        No payment method on file
                       </span>
                     </div>
 
@@ -1153,56 +1131,40 @@ export const RepresentativeSubscriptionModal: React.FC<RepresentativeSubscriptio
                     />
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-stone-700 block mb-1">
-                      Card Number
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        required
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                        placeholder="•••• •••• •••• ••••"
-                        className="w-full h-10 pl-3.5 pr-20 rounded-xl bg-white border border-stone-300 text-xs sm:text-sm font-mono text-stone-900 font-medium focus:outline-none focus:border-[#D30915] focus:ring-2 focus:ring-[#D30915]/15"
-                      />
-                      <div className="absolute right-3 top-2.5 flex items-center gap-1 text-[10px] font-black text-stone-500 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
-                        <span>VISA</span>
+                  {/*
+                    Card fields removed: there is no payment integration to
+                    submit them to, and the raw PAN/CVC must never enter
+                    application state. When a provider is configured its hosted
+                    element mounts here.
+                  */}
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 flex items-start gap-2.5">
+                    <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="text-xs text-amber-900 leading-relaxed">
+                      <div className="font-bold text-amber-950 mb-0.5">
+                        No membership fee is charged right now
+                      </div>
+                      <div>
+                        Online payments are not enabled on the server yet, so no
+                        card is collected and nothing is billed. Your
+                        representative account and storefront are still created,
+                        and you can start sharing your referral link
+                        immediately.
                       </div>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-bold text-stone-700 block mb-1">
-                        Expiry Date
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={cardExpiry}
-                        onChange={(e) => setCardExpiry(e.target.value)}
-                        placeholder="MM / YY"
-                        className="w-full h-10 px-3.5 rounded-xl bg-white border border-stone-300 text-xs sm:text-sm font-mono text-stone-900 font-medium focus:outline-none focus:border-[#D30915] focus:ring-2 focus:ring-[#D30915]/15"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-stone-700 block mb-1">
-                        CVC / Security Code
-                      </label>
-                      <input
-                        type="password"
-                        maxLength={4}
-                        required
-                        value={cardCvc}
-                        onChange={(e) => setCardCvc(e.target.value)}
-                        placeholder="•••"
-                        className="w-full h-10 px-3.5 rounded-xl bg-white border border-stone-300 text-xs sm:text-sm font-mono text-stone-900 font-medium focus:outline-none focus:border-[#D30915] focus:ring-2 focus:ring-[#D30915]/15"
-                      />
-                    </div>
-                  </div>
                 </div>
+
+                {enrollmentError && (
+                  <div
+                    role="alert"
+                    className="p-3 rounded-xl bg-red-50 border border-red-300 text-xs text-red-900 leading-relaxed"
+                  >
+                    <span className="font-bold text-red-950">
+                      Enrollment failed:{' '}
+                    </span>
+                    {enrollmentError}
+                  </div>
+                )}
 
                 {/* 3. Physical Starter Kit Delivery Address */}
                 <div className="space-y-3">
@@ -1347,12 +1309,12 @@ export const RepresentativeSubscriptionModal: React.FC<RepresentativeSubscriptio
                     {isSubmitting ? (
                       <span className="flex items-center gap-2">
                         <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Authorizing Payment via Stripe...
+                        Creating your storefront...
                       </span>
                     ) : (
                       <>
                         <Lock className="w-4 h-4" />
-                        <span>Pay & Activate Storefront (${grandTotal.toFixed(2)})</span>
+                        <span>Activate My Storefront</span>
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}

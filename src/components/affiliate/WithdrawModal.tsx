@@ -63,26 +63,31 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
     }
 
     setIsSubmitting(true);
-    const result = await affiliateService.requestPayout({
-      amount: numAmount,
-      method,
-      destinationAccount: destination.trim(),
-    });
 
-    setIsSubmitting(false);
+    try {
+      // Submits the withdrawal to the backend. While no payout endpoint
+      // exists this throws, and no success state is shown — a withdrawal is
+      // never reported as scheduled unless the server recorded it.
+      await affiliateService.requestPayout();
 
-    if (result.success && result.payout) {
-      const updatedStats = affiliateService.getStats();
-      const updatedPayouts = affiliateService.getPayouts();
+      const [updatedStats, updatedPayouts] = await Promise.all([
+        affiliateService.fetchStats(),
+        affiliateService.fetchPayouts(),
+      ]);
       onUpdateStats(updatedStats);
       onUpdatePayouts(updatedPayouts);
-      setSuccessPayout(result.payout);
-      onShowToast(`Payout request for $${numAmount.toFixed(2)} scheduled for monthly distribution on the 15th!`, {
-        title: 'Withdrawal Scheduled',
+
+      onShowToast(`Payout request for $${numAmount.toFixed(2)} submitted.`, {
+        title: 'Withdrawal Requested',
         type: 'success',
       });
-    } else {
-      setErrorMsg(result.error || 'Failed to submit withdrawal request');
+    } catch (err: any) {
+      setErrorMsg(
+        err?.message ||
+          'Withdrawals are not available yet. Your balance is unchanged.'
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

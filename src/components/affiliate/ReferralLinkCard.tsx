@@ -42,16 +42,31 @@ export const ReferralLinkCard: React.FC<ReferralLinkCardProps> = ({
     setTimeout(() => setCopied(false), 2400);
   };
 
-  const handleSaveUsername = (e: React.FormEvent) => {
+  /**
+   * Changing the referral handle requires a backend affiliate-profile update
+   * endpoint, which does not exist. The attempt reports the real outcome
+   * rather than showing a renamed handle that was never persisted — the link
+   * below would still resolve to the old handle.
+   */
+  const handleSaveUsername = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUsername.trim()) return;
-    const updated = affiliateService.updateRepUsername(newUsername);
-    onUpdateStats(updated);
-    setIsEditingUsername(false);
-    onShowToast(`Rep handle updated to "@${updated.repUsername}"`, {
-      title: 'Storefront Handle Updated',
-      type: 'success',
-    });
+
+    try {
+      await affiliateService.updateRepUsername();
+      // Unreachable while the endpoint is missing; kept so this works
+      // unchanged once the backend supports it.
+      onUpdateStats(await affiliateService.fetchStats());
+      setIsEditingUsername(false);
+    } catch (err: any) {
+      setNewUsername(stats.repUsername);
+      setIsEditingUsername(false);
+      onShowToast(
+        err?.message ||
+          'Your referral handle cannot be changed yet. Please contact support.',
+        { title: 'Handle not changed', type: 'info' }
+      );
+    }
   };
 
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(

@@ -20,6 +20,7 @@ import { productService } from './services/productService';
 import { cartService } from './services/cartService';
 import { accountService } from './services/accountService';
 import { representativeService } from './services/representativeService';
+import { affiliateService } from './services/affiliateService';
 import { SEOHead } from './components/seo/SEOHead';
 import { authService } from './services/auth';
 import { customerAuthService } from './services/customerAuthService';
@@ -583,11 +584,79 @@ export function App() {
       );
     };
 
+    // Referral attribution is confirmed against the backend. Calling
+    // GET /api/affiliates/resolve/:username both validates the handle against
+    // the database and makes the server set its HTTP-only `ils_affiliate_id`
+    // cookie (30 days), which is what carries the referral through the cart,
+    // sign-in, and checkout per the backend contract.
+    // Permission errors (403) are distinct from session expiry: the session is
+    // valid, the account simply lacks the required role.
+    const handleForbidden = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      showToast(
+        detail?.message || 'You do not have permission to perform this action.',
+        {
+          title: 'Permission Denied',
+          type: 'info',
+        }
+      );
+    };
+
     window.addEventListener('ilovesurprises_unauthorized', handleUnauthorizedSession);
+    window.addEventListener('ilovesurprises_forbidden', handleForbidden);
     return () => {
       window.removeEventListener('ilovesurprises_unauthorized', handleUnauthorizedSession);
+      window.removeEventListener('ilovesurprises_forbidden', handleForbidden);
     };
   }, [currentView]);
+
+  /**
+   * Confirms referral attribution with the backend.
+   *
+   * The route resolver above attributes optimistically so the page renders
+   * immediately. This then calls `GET /api/affiliates/resolve/:username`,
+   * which validates the handle against the database and makes the server set
+   * its HTTP-only `ils_affiliate_id` cookie — the mechanism that carries the
+   * referral through the cart, authentication, and checkout. If the handle is
+   * not a real affiliate, the local attribution is cleared so a bad link never
+   * credits a representative.
+   */
+  useEffect(() => {
+    const path = window.location.pathname;
+    const handle = path.startsWith('/rep/')
+      ? path.replace('/rep/', '').split('/')[0]
+      : '';
+
+    const attributed = representativeService.getAttributedRepresentative()?.repUsername;
+    const candidate = handle || attributed;
+    if (!candidate) return;
+
+    const controller = new AbortController();
+
+    affiliateService
+      .resolveReferral(candidate, {
+        landingPage: path,
+        signal: controller.signal,
+      })
+      .then((affiliate) => {
+        if (controller.signal.aborted) return;
+        if (affiliate) {
+          // Confirmed: keep the handle the backend recognises.
+          representativeService.setAttributedRepresentative(
+            affiliate.username || affiliate.referralCode
+          );
+        } else if (handle) {
+          // The link named a handle the database does not know.
+          representativeService.clearAttributedRepresentative();
+        }
+      })
+      .catch(() => {
+        // Network failure: leave the existing attribution untouched rather
+        // than dropping a referral because of a transient error.
+      });
+
+    return () => controller.abort();
+  }, []);
 
   // Admin Route Protection & Session Verification
   useEffect(() => {

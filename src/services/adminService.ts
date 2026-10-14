@@ -20,24 +20,470 @@ import type {
   HomepageContentConfig,
   AdminStaffUser,
 } from '../types/admin';
-import { productsData } from '../data/products';
 import { categoriesData } from '../data/categories';
-import { MOCK_ORDERS } from '../data/mockData';
-import { apiClient, type ApiResponse } from './apiClient';
-// Standalone admin service with backend API integration and persistent local storage
+import { apiClient, ApiError, unwrap, type ApiResponse } from './apiClient';
+import { analyticsService } from './analyticsService';
+import { cmsService } from './cmsService';
 
+/**
+ * Admin service.
+ *
+ * Products, users, roles, storefront content, analytics, and the commission
+ * ledger are read from and written to the Express backend; those are
+ * server-authoritative and have no local mirror.
+ *
+ * Some admin surfaces have no backend endpoint yet (orders, collections CRUD,
+ * inventory logs, store settings, refunds, discounts, memberships, appraisals).
+ * Those remain browser-local and are explicitly flagged by
+ * `ADMIN_FEATURE_AVAILABILITY` so the UI can label them instead of presenting
+ * local state as persisted business data.
+ */
+
+/** Safety bound when walking paginated product pages. */
+const MAX_ADMIN_PRODUCT_PAGES = 50;
+
+/**
+ * Which admin capabilities are backed by a real endpoint.
+ * `false` means the backend exposes no route, so the data is local-only and
+ * must be presented as such.
+ */
+export const ADMIN_FEATURE_AVAILABILITY = {
+  products: true,
+  productVariants: false,
+  users: true,
+  userRoles: true,
+  affiliateAccounts: true,
+  commissionLedger: true,
+  analytics: true,
+  storefrontContent: true,
+  orders: false,
+  paymentStatuses: false,
+  inventoryLog: false,
+  collectionsCrud: false,
+  storeSettings: false,
+  refunds: false,
+  discounts: false,
+  memberships: false,
+  appraisals: false,
+} as const;
+
+export type AdminFeature = keyof typeof ADMIN_FEATURE_AVAILABILITY;
+
+export function isAdminFeatureBackedByApi(feature: AdminFeature): boolean {
+  return ADMIN_FEATURE_AVAILABILITY[feature];
+}
+
+/** Backend product DTO (mirrors backend ProductResponseDTO). */
+export interface BackendProduct {
+  id: string;
+  name: string;
+  slug: string;
+  shortDescription: string | null;
+  description: string | null;
+  price: number;
+  compareAtPrice: number | null;
+  imageUrl: string | null;
+  images: string[];
+  categoryId: string | null;
+  categoryName?: string | null;
+  badge: string | null;
+  rating: number;
+  reviewCount: number;
+  stock: number;
+  inStock: boolean;
+  lowStockThreshold: number;
+  sku: string | null;
+  isBestSeller: boolean;
+  isNew: boolean;
+  status: string;
+  surpriseType?: string | null;
+  surpriseValue?: number | string | null;
+}
+
+export interface BackendProductListPayload {
+  products: BackendProduct[];
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+/** Backend admin user DTO (mirrors backend UserResponseDTO). */
+export interface BackendAdminUser {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+  isActive: boolean;
+  emailVerified?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BackendAdminUserListPayload {
+  users: BackendAdminUser[];
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+/** Accepts either `{product}` or a bare product object. */
+function extractProduct(response: any, endpoint: string): BackendProduct {
+  const data = unwrap<{ product?: BackendProduct } | BackendProduct>(response, endpoint);
+  const product = (data as { product?: BackendProduct })?.product ?? (data as BackendProduct);
+  if (!product?.id) {
+    throw new ApiError(
+      `The server did not return a product for ${endpoint}.`,
+      0,
+      'parse'
+    );
+  }
+  return product;
+}
+
+/** Maps a `ProductStatus` enum value to the admin UI's lowercase status. */
+function toUiProductStatus(status: string | undefined): AdminProductItem['status'] {
+  switch (String(status || '').toUpperCase()) {
+    case 'DRAFT':
+      return 'draft';
+    case 'ARCHIVED':
+      return 'archived';
+    default:
+      return 'active';
+  }
+}
+
+/** Maps the admin UI status back to the backend `ProductStatus` enum. */
+function toBackendProductStatus(status: string | undefined): string {
+  switch (String(status || '').toLowerCase()) {
+    case 'draft':
+      return 'DRAFT';
+    case 'archived':
+      return 'ARCHIVED';
+    default:
+      return 'ACTIVE';
+  }
+}
+
+/**
+ * The backend validates image fields as absolute URLs. Relative asset paths
+ * are resolved against the current origin; anything else is rejected by
+ * returning null so the caller can surface a clear validation message rather
+ * than letting the backend 400.
+ */
+function toAbsoluteImageUrl(value: string | undefined | null): string | null {
+  const raw = (value || '').trim();
+  if (!raw) return null;
+
+  if (/^https?:\/\//i.test(raw)) return raw;
+
+  if (raw.startsWith('/') && typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${raw}`;
+  }
+
+  return null;
+}
+
+/** Maps a backend product onto the admin table's view model. */
+export function mapBackendProductToAdmin(p: BackendProduct): AdminProductItem {
+  const categoryName =
+    p.categoryName ||
+    categoriesData.find((c) => c.id === p.categoryId)?.name ||
+    p.badge ||
+    'Uncategorized';
+
+  return {
+    id: p.id,
+    name: p.name,
+    sku: p.sku || '',
+    category: categoryName,
+    price: Number(p.price) || 0,
+    originalPrice:
+      p.compareAtPrice !== null && p.compareAtPrice !== undefined
+        ? Number(p.compareAtPrice)
+        : undefined,
+    description: p.description || p.shortDescription || undefined,
+    stock: Number(p.stock) || 0,
+    lowStockThreshold: Number(p.lowStockThreshold) || 0,
+    surpriseType: p.surpriseType || '',
+    surpriseValue:
+      p.surpriseValue !== null && p.surpriseValue !== undefined
+        ? String(p.surpriseValue)
+        : undefined,
+    image: p.imageUrl || p.images?.[0] || '',
+    images: Array.isArray(p.images) ? p.images : undefined,
+    rating: Number(p.rating) || 0,
+    reviewCount: Number(p.reviewCount) || 0,
+    status: toUiProductStatus(p.status),
+    isBestSeller: Boolean(p.isBestSeller),
+  };
+}
+
+/** Maps a backend user onto the admin customer table's view model. */
+export function mapBackendUserToCustomer(u: BackendAdminUser): AdminCustomerItem {
+  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+
+  return {
+    id: u.id,
+    name: name || u.email.split('@')[0],
+    email: u.email,
+    // The backend user record carries no phone number.
+    phone: '',
+    // Order counts, lifetime spend, and last-order date require an orders
+    // endpoint that does not exist yet. They are reported as unavailable (0 /
+    // empty) rather than estimated, and the Customers view labels them.
+    ordersCount: 0,
+    totalSpent: 0,
+    lastOrderDate: '',
+    status: u.isActive ? 'active' : 'inactive',
+  };
+}
+
+/** One admin commission ledger row (mirrors backend AdminLedgerItemDTO). */
+export interface BackendAdminLedgerItem {
+  id: string;
+  representative: {
+    id: string;
+    username: string;
+    fullName: string;
+    email: string;
+    status: string;
+  };
+  orderAndCustomer: {
+    orderId: string;
+    orderNumber: string;
+    customerName: string;
+    customerEmail: string;
+    orderDate: string;
+  };
+  tierLevel: {
+    level: number;
+    name: string;
+    ratePercent: number;
+  };
+  orderVolume: number;
+  commissionEarned: {
+    rate: number;
+    amountUsd: number;
+    formattedAmount: string;
+  };
+  status: string;
+  availableAt: string;
+  ruleVersion: string;
+  parentLedgerId: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+/**
+ * The ledger endpoint's payload. The backend returns `{ items, pagination }`;
+ * the alternative keys are read defensively only as a tolerance measure.
+ */
+export interface BackendAdminLedgerPayload {
+  items?: BackendAdminLedgerItem[];
+  entries?: BackendAdminLedgerItem[];
+  ledger?: BackendAdminLedgerItem[];
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+/**
+ * Maps a backend ledger status onto the admin UI's status union.
+ * Backend statuses: pending | available | paid | hold | void | reversed.
+ */
+function toUiCommissionStatus(status: string): CommissionLedgerStatus {
+  switch (String(status || '').toLowerCase()) {
+    case 'paid':
+      return 'paid';
+    case 'available':
+      return 'approved';
+    case 'reversed':
+    case 'void':
+      return 'reversed';
+    case 'hold':
+      return 'unqualified';
+    default:
+      return 'pending';
+  }
+}
+
+/**
+ * Maps a server-calculated ledger entry onto the admin table's view model.
+ * Commission amounts and rates are taken exactly as the backend computed them.
+ */
+export function mapBackendLedgerEntry(
+  entry: BackendAdminLedgerItem
+): AdminCommissionRecord {
+  const level = Number(entry.tierLevel?.level);
+
+  return {
+    id: entry.id,
+    repId: entry.representative?.id || '',
+    repName: entry.representative?.fullName || entry.representative?.username || '',
+    repUsername: entry.representative?.username || '',
+    orderId: entry.orderAndCustomer?.orderNumber || entry.orderAndCustomer?.orderId || '',
+    orderAmount: Number(entry.orderVolume) || 0,
+    // Level 0 is the selling representative's own commission.
+    tier: (level === 0 ? 'selling_rep' : level) as AdminCommissionRecord['tier'],
+    tierLabel: entry.tierLevel?.name || '',
+    ratePercent: Number(entry.tierLevel?.ratePercent) || 0,
+    commissionAmount: Number(entry.commissionEarned?.amountUsd) || 0,
+    status: toUiCommissionStatus(entry.status),
+    date: entry.createdAt
+      ? new Date(entry.createdAt).toISOString().split('T')[0]
+      : '',
+    customerName: entry.orderAndCustomer?.customerName || '',
+    ...(entry.note ? { unqualifiedReason: entry.note } : {}),
+  };
+}
+
+/**
+ * Which homepage sections the backend can actually store.
+ *
+ * `GET/PATCH /api/storefront` covers the announcement bar, the promotional
+ * bar, and the showcase cards. The hero, value proposition, about copy, FAQ,
+ * and footer have no endpoint, so they remain shipped/local configuration.
+ */
+export const HOMEPAGE_BACKED_SECTIONS = {
+  announcementBar: true,
+  promoBar: true,
+  showcaseCards: true,
+  hero: false,
+  valueProposition: false,
+  aboutContent: false,
+  faqItems: false,
+  footerContent: false,
+} as const;
+
+/**
+ * Overlays the authoritative storefront configuration onto the local homepage
+ * content shape, so the homepage renders database values for everything the
+ * backend owns while keeping the sections it cannot store.
+ */
+export function mergeStorefrontIntoHomepageContent(
+  local: HomepageContentConfig,
+  storefront: {
+    showcaseCards: Array<{
+      id: string;
+      cardKey: string;
+      displayTitle: string;
+      highlightBadge: string;
+      tagline: string;
+      ctaButtonText: string;
+      targetCategoryKey: string;
+      showcaseImageUri: string;
+      displayOnHomepage: boolean;
+      isActive: boolean;
+      sortOrder: number;
+    }>;
+    banners: {
+      topStickyAnnouncementBar: { isActive: boolean; announcementCopy: string };
+      promotionalDiscountAlertBar: {
+        isActive: boolean;
+        promoCopy: string;
+        promoCode: string;
+      };
+    };
+  }
+): HomepageContentConfig {
+  const announcement = storefront.banners?.topStickyAnnouncementBar;
+  const promo = storefront.banners?.promotionalDiscountAlertBar;
+
+  // Preserve the local card's presentation-only fields (accent colour, item
+  // count) which the backend does not model, while taking all editable
+  // content from the server.
+  const mergedCards = (storefront.showcaseCards || []).map((card) => {
+    const existing = (local.featuredCards || []).find(
+      (c) => c.id === card.cardKey || c.id === card.id
+    );
+
+    return {
+      ...existing,
+      id: card.cardKey || card.id,
+      title: card.displayTitle,
+      categoryKey: card.targetCategoryKey,
+      badge: card.highlightBadge,
+      tagline: card.tagline,
+      ctaText: card.ctaButtonText,
+      image: card.showcaseImageUri,
+      active: card.isActive && card.displayOnHomepage,
+      itemCount: existing?.itemCount ?? 0,
+      accentBorder: existing?.accentBorder ?? 'hover:border-[#D30915]',
+    } as HomepageContentConfig['featuredCards'][number];
+  });
+
+  return {
+    ...local,
+    announcementText: announcement?.announcementCopy ?? local.announcementText,
+    announcementActive: announcement?.isActive ?? local.announcementActive,
+    promoBannerText: promo?.promoCopy ?? local.promoBannerText,
+    promoBannerCode: promo?.promoCode ?? local.promoBannerCode,
+    promoBannerActive: promo?.isActive ?? local.promoBannerActive,
+    featuredCards: mergedCards.length ? mergedCards : local.featuredCards,
+  };
+}
+
+/** Notifies admin and storefront views that server-side data changed. */
+function notifyAdminDataChanged(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('ils_admin_updated'));
+  window.dispatchEvent(new CustomEvent('ils_catalog_updated'));
+}
+
+/* Local keys still in use for admin surfaces that have no backend endpoint. */
 const ADMIN_ROLE_KEY = 'ils_admin_current_role_v1';
 const ADMIN_ROLES_PERMISSIONS_OVERRIDE_KEY = 'ils_admin_roles_permissions_v1';
-const ADMIN_REPS_KEY = 'ils_admin_representatives_v1';
 const ADMIN_MEMBERSHIPS_KEY = 'ils_admin_memberships_v1';
-const ADMIN_COMMISSIONS_KEY = 'ils_admin_commissions_v1';
 const ADMIN_REFUNDS_KEY = 'ils_admin_refunds_v1';
 const ADMIN_DISCOUNTS_KEY = 'ils_admin_discounts_v1';
 const ADMIN_SETTINGS_KEY = 'ils_admin_settings_v1';
-const ADMIN_PRODUCTS_OVERRIDE_KEY = 'ils_admin_products_override_v1';
 const ADMIN_COLLECTIONS_OVERRIDE_KEY = 'ils_admin_collections_override_v1';
 const ADMIN_HOMEPAGE_CONTENT_KEY = 'ils_admin_homepage_content_v1';
 const ADMIN_STAFF_OVERRIDE_KEY = 'ils_admin_staff_override_v1';
+
+/**
+ * Keys that previously shadowed server-owned data. They are now read from the
+ * backend instead, so any leftover values are stale and must not influence the
+ * UI. Clearing them on load prevents a browser that used an earlier build from
+ * showing old overrides alongside live API data.
+ */
+const RETIRED_LOCAL_KEYS = [
+  'ils_admin_products_override_v1',
+  'ils_admin_representatives_v1',
+  'ils_admin_commissions_v1',
+  'ils_admin_customers_v1',
+  'ils_cms_storefront_v1',
+  'ilovesurprises_orders_v1',
+  'ilovesurprises_commissions_v1',
+  'ilovesurprises_affiliate_stats_v1',
+  'ilovesurprises_payouts_v1',
+  'ilovesurprises_genealogy_tree_v1',
+  'ilovesurprises_monthly_qualifications_v1',
+];
+
+export function purgeRetiredLocalAdminData(): void {
+  if (typeof window === 'undefined') return;
+  RETIRED_LOCAL_KEYS.forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Storage unavailable; nothing to clean up.
+    }
+  });
+}
+
+// Run once at module load so a stale cache never reaches the admin views.
+purgeRetiredLocalAdminData();
 
 export const ADMIN_ROLES_CONFIG: Record<AdminRole, AdminRoleDefinition> = {
   super_admin: {
@@ -295,156 +741,224 @@ export const adminService = {
     return config ? config.allowedTabs.includes(tab) : false;
   },
 
+  /**
+   * Zeroed KPI shape used only as pre-load placeholder state.
+   *
+   * These are NOT figures: the admin overview must render its loading skeleton
+   * until `fetchKPIs()` resolves, and its error state if that fails. No metric
+   * is ever derived from browser storage.
+   */
   getKPIs(): AdminKPIs {
-    const reps = this.getRepresentatives();
-    const activeReps = reps.filter((r) => r.status === 'active').length;
-    const commissions = this.getCommissionLedger();
-    const pendingLiability = commissions
-      .filter((c) => c.status === 'pending' || c.status === 'approved')
-      .reduce((sum, c) => sum + c.commissionAmount, 0);
-    const totalPaid = commissions
-      .filter((c) => c.status === 'paid')
-      .reduce((sum, c) => sum + c.commissionAmount, 0);
-
-    const memberships = this.getMemberships();
-    const activeMemberships = memberships.filter((m) => m.status === 'active').length;
-    const mrr = memberships
-      .filter((m) => m.status === 'active')
-      .reduce((sum, m) => sum + (m.price || 19.99), 0);
-
-    const customers = this.getCustomers();
-
-    let totalOrders = 0;
-    let grossRevenue = 0;
-    try {
-      if (typeof window !== 'undefined') {
-        const storedOrders = localStorage.getItem('ilovesurprises_orders_v1');
-        if (storedOrders) {
-          const parsed = JSON.parse(storedOrders);
-          if (Array.isArray(parsed)) {
-            totalOrders = parsed.length;
-            grossRevenue = parsed.reduce((sum: number, o: any) => sum + (Number(o.total) || 0), 0);
-          }
-        }
-      }
-    } catch {
-      // fallback
-    }
-
-    const averageOrderValue = totalOrders > 0 ? Number((grossRevenue / totalOrders).toFixed(2)) : 0;
-
     return {
-      grossRevenue: Number(grossRevenue.toFixed(2)),
+      grossRevenue: 0,
       grossRevenueMoM: 0,
-      totalOrders,
+      totalOrders: 0,
       totalOrdersMoM: 0,
-      totalCustomers: customers.length,
+      totalCustomers: 0,
       totalCustomersMoM: 0,
-      activeRepresentatives: activeReps,
+      activeRepresentatives: 0,
       activeRepresentativesMoM: 0,
-      activeMemberships,
+      activeMemberships: 0,
       activeMembershipsMoM: 0,
-      monthlyRecurringRevenue: Number(mrr.toFixed(2)),
-      pendingCommissionLiability: Number(pendingLiability.toFixed(2)),
-      totalCommissionsPaid: Number(totalPaid.toFixed(2)),
-      averageOrderValue,
+      monthlyRecurringRevenue: 0,
+      pendingCommissionLiability: 0,
+      totalCommissionsPaid: 0,
+      averageOrderValue: 0,
     };
   },
 
-  async fetchKPIs(): Promise<AdminKPIs> {
-    return this.getKPIs();
+  /**
+   * Loads dashboard KPIs from the backend's authoritative aggregation.
+   * Errors propagate so the overview can show a retryable error state.
+   */
+  async fetchKPIs(
+    timeframe: '7d' | '30d' | '90d' | 'ytd' = '30d',
+    options?: { signal?: AbortSignal }
+  ): Promise<AdminKPIs> {
+    const [report, central] = await Promise.all([
+      analyticsService.fetchReport(timeframe, options),
+      // Program-wide commission totals are supplementary; if this call fails
+      // the report's timeframe-scoped values are used instead.
+      analyticsService.fetchCommissionCentral(options).catch(() => null),
+    ]);
+
+    return analyticsService.toAdminKPIs(report, central);
   },
 
+  /**
+   * Recent activity feed.
+   *
+   * The backend exposes no activity/audit endpoint, and the previous
+   * implementation synthesised this from locally stored mock orders. Returning
+   * an empty list lets the UI show an accurate empty state rather than
+   * fabricated store activity.
+   */
   getRecentActivity(): AdminActivityItem[] {
-    const activities: AdminActivityItem[] = [];
-    try {
-      if (typeof window !== 'undefined') {
-        const storedOrders = localStorage.getItem('ilovesurprises_orders_v1');
-        if (storedOrders) {
-          const parsed = JSON.parse(storedOrders);
-          if (Array.isArray(parsed)) {
-            parsed.slice(0, 10).forEach((ord: any) => {
-              activities.push({
-                id: `act-${ord.id}`,
-                timestamp: ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('en-US') : 'Recent',
-                type: 'order',
-                title: `New Store Order #${ord.id}`,
-                description: `Order placed for $${(Number(ord.total) || 0).toFixed(2)}`,
-                badge: 'Order',
-                badgeColor: 'bg-emerald-50 text-emerald-700',
-                amount: Number(ord.total) || 0,
-              });
-            });
-          }
-        }
-      }
-    } catch {
-      // fallback
-    }
-    return activities;
+    return [];
   },
 
+  /**
+   * Synchronous placeholder; representatives come from the backend.
+   */
   getRepresentatives(): RepresentativeAdminRecord[] {
-    if (typeof window === 'undefined') return [];
-    try {
-      const stored = localStorage.getItem(ADMIN_REPS_KEY);
-      if (stored) return JSON.parse(stored);
-      return [];
-    } catch {
-      return [];
-    }
+    return [];
   },
 
-  async fetchRepresentatives(): Promise<RepresentativeAdminRecord[]> {
-    return this.getRepresentatives();
+  /**
+   * Loads affiliate/representative accounts from `GET /api/admin/users?role=AFFILIATE`.
+   *
+   * The user record supplies identity, role, and active state. Sales, team
+   * size, rank, and commission totals require affiliate-profile and order
+   * endpoints that are not exposed for admin use, so they are reported as
+   * unavailable (0) rather than invented.
+   */
+  async fetchRepresentatives(options?: {
+    signal?: AbortSignal;
+  }): Promise<RepresentativeAdminRecord[]> {
+    const users = await this.fetchUsersByRole('AFFILIATE', options);
+
+    return users.map((u) => {
+      const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+      return {
+        id: u.id,
+        name: name || u.email.split('@')[0],
+        repUsername: '',
+        email: u.email,
+        phone: '',
+        avatar: '',
+        sponsorUsername: '',
+        sponsorName: '',
+        status: (u.isActive ? 'active' : 'suspended') as RepStatus,
+        approvalStatus: 'approved' as const,
+        currentRank: '',
+        membershipStatus: 'active' as const,
+        membershipPlan: '',
+        joinDate: u.createdAt
+          ? new Date(u.createdAt).toLocaleDateString('en-US')
+          : '',
+        lifetimeSales: 0,
+        personalSalesMonth: 0,
+        teamSalesMonth: 0,
+        teamSize: 0,
+        totalCommissionsEarned: 0,
+      };
+    });
   },
 
-  updateRepresentativeStatus(id: string, status: RepStatus): boolean {
-    const list = this.getRepresentatives();
-    const target = list.find((r) => r.id === id);
-    if (!target) return false;
-    target.status = status;
-    if (status === 'suspended') {
-      target.membershipStatus = 'suspended';
-    } else if (status === 'active') {
-      target.membershipStatus = 'active';
-    } else if (status === 'past_due') {
-      target.membershipStatus = 'past_due';
-    }
-    this.saveRepresentatives(list);
+  /**
+   * Walks `GET /api/admin/users` for a role, following pagination.
+   * Requires an ADMIN token; a 403 propagates as a typed ApiError.
+   */
+  async fetchUsersByRole(
+    role: 'CUSTOMER' | 'AFFILIATE' | 'STAFF' | 'ADMIN',
+    options?: { signal?: AbortSignal; search?: string }
+  ): Promise<BackendAdminUser[]> {
+    const limit = 100;
+    const collected: BackendAdminUser[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+      const response = await apiClient.get<ApiResponse<BackendAdminUserListPayload>>(
+        '/api/admin/users',
+        {
+          role,
+          page,
+          limit,
+          ...(options?.search ? { search: options.search } : {}),
+        },
+        { signal: options?.signal }
+      );
+      const payload = unwrap<BackendAdminUserListPayload>(response, '/api/admin/users');
+
+      (payload.users || []).forEach((u) => collected.push(u));
+
+      totalPages = payload.pagination?.totalPages || 1;
+      page += 1;
+    } while (page <= totalPages && page <= MAX_ADMIN_PRODUCT_PAGES);
+
+    return collected;
+  },
+
+  /**
+   * Activates or suspends a representative via `PATCH /api/admin/users/:id`
+   * (`isActive`). Throws on failure so the UI reflects the server's decision.
+   *
+   * Note: the backend user record models active/inactive only. There is no
+   * 'past_due' state server-side — that is a membership concept and
+   * memberships have no endpoint — so 'past_due' is treated as suspended.
+   */
+  async updateRepresentativeStatus(id: string, status: RepStatus): Promise<boolean> {
+    if (!id) return false;
+
+    await apiClient.patch(`/api/admin/users/${encodeURIComponent(id)}`, {
+      isActive: status === 'active',
+    });
+
+    notifyAdminDataChanged();
     return true;
   },
 
-  approveRepresentative(id: string): boolean {
-    const list = this.getRepresentatives();
-    const target = list.find((r) => r.id === id);
-    if (!target) return false;
-    target.approvalStatus = 'approved';
-    target.status = 'active';
-    target.currentRank = 'VIP Partner';
-    this.saveRepresentatives(list);
+  /**
+   * Approves a representative by granting the AFFILIATE role and activating
+   * the account through the backend.
+   */
+  async approveRepresentative(id: string): Promise<boolean> {
+    if (!id) return false;
+
+    await apiClient.patch(`/api/admin/users/${encodeURIComponent(id)}/role`, {
+      role: 'AFFILIATE',
+    });
+    await apiClient.patch(`/api/admin/users/${encodeURIComponent(id)}`, {
+      isActive: true,
+    });
+
+    notifyAdminDataChanged();
     return true;
   },
 
-  rejectRepresentative(id: string): boolean {
-    const list = this.getRepresentatives();
-    const target = list.find((r) => r.id === id);
-    if (!target) return false;
-    target.approvalStatus = 'rejected';
-    target.status = 'suspended';
-    this.saveRepresentatives(list);
+  /**
+   * Rejects a representative application by deactivating the account and
+   * returning it to the CUSTOMER role.
+   */
+  async rejectRepresentative(id: string): Promise<boolean> {
+    if (!id) return false;
+
+    await apiClient.patch(`/api/admin/users/${encodeURIComponent(id)}/role`, {
+      role: 'CUSTOMER',
+    });
+    await apiClient.patch(`/api/admin/users/${encodeURIComponent(id)}`, {
+      isActive: false,
+    });
+
+    notifyAdminDataChanged();
     return true;
   },
 
-  saveRepresentatives(data: RepresentativeAdminRecord[]): void {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(ADMIN_REPS_KEY, JSON.stringify(data));
-        window.dispatchEvent(new CustomEvent('ils_admin_updated'));
-      } catch (err) {
-        console.error('Failed to save reps', err);
-      }
+  /**
+   * Changes a user's role via `PATCH /api/admin/users/:id/role`.
+   * Accepts only the backend's UserRole enum values.
+   */
+  async updateUserRole(
+    userId: string,
+    role: 'CUSTOMER' | 'AFFILIATE' | 'STAFF' | 'ADMIN'
+  ): Promise<BackendAdminUser> {
+    if (!userId) {
+      throw new ApiError('A user id is required to change a role.', 400, 'validation');
     }
+
+    const response = await apiClient.patch<ApiResponse<{ user: BackendAdminUser }>>(
+      `/api/admin/users/${encodeURIComponent(userId)}/role`,
+      { role }
+    );
+
+    const payload = unwrap<{ user: BackendAdminUser }>(
+      response,
+      `/api/admin/users/${userId}/role`
+    );
+
+    notifyAdminDataChanged();
+    return payload.user;
   },
 
   getMemberships(): MembershipAdminRecord[] {
@@ -481,174 +995,180 @@ export const adminService = {
     }
   },
 
+  /**
+   * Synchronous accessor retained for component initial state. The product
+   * catalogue is owned by the backend, so there is nothing to read
+   * synchronously: callers must await `fetchCommerceProducts()` and render a
+   * loading state until it resolves.
+   */
   getCommerceProducts(): AdminProductItem[] {
-    const base: AdminProductItem[] = productsData.map((p, idx) => ({
-      id: p.id,
-      name: p.name,
-      sku: `ILS-SKU-${p.id.slice(0, 4).toUpperCase()}`,
-      category: p.category,
-      price: p.price,
-      originalPrice: p.originalPrice,
-      description: p.description,
-      stock: 35 + (idx * 17) % 65,
-      lowStockThreshold: 15,
-      surpriseType: p.surpriseType,
-      surpriseValue: p.surpriseValue,
-      image: p.image,
-      rating: p.rating,
-      reviewCount: p.reviewCount,
-      status: (p.inStock ? 'active' : 'draft') as 'active' | 'draft' | 'archived',
-      isBestSeller: p.isBestSeller,
-    }));
+    return [];
+  },
 
-    if (typeof window === 'undefined') return base;
+  /**
+   * Loads the full admin product catalogue from the backend.
+   *
+   * `GET /api/products` applies no status filter when none is supplied, so
+   * drafts and archived products are included — which is what the admin needs.
+   * Pages are walked until the reported total is covered.
+   */
+  async fetchCommerceProducts(options?: {
+    signal?: AbortSignal;
+  }): Promise<AdminProductItem[]> {
+    const limit = 100;
+    const collected: AdminProductItem[] = [];
+    let page = 1;
+    let totalPages = 1;
 
-    try {
-      const stored = localStorage.getItem(ADMIN_PRODUCTS_OVERRIDE_KEY);
-      if (stored) {
-        const overrides: AdminProductItem[] = JSON.parse(stored);
-        if (Array.isArray(overrides) && overrides.length > 0) {
-          return overrides;
-        }
-      }
-    } catch {
-      // ignore
+    do {
+      const response = await apiClient.get<ApiResponse<BackendProductListPayload>>(
+        '/api/products',
+        { page, limit },
+        { signal: options?.signal }
+      );
+      const payload = unwrap<BackendProductListPayload>(response, '/api/products');
+
+      (payload.products || []).forEach((p) => collected.push(mapBackendProductToAdmin(p)));
+
+      totalPages = payload.pagination?.totalPages || 1;
+      page += 1;
+    } while (page <= totalPages && page <= MAX_ADMIN_PRODUCT_PAGES);
+
+    return collected;
+  },
+
+  /**
+   * Creates a product through `POST /api/admin/products`.
+   *
+   * Errors propagate so the UI only reports success after the server has
+   * persisted the record. The created product is returned as mapped from the
+   * backend response, not from the submitted form values.
+   */
+  async createProduct(data: Partial<AdminProductItem>): Promise<AdminProductItem> {
+    const name = (data.name || '').trim();
+    if (name.length < 2) {
+      throw new ApiError('Product name must be at least 2 characters.', 400, 'validation');
     }
 
-    return base;
-  },
+    const price = Number(data.price);
+    if (!Number.isFinite(price) || price <= 0) {
+      throw new ApiError('Product price must be greater than zero.', 400, 'validation');
+    }
 
-  async fetchCommerceProducts(): Promise<AdminProductItem[]> {
-    return this.getCommerceProducts();
-  },
-
-  async createProduct(data: Partial<AdminProductItem>): Promise<AdminProductItem> {
-    const products = this.getCommerceProducts();
-    const id = data.id || `prod_${Date.now().toString(36)}`;
-    const matchedCategory =
-      categoriesData.find((c) => c.name.toLowerCase() === (data.category || '').toLowerCase()) ||
-      categoriesData[1];
-
-    const newProduct: AdminProductItem = {
-      id,
-      name: data.name || 'New Surprise Candle',
-      sku: data.sku || `ILS-SKU-${Date.now().toString().slice(-4)}`,
-      category: matchedCategory.name,
-      price: Number(data.price) || 29.99,
-      originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
-      description: data.description || undefined,
-      stock: Number(data.stock) || 50,
-      lowStockThreshold: Number(data.lowStockThreshold) || 15,
-      surpriseType: data.surpriseType || 'cash',
-      surpriseValue: data.surpriseValue || '$100 Cash Prize',
-      image: data.image || matchedCategory.image,
-      rating: 5.0,
-      reviewCount: 0,
-      status: (data.status as any) || 'active',
+    const body: Record<string, any> = {
+      name,
+      price,
+      status: toBackendProductStatus(data.status),
       isBestSeller: Boolean(data.isBestSeller),
     };
 
-    try {
-      await apiClient.post('/api/admin/products', {
-        name: newProduct.name,
-        price: newProduct.price,
-        description: newProduct.description,
-        stock: newProduct.stock,
-        lowStockThreshold: newProduct.lowStockThreshold,
-        sku: newProduct.sku,
-        isBestSeller: newProduct.isBestSeller,
-        status: newProduct.status.toUpperCase(),
-      });
-    } catch (err) {
-      console.warn('Backend product creation failed (saving locally):', err);
+    if (data.description) body.description = data.description;
+    if (data.sku) body.sku = data.sku.trim();
+    if (data.stock !== undefined) body.stock = Number(data.stock);
+    if (data.lowStockThreshold !== undefined) {
+      body.lowStockThreshold = Number(data.lowStockThreshold);
     }
-
-    const updated = [newProduct, ...products];
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(ADMIN_PRODUCTS_OVERRIDE_KEY, JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent('ils_admin_updated'));
-        window.dispatchEvent(new CustomEvent('ils_catalog_updated'));
-      } catch (err) {
-        console.error('Failed to save product override', err);
-      }
+    if (data.originalPrice !== undefined && Number(data.originalPrice) > 0) {
+      body.compareAtPrice = Number(data.originalPrice);
     }
+    if (data.surpriseType) body.surpriseType = data.surpriseType;
 
-    return newProduct;
+    // The backend validates imageUrl/images with `z.string().url()`, so only
+    // absolute URLs are sent; relative asset paths would be rejected with 400.
+    const imageUrl = toAbsoluteImageUrl(data.image);
+    if (imageUrl) body.imageUrl = imageUrl;
+
+    const galleryUrls = (data.images || [])
+      .map(toAbsoluteImageUrl)
+      .filter((u): u is string => !!u);
+    if (galleryUrls.length) body.images = galleryUrls;
+
+    const response = await apiClient.post<ApiResponse<{ product: BackendProduct } | BackendProduct>>(
+      '/api/admin/products',
+      body
+    );
+
+    const created = extractProduct(response, '/api/admin/products');
+    notifyAdminDataChanged();
+    return mapBackendProductToAdmin(created);
   },
 
+  /**
+   * Updates a product through `PATCH /api/admin/products/:id`.
+   * Throws on failure — a rejected update is never reported as saved.
+   */
   async updateProduct(id: string, updates: Partial<AdminProductItem>): Promise<boolean> {
-    const products = this.getCommerceProducts();
-    const targetIdx = products.findIndex((p) => p.id === id);
-    if (targetIdx === -1) return false;
+    if (!id) return false;
 
-    const matchedCat = updates.category
-      ? categoriesData.find((c) => c.name.toLowerCase() === updates.category!.toLowerCase()) ||
-        categoriesData[0]
-      : undefined;
+    const body: Record<string, any> = {};
 
-    const updatedItem: AdminProductItem = {
-      ...products[targetIdx],
-      ...updates,
-      category: matchedCat ? matchedCat.name : updates.category || products[targetIdx].category,
-    };
-
-    products[targetIdx] = updatedItem;
-
-    try {
-      await apiClient.patch(`/api/admin/products/${encodeURIComponent(id)}`, {
-        ...(updates.name && { name: updates.name }),
-        ...(updates.price !== undefined && { price: Number(updates.price) }),
-        ...(updates.stock !== undefined && { stock: Number(updates.stock) }),
-        ...(updates.description !== undefined && { description: updates.description }),
-        ...(updates.status && { status: updates.status.toUpperCase() }),
-      });
-    } catch (err) {
-      console.warn(`Backend product update failed for ${id} (saving locally):`, err);
+    if (updates.name !== undefined) body.name = updates.name.trim();
+    if (updates.price !== undefined) body.price = Number(updates.price);
+    if (updates.stock !== undefined) body.stock = Number(updates.stock);
+    if (updates.lowStockThreshold !== undefined) {
+      body.lowStockThreshold = Number(updates.lowStockThreshold);
     }
+    if (updates.description !== undefined) body.description = updates.description;
+    if (updates.sku !== undefined) body.sku = updates.sku;
+    if (updates.status !== undefined) body.status = toBackendProductStatus(updates.status);
+    if (updates.isBestSeller !== undefined) body.isBestSeller = Boolean(updates.isBestSeller);
+    if (updates.originalPrice !== undefined) {
+      body.compareAtPrice = Number(updates.originalPrice) > 0
+        ? Number(updates.originalPrice)
+        : null;
+    }
+    if (updates.surpriseType !== undefined) body.surpriseType = updates.surpriseType;
 
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(ADMIN_PRODUCTS_OVERRIDE_KEY, JSON.stringify(products));
-        window.dispatchEvent(new CustomEvent('ils_admin_updated'));
-        window.dispatchEvent(new CustomEvent('ils_catalog_updated'));
-      } catch (err) {
-        console.error('Failed to update product', err);
+    if (updates.image !== undefined) {
+      const imageUrl = toAbsoluteImageUrl(updates.image);
+      if (!imageUrl) {
+        throw new ApiError(
+          'Product images must be absolute URLs (for example https://...). Upload the image first, then save the returned URL.',
+          400,
+          'validation'
+        );
       }
+      body.imageUrl = imageUrl;
     }
 
+    if (updates.images !== undefined) {
+      const galleryUrls = updates.images
+        .map(toAbsoluteImageUrl)
+        .filter((u): u is string => !!u);
+      body.images = galleryUrls;
+    }
+
+    if (Object.keys(body).length === 0) return true;
+
+    await apiClient.patch(`/api/admin/products/${encodeURIComponent(id)}`, body);
+    notifyAdminDataChanged();
     return true;
   },
 
+  /**
+   * Deletes a product through `DELETE /api/admin/products/:id`.
+   * Throws on failure so the UI does not show a removal that did not happen.
+   */
   async deleteProduct(id: string): Promise<boolean> {
-    const products = this.getCommerceProducts();
-    const filtered = products.filter((p) => p.id !== id);
-
-    try {
-      await apiClient.delete(`/api/admin/products/${encodeURIComponent(id)}`);
-    } catch (err) {
-      console.warn(`Backend product deletion failed for ${id} (deleting locally):`, err);
-    }
-
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(ADMIN_PRODUCTS_OVERRIDE_KEY, JSON.stringify(filtered));
-        window.dispatchEvent(new CustomEvent('ils_admin_updated'));
-        window.dispatchEvent(new CustomEvent('ils_catalog_updated'));
-      } catch (err) {
-        console.error('Failed to delete product', err);
-      }
-    }
-
+    if (!id) return false;
+    await apiClient.delete(`/api/admin/products/${encodeURIComponent(id)}`);
+    notifyAdminDataChanged();
     return true;
   },
 
+  /** Flips a product between ACTIVE and DRAFT, reading current state from the API. */
   async toggleProductStatus(id: string): Promise<boolean> {
-    const products = this.getCommerceProducts();
-    const item = products.find((p) => p.id === id);
-    if (!item) return false;
-    const newStatus = item.status === 'active' ? 'draft' : 'active';
-    return this.updateProduct(id, { status: newStatus });
+    if (!id) return false;
+
+    const response = await apiClient.get<ApiResponse<{ product: BackendProduct } | BackendProduct>>(
+      `/api/products/${encodeURIComponent(id)}`
+    );
+    const current = extractProduct(response, `/api/products/${id}`);
+
+    const nextStatus =
+      String(current.status || '').toUpperCase() === 'ACTIVE' ? 'draft' : 'active';
+
+    return this.updateProduct(id, { status: nextStatus as AdminProductItem['status'] });
   },
 
   getCollections(): AdminCollectionItem[] {
@@ -815,99 +1335,39 @@ export const adminService = {
     return this.updateCollection(id, { featured: !item.featured });
   },
 
+  /**
+   * Store orders.
+   *
+   * BLOCKED: the backend exposes no order endpoint (the `orders` table exists
+   * in Prisma but no route reads it). The previous implementation returned
+   * locally stored mock orders, which presented fabricated sales to the admin.
+   *
+   * This returns an empty list so the Orders view shows an accurate empty
+   * state; `ADMIN_FEATURE_AVAILABILITY.orders === false` lets the UI explain
+   * that the endpoint is missing rather than implying the store has no sales.
+   */
   async getCommerceOrders(): Promise<AdminOrderItem[]> {
-    try {
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('ilovesurprises_orders_v1');
-        const ordersList = stored ? JSON.parse(stored) : MOCK_ORDERS;
-        if (Array.isArray(ordersList) && ordersList.length > 0) {
-          return ordersList.map((o: any) => ({
-            id: o.id,
-            orderNumber: o.id.startsWith('ILS-') ? o.id : `ILS-${o.id.slice(0, 6).toUpperCase()}`,
-            customerName: o.shippingAddress?.fullName || 'Valued Customer',
-            customerEmail: o.shippingAddress?.email || 'customer@order.com',
-            total: Number(o.total) || 0,
-            status: (o.status as any) || 'processing',
-            paymentStatus: (o.paymentSummary?.method ? 'paid' : 'pending') as any,
-            itemCount: o.items?.length || 1,
-            itemsSummary: o.items?.map((i: any) => `${i.product?.name || i.name || 'Item'} (x${i.quantity || 1})`).join(', ') || '1 item revealed',
-            createdAt: o.createdAt ? o.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
-          }));
-        }
-      }
-    } catch {
-      // fallback
-    }
-
     return [];
   },
 
+  /** Synchronous placeholder; customers come from the backend. */
   getCustomers(): AdminCustomerItem[] {
-    try {
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('ils_admin_customers_v1');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-        // Also check if any orders exist to extract customer info
-        const storedOrders = localStorage.getItem('ilovesurprises_orders_v1');
-        if (storedOrders) {
-          const orders = JSON.parse(storedOrders);
-          if (Array.isArray(orders)) {
-            const customerMap = new Map<string, AdminCustomerItem>();
-            orders.forEach((o: any) => {
-              const email = o.shippingAddress?.email?.toLowerCase().trim();
-              if (email) {
-                if (!customerMap.has(email)) {
-                  customerMap.set(email, {
-                    id: `cust-${email}`,
-                    name: o.shippingAddress?.fullName || 'Customer',
-                    email,
-                    phone: o.shippingAddress?.phone || 'N/A',
-                    ordersCount: 1,
-                    totalSpent: Number(o.total) || 0,
-                    lastOrderDate: o.createdAt ? o.createdAt.split('T')[0] : 'N/A',
-                    repReferredBy: o.attributedRep?.repUsername,
-                    status: 'active',
-                  });
-                } else {
-                  const existing = customerMap.get(email)!;
-                  existing.ordersCount += 1;
-                  existing.totalSpent += Number(o.total) || 0;
-                }
-              }
-            });
-            return Array.from(customerMap.values());
-          }
-        }
-      }
-    } catch {
-      // fallback
-    }
     return [];
   },
 
-  async fetchCustomers(): Promise<AdminCustomerItem[]> {
-    try {
-      const res = await apiClient.get<ApiResponse<{ users: any[] }>>('/api/admin/users', { role: 'CUSTOMER' });
-      const users = res?.data?.users || (res as any)?.users;
-      if (Array.isArray(users) && users.length > 0) {
-        return users.map((u: any) => ({
-          id: u.id,
-          name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Customer',
-          email: u.email,
-          phone: u.phone || 'N/A',
-          ordersCount: 0,
-          totalSpent: 0,
-          lastOrderDate: u.createdAt ? u.createdAt.split('T')[0] : 'N/A',
-          status: u.isActive !== false ? 'active' : 'inactive',
-        }));
-      }
-    } catch {
-      // fallback to local storage
-    }
-    return this.getCustomers();
+  /**
+   * Loads customers from `GET /api/admin/users?role=CUSTOMER`.
+   *
+   * Errors propagate (including 403 for a non-admin token) so the view can
+   * show a permission or error state instead of an empty table that reads as
+   * "no customers".
+   */
+  async fetchCustomers(options?: {
+    signal?: AbortSignal;
+    search?: string;
+  }): Promise<AdminCustomerItem[]> {
+    const users = await this.fetchUsersByRole('CUSTOMER', options);
+    return users.map(mapBackendUserToCustomer);
   },
 
   getRefunds(): AdminRefundRecord[] {
@@ -973,104 +1433,123 @@ export const adminService = {
     return newDisc;
   },
 
+  /** Synchronous placeholder; the ledger is server-authoritative. */
   getCommissionLedger(): AdminCommissionRecord[] {
-    if (typeof window === 'undefined') return [];
-    try {
-      const stored = localStorage.getItem(ADMIN_COMMISSIONS_KEY);
-      if (stored) return JSON.parse(stored);
-      return [];
-    } catch {
-      return [];
-    }
+    return [];
   },
 
-  async fetchCommissions(): Promise<AdminCommissionRecord[]> {
-    return this.getCommissionLedger();
+  /**
+   * Loads the admin commission ledger from `GET /api/admin/commission/ledger`.
+   *
+   * Amounts, tiers, rates, and statuses are all computed by the backend's
+   * commission engine; nothing is recalculated here.
+   */
+  async fetchCommissions(options?: {
+    signal?: AbortSignal;
+    search?: string;
+    status?: string;
+    tier?: number;
+    page?: number;
+    limit?: number;
+  }): Promise<AdminCommissionRecord[]> {
+    const response = await apiClient.get<ApiResponse<BackendAdminLedgerPayload>>(
+      '/api/admin/commission/ledger',
+      {
+        ...(options?.search ? { search: options.search } : {}),
+        ...(options?.status ? { status: options.status } : {}),
+        ...(options?.tier !== undefined ? { tier: options.tier } : {}),
+        page: options?.page ?? 1,
+        limit: options?.limit ?? 100,
+      },
+      { signal: options?.signal }
+    );
+
+    const payload = unwrap<BackendAdminLedgerPayload>(
+      response,
+      '/api/admin/commission/ledger'
+    );
+
+    const entries = payload.items || payload.entries || payload.ledger || [];
+    return entries.map(mapBackendLedgerEntry);
   },
 
-  updateCommissionStatus(id: string, status: CommissionLedgerStatus): boolean {
-    const list = this.getCommissionLedger();
-    const target = list.find((c) => c.id === id);
-    if (!target) return false;
-    target.status = status;
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(ADMIN_COMMISSIONS_KEY, JSON.stringify(list));
-        window.dispatchEvent(new CustomEvent('ils_admin_updated'));
-      } catch (err) {
-        console.error('Failed to update commission status', err);
-      }
-    }
-    return true;
+  /**
+   * Commission status transitions.
+   *
+   * BLOCKED: the backend exposes no endpoint to approve, hold, or mark a
+   * commission ledger entry as paid. `POST /api/commission/process-order/:orderId`
+   * and `/refund-order/:orderId` act on an order's commissions as a whole, not
+   * on individual ledger rows.
+   *
+   * Rather than writing a status change to browser storage and showing the
+   * admin a state the database never recorded, this reports that the action is
+   * unavailable.
+   */
+  async updateCommissionStatus(
+    _id: string,
+    _status: CommissionLedgerStatus
+  ): Promise<boolean> {
+    throw new ApiError(
+      'Commission status changes are not available yet: the backend has no endpoint to update an individual ledger entry.',
+      501,
+      'http',
+      { endpoint: '/api/admin/commission/ledger', method: 'PATCH' }
+    );
   },
 
-  batchApproveCommissions(): number {
-    const list = this.getCommissionLedger();
-    let count = 0;
-    for (const item of list) {
-      if (item.status === 'pending') {
-        item.status = 'approved';
-        count++;
-      }
-    }
-    if (count > 0 && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(ADMIN_COMMISSIONS_KEY, JSON.stringify(list));
-        window.dispatchEvent(new CustomEvent('ils_admin_updated'));
-      } catch (err) {
-        console.error('Failed to batch approve', err);
-      }
-    }
-    return count;
+  /**
+   * Bulk commission approval.
+   *
+   * BLOCKED for the same reason as `updateCommissionStatus`.
+   */
+  async batchApproveCommissions(): Promise<number> {
+    throw new ApiError(
+      'Bulk commission approval is not available yet: the backend has no endpoint to update ledger entries.',
+      501,
+      'http',
+      { endpoint: '/api/admin/commission/ledger', method: 'PATCH' }
+    );
   },
 
+  /**
+   * Zeroed report shape used only as pre-load placeholder state. The admin
+   * reports view must show its loading skeleton until `fetchReportsData()`
+   * resolves. No value here is derived from browser storage.
+   */
   getReportsData(timeframe: '7d' | '30d' | '90d' | 'ytd' = '30d'): AdminReportData {
-    let grossSales = 0;
-    let ordersCount = 0;
-    try {
-      if (typeof window !== 'undefined') {
-        const storedOrders = localStorage.getItem('ilovesurprises_orders_v1');
-        if (storedOrders) {
-          const parsed = JSON.parse(storedOrders);
-          if (Array.isArray(parsed)) {
-            ordersCount = parsed.length;
-            grossSales = parsed.reduce((sum: number, o: any) => sum + (Number(o.total) || 0), 0);
-          }
-        }
-      }
-    } catch {
-      // fallback
-    }
-
-    const netSales = grossSales;
-    const aov = ordersCount > 0 ? Number((grossSales / ordersCount).toFixed(2)) : 0;
-    const reps = this.getRepresentatives();
-    const activeReps = reps.filter((r) => r.status === 'active').length;
-    const commissions = this.getCommissionLedger();
-    const pendingLiability = commissions
-      .filter((c) => c.status === 'pending' || c.status === 'approved')
-      .reduce((sum, c) => sum + c.commissionAmount, 0);
-    const totalPaid = commissions
-      .filter((c) => c.status === 'paid')
-      .reduce((sum, c) => sum + c.commissionAmount, 0);
-
     return {
       timeframe,
-      grossSales: Number(grossSales.toFixed(2)),
-      netSales: Number(netSales.toFixed(2)),
-      ordersCount,
-      averageOrderValue: aov,
+      grossSales: 0,
+      netSales: 0,
+      ordersCount: 0,
+      averageOrderValue: 0,
       visitors: 0,
       conversionRate: 0,
-      activeRepresentatives: activeReps,
+      activeRepresentatives: 0,
       membershipMRR: 0,
-      commissionLiability: Number(pendingLiability.toFixed(2)),
-      totalPayoutsDisbursed: Number(totalPaid.toFixed(2)),
+      commissionLiability: 0,
+      totalPayoutsDisbursed: 0,
       salesByDay: [],
       trafficByDay: [],
       tierDistribution: [],
       membershipBreakdown: [],
     };
+  },
+
+  /**
+   * Loads the analytics report from the backend and maps it onto the existing
+   * reports view model. Errors propagate so the view can offer a retry.
+   */
+  async fetchReportsData(
+    timeframe: '7d' | '30d' | '90d' | 'ytd' = '30d',
+    options?: { signal?: AbortSignal }
+  ): Promise<AdminReportData> {
+    const [report, central] = await Promise.all([
+      analyticsService.fetchReport(timeframe, options),
+      analyticsService.fetchCommissionCentral(options).catch(() => null),
+    ]);
+
+    return analyticsService.toAdminReportData(report, central);
   },
 
   getSettings(): AdminSettingsData {
@@ -1233,20 +1712,82 @@ export const adminService = {
     }
   },
 
-  saveHomepageContent(content: HomepageContentConfig): void {
+  /**
+   * Persists homepage content.
+   *
+   * Backend-owned fields (announcement bar, promo bar, showcase cards) are
+   * written through the admin storefront API and only considered saved once
+   * the server confirms. The remaining sections (hero, value proposition,
+   * about, FAQ, footer) have no endpoint and stay in browser storage.
+   *
+   * Throws if an API write fails, so the admin is never told a change was
+   * saved when it was not.
+   */
+  async saveHomepageContent(content: HomepageContentConfig): Promise<void> {
+    // 1. Server-owned banners.
+    await cmsService.updateBanners({
+      topStickyAnnouncementBar: {
+        isActive: content.announcementActive,
+        announcementCopy: content.announcementText,
+      },
+      promotionalDiscountAlertBar: {
+        isActive: content.promoBannerActive,
+        promoCopy: content.promoBannerText,
+        ...(content.promoBannerCode ? { promoCode: content.promoBannerCode } : {}),
+      },
+    });
+
+    // 2. Server-owned showcase cards, addressed by their backend cardKey.
+    //    Sequential so a failure reports the specific card that was rejected.
+    for (let index = 0; index < (content.featuredCards || []).length; index += 1) {
+      const card = content.featuredCards[index];
+      if (!card?.id) continue;
+
+      await cmsService.updateShowcaseCard(card.id, {
+        displayTitle: card.title,
+        highlightBadge: card.badge,
+        tagline: card.tagline,
+        ctaButtonText: card.ctaText,
+        targetCategoryKey: card.categoryKey,
+        showcaseImageUri: card.image,
+        isActive: card.active !== false,
+        displayOnHomepage: card.active !== false,
+        sortOrder: index + 1,
+      });
+    }
+
+    // 3. Local-only sections with no backend endpoint.
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(ADMIN_HOMEPAGE_CONTENT_KEY, JSON.stringify(content));
-        window.dispatchEvent(new CustomEvent('ils_homepage_content_updated'));
-        window.dispatchEvent(new CustomEvent('ils_admin_updated'));
       } catch (err) {
-        console.error('Failed to save homepage content', err);
+        console.error('Failed to cache local-only homepage sections', err);
       }
+      window.dispatchEvent(new CustomEvent('ils_homepage_content_updated'));
+      window.dispatchEvent(new CustomEvent('ils_admin_updated'));
     }
   },
 
-  async fetchLiveStorefrontContent(): Promise<HomepageContentConfig> {
-    return this.getHomepageContent();
+  /**
+   * Loads homepage content with `GET /api/storefront` as the authoritative
+   * source for banners and showcase cards.
+   *
+   * Sections the backend cannot store (hero, value proposition, about, FAQ,
+   * footer) are taken from local configuration. If the storefront request
+   * fails, the error propagates so the caller can retry rather than silently
+   * rendering stale banner copy.
+   */
+  async fetchLiveStorefrontContent(options?: {
+    signal?: AbortSignal;
+    admin?: boolean;
+  }): Promise<HomepageContentConfig> {
+    const local = this.getHomepageContent();
+
+    const storefront = options?.admin
+      ? await cmsService.getAdminStorefront({ signal: options?.signal })
+      : await cmsService.getStorefront({ signal: options?.signal });
+
+    return mergeStorefrontIntoHomepageContent(local, storefront);
   },
 
   resetHomepageContent(): HomepageContentConfig {

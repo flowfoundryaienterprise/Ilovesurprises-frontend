@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { User, Lock, Check } from 'lucide-react';
-import type { UserProfile, Order, SavedAddress, Product, AffiliateStats } from '../types';
+import type {
+  UserProfile,
+  Order,
+  SavedAddress,
+  Product,
+  AffiliateStats,
+  ReferralMember,
+  CommissionRecord,
+  PayoutRecord,
+} from '../types';
 import { orderService } from '../services/orderService';
 import { accountService } from '../services/accountService';
-import { affiliateService } from '../services/affiliateService';
+import { affiliateService, mapDashboardToStats } from '../services/affiliateService';
 
 import { AccountSidebar, type AccountTab } from '../components/account/AccountSidebar';
 import { ProfileSection } from '../components/account/ProfileSection';
@@ -73,9 +82,12 @@ export const Account: React.FC<AccountProps> = ({
   // Addresses State
   const [addresses, setAddresses] = useState<SavedAddress[]>(() => accountService.getSavedAddresses());
 
-  // Affiliate State
-  const [affiliateStats, setAffiliateStats] = useState<AffiliateStats>(() => affiliateService.getStats());
-  const [affiliateTree] = useState(() => affiliateService.getGenealogyTree());
+  // Affiliate State — loaded from the backend; null until it resolves so no
+  // placeholder earnings are ever shown.
+  const [affiliateStats, setAffiliateStats] = useState<AffiliateStats | null>(null);
+  const [affiliateTree, setAffiliateTree] = useState<ReferralMember[]>([]);
+  const [affiliateCommissions, setAffiliateCommissions] = useState<CommissionRecord[]>([]);
+  const [affiliatePayouts, setAffiliatePayouts] = useState<PayoutRecord[]>([]);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ message: string; title?: string; type?: 'success' | 'info' } | null>(null);
 
@@ -92,14 +104,62 @@ export const Account: React.FC<AccountProps> = ({
     const handleAddressesUpdate = () => {
       setAddresses(accountService.getSavedAddresses());
     };
-    const handleAffiliateUpdate = () => {
-      setAffiliateStats(affiliateService.getStats());
+    const controller = new AbortController();
+
+    /**
+     * Loads affiliate figures from the backend. A 404 means this account has
+     * no representative profile, which is normal for a customer — the panel
+     * simply stays empty rather than showing an error or placeholder totals.
+     */
+    const loadAffiliate = () => {
+      affiliateService
+        .fetchDashboard({ signal: controller.signal })
+        .then(async (dashboard) => {
+          if (controller.signal.aborted) return;
+
+          const [treeResult, ledgerResult] = await Promise.allSettled([
+            affiliateService.fetchGenealogy({ signal: controller.signal }),
+            affiliateService.fetchLedgerPage({ limit: 100, signal: controller.signal }),
+          ]);
+          if (controller.signal.aborted) return;
+
+          const tree = treeResult.status === 'fulfilled' ? treeResult.value : [];
+          const records =
+            ledgerResult.status === 'fulfilled' ? ledgerResult.value.records : [];
+
+          const flat: ReferralMember[] = [];
+          const walk = (list: ReferralMember[]) => {
+            list.forEach((m) => {
+              flat.push(m);
+              if (m.children?.length) walk(m.children);
+            });
+          };
+          walk(tree);
+
+          setAffiliateTree(tree);
+          setAffiliateCommissions(records);
+          setAffiliateStats(
+            mapDashboardToStats(
+              dashboard,
+              flat.length,
+              flat.filter((m) => m.status === 'active').length
+            )
+          );
+          setAffiliatePayouts(await affiliateService.fetchPayouts());
+        })
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          setAffiliateStats(null);
+        });
     };
+
+    const handleAffiliateUpdate = () => loadAffiliate();
 
     // Fetch live backend orders & addresses on account mount
     if (currentUser) {
       orderService.fetchOrders().catch(() => {});
       accountService.fetchAddresses().catch(() => {});
+      loadAffiliate();
     }
 
     window.addEventListener('ilovesurprises_orders_updated', handleOrdersUpdate);
@@ -107,6 +167,7 @@ export const Account: React.FC<AccountProps> = ({
     window.addEventListener('ilovesurprises_affiliate_updated', handleAffiliateUpdate);
 
     return () => {
+      controller.abort();
       window.removeEventListener('ilovesurprises_orders_updated', handleOrdersUpdate);
       window.removeEventListener('ilovesurprises_addresses_updated', handleAddressesUpdate);
       window.removeEventListener('ilovesurprises_affiliate_updated', handleAffiliateUpdate);
@@ -273,31 +334,49 @@ export const Account: React.FC<AccountProps> = ({
             {/* TAB 6: Affiliate / Rep Dashboard (Embedded inside Account) */}
             {activeTab === 'affiliate' && (
               <div className="space-y-6 animate-in fade-in duration-200">
-                <ReferralLinkCard
-                  stats={affiliateStats}
-                  onUpdateStats={setAffiliateStats}
-                  onShowToast={showToast}
-                />
+                {affiliateStats ? (
+                  <>
+                    <ReferralLinkCard
+                      stats={affiliateStats}
+                      onUpdateStats={setAffiliateStats}
+                      onShowToast={showToast}
+                    />
 
-                <AffiliateOverview
-                  stats={affiliateStats}
-                  onOpenWithdraw={() => setIsWithdrawOpen(true)}
-                  onNavigateTab={(tab) => {
-                    if (tab === 'tree') {
-                      const el = document.getElementById('account-tree-section');
-                      el?.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
-                />
+                    <AffiliateOverview
+                      stats={affiliateStats}
+                      onOpenWithdraw={() => setIsWithdrawOpen(true)}
+                      onNavigateTab={(tab) => {
+                        if (tab === 'tree') {
+                          const el = document.getElementById('account-tree-section');
+                          el?.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }}
+                    />
 
-                <EarningsChart />
+                    <EarningsChart commissions={affiliateCommissions} />
 
-                <div id="account-tree-section">
-                  <GenealogyTree
-                    treeData={affiliateTree}
-                    onShowToast={showToast}
-                  />
-                </div>
+                    <div id="account-tree-section">
+                      <GenealogyTree
+                        treeData={affiliateTree}
+                        onShowToast={showToast}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  /* No representative profile on this account, or the figures
+                     could not be loaded. Showing nothing is correct here:
+                     placeholder earnings would misrepresent real balances. */
+                  <div className="bg-white rounded-2xl border border-[#eedbe6] p-8 sm:p-10 shadow-xs text-center">
+                    <h3 className="text-base sm:text-lg font-extrabold text-[#141219] mb-1.5">
+                      No representative earnings to show
+                    </h3>
+                    <p className="text-xs sm:text-sm text-[#716d77] leading-relaxed max-w-md mx-auto">
+                      This account does not have a representative profile yet, so
+                      there is no referral link, team, or commission history
+                      associated with it.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -309,16 +388,18 @@ export const Account: React.FC<AccountProps> = ({
           onClose={() => setSelectedOrderDetails(null)}
         />
 
-        {/* Withdraw Modal Popup */}
-        <WithdrawModal
-          isOpen={isWithdrawOpen}
-          stats={affiliateStats}
-          payouts={affiliateService.getPayouts()}
-          onClose={() => setIsWithdrawOpen(false)}
-          onUpdateStats={setAffiliateStats}
-          onUpdatePayouts={() => {}}
-          onShowToast={showToast}
-        />
+        {/* Withdraw Modal Popup — only available with verified balances */}
+        {affiliateStats && (
+          <WithdrawModal
+            isOpen={isWithdrawOpen}
+            stats={affiliateStats}
+            payouts={affiliatePayouts}
+            onClose={() => setIsWithdrawOpen(false)}
+            onUpdateStats={setAffiliateStats}
+            onUpdatePayouts={setAffiliatePayouts}
+            onShowToast={showToast}
+          />
+        )}
       </div>
     </div>
   );
