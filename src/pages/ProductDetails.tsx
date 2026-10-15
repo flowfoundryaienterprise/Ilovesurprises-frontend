@@ -986,26 +986,27 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               )}
             </div>
 
-            {/* Quantity Stepper & Add to Cart Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 mb-6 pt-4 border-t border-[#f2edf1]">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                {/* Stepper with Large Accessible Tap Targets */}
-                <div className={`flex items-center shrink-0 h-[48px] rounded-[16px] bg-[#f8f5f7] border border-[#ebdce5] p-1 shadow-2xs ${!isVariantInStock ? 'opacity-50 pointer-events-none' : ''}`}>
+            {/* Quantity Stepper, Add to Cart & Buy It Now Controls */}
+            <div className="space-y-2.5 sm:space-y-3 mb-6 pt-4 border-t border-[#f2edf1]">
+              {/* Row 1: Quantity Stepper & ADD TO CART Button */}
+              <div className="flex items-center gap-2 sm:gap-2.5 w-full">
+                {/* Stepper with Curved Pill Background */}
+                <div
+                  className={`flex items-center shrink-0 h-[48px] sm:h-[50px] w-[105px] sm:w-[120px] rounded-full bg-[#D30915] text-white transition-all shadow-xs overflow-hidden ${
+                    !isVariantInStock ? 'opacity-50 pointer-events-none' : ''
+                  }`}
+                >
                   <button
                     type="button"
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                     disabled={quantity <= 1 || !isVariantInStock}
-                    className={`w-9 sm:w-10 h-full rounded-[12px] flex items-center justify-center font-black transition-all cursor-pointer shadow-2xs active:scale-90 ${
-                      quantity <= 1 || !isVariantInStock
-                        ? 'bg-white/60 text-[#a8a3ad] cursor-not-allowed opacity-60'
-                        : 'bg-white hover:bg-[#fff1f2] text-[#141219] hover:text-[#D30915] hover:shadow-xs'
-                    }`}
+                    className="w-8 sm:w-9 h-full pl-2.5 pr-1 flex items-center justify-center text-white/90 hover:text-white hover:bg-black/15 active:scale-90 transition-all cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed focus-visible:outline-none select-none"
                     aria-label="Decrease quantity"
                   >
                     <Minus className="w-3.5 sm:w-4 h-3.5 sm:h-4 stroke-[2.5]" />
                   </button>
 
-                  <span className="w-8 sm:w-10 text-center font-black text-xs sm:text-sm text-[#141219] select-none">
+                  <span className="flex-1 text-center font-bold text-sm sm:text-[15px] text-white select-none whitespace-nowrap">
                     {quantity}
                   </span>
 
@@ -1013,77 +1014,54 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                     type="button"
                     onClick={() => setQuantity((q) => q + 1)}
                     disabled={!isVariantInStock}
-                    className={`w-9 sm:w-10 h-full rounded-[12px] bg-white hover:bg-[#fff1f2] text-[#141219] hover:text-[#D30915] flex items-center justify-center font-black transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-90 ${!isVariantInStock ? 'cursor-not-allowed opacity-50' : ''}`}
+                    className="w-8 sm:w-9 h-full pr-2.5 pl-1 flex items-center justify-center text-white/90 hover:text-white hover:bg-black/15 active:scale-90 transition-all cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed focus-visible:outline-none select-none"
                     aria-label="Increase quantity"
                   >
                     <Plus className="w-3.5 sm:w-4 h-3.5 sm:h-4 stroke-[2.5]" />
                   </button>
                 </div>
 
-                {/* Add to Cart CTA */}
+                {/* ADD TO CART Button with Curved Pill Edge - Single Straight Line */}
                 <button
                   type="button"
                   onClick={handleAddToCartClick}
                   disabled={!isVariantInStock}
-                  className={`flex-1 min-h-[48px] px-3 sm:px-6 rounded-[16px] border-2 text-xs sm:text-sm font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D30915]/50 focus-visible:ring-offset-2 ${
+                  className={`flex-1 h-[48px] sm:h-[50px] px-4 sm:px-6 rounded-full text-xs sm:text-sm font-bold sm:font-extrabold uppercase tracking-normal transition-all duration-200 flex items-center justify-center min-w-0 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D30915]/50 focus-visible:ring-offset-1 select-none whitespace-nowrap ${
                     isVariantInStock
-                      ? 'bg-[#fff1f2] hover:bg-[#D30915] text-[#D30915] hover:text-white border-[#D30915] shadow-2xs hover:shadow-[0_8px_24px_rgba(211,9,21,0.3)] active:scale-97 cursor-pointer'
-                      : 'bg-stone-100 border-stone-300 text-stone-400 cursor-not-allowed opacity-75'
+                      ? 'bg-[#D30915] hover:bg-[#B60711] text-white hover:shadow-[0_4px_16px_rgba(211,9,21,0.25)] active:scale-[0.99] cursor-pointer'
+                      : 'bg-stone-300 text-stone-500 cursor-not-allowed opacity-75'
                   }`}
                 >
-                  <ShoppingBag className="w-4 h-4 shrink-0" />
-                  <span className="truncate">
-                    {isVariantInStock
-                      ? `Add to Cart — $${(currentPrice * quantity).toFixed(2)}`
-                      : 'Out of Stock'}
-                  </span>
-                </button>
-
-                {/* Wishlist Button for Current Product */}
-                <button
-                  type="button"
-                  onClick={() => onWishlistToggle(product)}
-                  className={`h-[48px] px-3.5 sm:px-4 rounded-[16px] border-2 transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0 ${
-                    isCurrentProductWishlisted
-                      ? 'bg-[#fff1f2] border-[#fecdd3] text-[#D30915] shadow-xs'
-                      : 'bg-white border-[#ebdce5] text-[#716d77] hover:border-[#D30915] hover:text-[#D30915] hover:bg-[#fffdfd]'
-                  }`}
-                  title={isCurrentProductWishlisted ? 'Remove from Wishlist' : 'Save to Wishlist'}
-                  aria-label={isCurrentProductWishlisted ? 'Remove from Wishlist' : 'Save to Wishlist'}
-                >
-                  <Heart
-                    className={`w-4 h-4 shrink-0 transition-transform ${
-                      isCurrentProductWishlisted ? 'fill-[#D30915] text-[#D30915] scale-110' : ''
-                    }`}
-                  />
-                  <span className="text-xs font-black uppercase tracking-wider hidden sm:inline">
-                    {isCurrentProductWishlisted ? 'Saved' : 'Wishlist'}
+                  <span className="whitespace-nowrap">
+                    {isVariantInStock ? 'ADD TO CART' : 'OUT OF STOCK'}
                   </span>
                 </button>
               </div>
 
-              {/* Ultra-Premium Buy Now CTA */}
-              <div className="w-full sm:w-auto">
+              {/* Row 2: BUY IT NOW Button with Curved Pill Edge - Single Straight Line */}
+              <div>
                 <button
                   type="button"
                   onClick={handleBuyNowClick}
                   disabled={!isVariantInStock}
-                  className={`w-full sm:w-auto min-h-[50px] px-6 sm:px-8 rounded-[16px] text-white text-xs sm:text-sm font-black uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 group relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D30915]/50 focus-visible:ring-offset-2 ${
+                  className={`w-full h-[48px] sm:h-[50px] px-4 sm:px-6 rounded-full text-xs sm:text-sm font-bold sm:font-extrabold uppercase tracking-normal transition-all duration-200 flex items-center justify-center shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141219]/50 focus-visible:ring-offset-1 select-none whitespace-nowrap ${
                     isVariantInStock
-                      ? 'bg-gradient-to-r from-[#D30915] via-[#ff2e79] to-[#B60711] hover:from-[#B60711] hover:to-[#b81850] shadow-[0_10px_28px_rgba(211,9,21,0.38)] hover:shadow-[0_14px_36px_rgba(211,9,21,0.52)] active:scale-[0.98] cursor-pointer'
-                      : 'bg-stone-300 cursor-not-allowed opacity-60 pointer-events-none'
+                      ? 'bg-[#141219] hover:bg-[#231f2d] text-white hover:shadow-[0_4px_16px_rgba(20,18,25,0.2)] active:scale-[0.99] cursor-pointer'
+                      : 'bg-stone-200 text-stone-400 cursor-not-allowed opacity-75'
                   }`}
                 >
-                  <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
-                  <div className="w-6 h-6 rounded-full bg-white/20 border border-white/40 flex items-center justify-center shrink-0">
-                    <Zap className="w-3.5 h-3.5 text-white fill-white animate-pulse" />
-                  </div>
-                  <span>{isVariantInStock ? 'Buy Now — Fast Checkout' : 'Sold Out'}</span>
-                  {isVariantInStock && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/15 text-white font-extrabold tracking-normal ml-0.5 border border-white/25">
-                      1-Click
-                    </span>
-                  )}
+                  <span className="whitespace-nowrap">{isVariantInStock ? 'BUY IT NOW' : 'SOLD OUT'}</span>
+                </button>
+              </div>
+
+              {/* More Payment Options Link */}
+              <div className="text-center pt-0.5">
+                <button
+                  type="button"
+                  onClick={handleBuyNowClick}
+                  className="text-[11px] sm:text-xs text-[#716d77] hover:text-[#141219] underline underline-offset-2 font-medium cursor-pointer transition-colors"
+                >
+                  More payment options
                 </button>
               </div>
             </div>
