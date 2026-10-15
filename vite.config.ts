@@ -8,6 +8,25 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        // Split large vendor libraries into their own long-cached chunks.
+        codeSplitting: {
+          groups: [
+            { name: 'vendor-react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            { name: 'vendor-motion', test: /node_modules[\\/](framer-motion|motion-dom|motion-utils)[\\/]/ },
+            { name: 'vendor-query', test: /node_modules[\\/]@tanstack[\\/]/ },
+            { name: 'vendor-icons', test: /node_modules[\\/]lucide-react[\\/]/ },
+            { name: 'vendor', test: /node_modules[\\/]/ },
+            // Large static catalog data changes independently of app code.
+            { name: 'catalog-data', test: /src[\\/]data[\\/]/ },
+            { name: 'app-services', test: /src[\\/]services[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
