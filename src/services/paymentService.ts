@@ -1,32 +1,19 @@
 /**
  * Payment and checkout service.
  *
- * ## Current status: checkout submission is DISABLED
+ * Card payments use Stripe Checkout (hosted): the backend creates a PENDING
+ * order priced from its own database and returns a Stripe-hosted payment URL.
+ * Card numbers never touch this app or our server. Apple Pay and Google Pay
+ * are offered on the same Stripe page.
  *
- * The backend exposes no order or payment endpoints. Verified against
- * `ilovesurprises-backend/src/routes/*.ts`, the complete API surface contains
- * no route for:
- *   - creating an order (the `orders` table exists in Prisma, but nothing reads
- *     or writes it over HTTP)
- *   - initializing a payment intent or hosted checkout session
- *   - verifying a payment's status
- *   - receiving a provider webhook
+ * Backend routes:
+ *   POST /api/payments/checkout                 — create order (+ Stripe session)
+ *   GET  /api/payments/orders/:orderId/status   — authoritative payment status
+ *   POST /api/payments/webhook                  — Stripe confirmation (server-only)
  *
- * Without those, there is no way to create a pending order, hand off to a
- * payment provider, or confirm that money was actually captured.
- *
- * The previous implementation simulated all of it: `initiatePayment` waited
- * 300ms, set `isPaid` from the selected payment method, invented a transaction
- * ID and card details, and wrote a "paid" order to localStorage, while
- * `verifyPayment` returned `{ verified: true, status: 'paid' }` unconditionally.
- * That produced fake sales records and fake MLM commissions.
- *
- * All of that is removed. `initiatePayment` now reports an unavailable
- * configuration, and `verifyPayment` only ever reports what the backend
- * confirms — which, with no endpoint, is "unknown", never "paid".
- *
- * When the backend gains these endpoints, implement them at the marked
- * integration points below; the checkout UI already handles the states.
+ * The amounts sent from the checkout page are display values only; the server
+ * recomputes every total. An order is only shown as paid when the backend says
+ * so — a redirect to the success page is not proof of payment.
  */
 
 import type {
@@ -36,7 +23,7 @@ import type {
   DeliveryMethod,
   PaymentMethodType,
 } from '../types';
-import { apiClient, ApiError, unwrap, type ApiResponse } from './apiClient';
+import { apiClient, ApiError, getStoredAuthToken, unwrap, type ApiResponse } from './apiClient';
 
 /** Re-exported for existing callers (Checkout.tsx) that catch on this type. */
 export { ApiError };
@@ -110,7 +97,7 @@ export interface VerifyPaymentParams {
 
 export interface PaymentVerificationResult {
   success: boolean;
-  /** True only when the backend confirmed the payment status. */
+  /** True only when the backend confirmed the order is paid. */
   verified: boolean;
   /**
    * `unknown` means the status could not be established. It is never collapsed
@@ -126,24 +113,16 @@ export interface PaymentVerificationResult {
 const PENDING_ORDER_KEY_PREFIX = 'ils_pending_payment_';
 const LAST_PENDING_ORDER_ID_KEY = 'ils_last_pending_order_id';
 
-/**
- * Whether the backend exposes the checkout/payment endpoints this service
- * needs. Flip to true only when they exist and are deployed.
- *
- * Required routes:
- *   POST /api/orders                  — create a pending order, server totals
- *   POST /api/payments/intent         — initialize the provider
- *   GET  /api/payments/:id/status     — authoritative payment status
- *   POST /api/payments/webhook        — provider confirmation
- */
-export const CHECKOUT_BACKEND_AVAILABLE = false;
+/** The backend exposes the checkout and payment endpoints. */
+export const CHECKOUT_BACKEND_AVAILABLE = true;
 
-/** Operator-facing explanation shown by the checkout UI when disabled. */
+/** Shown by the checkout UI when checkout cannot run. */
 export const CHECKOUT_UNAVAILABLE_MESSAGE =
-  'Online checkout is temporarily unavailable. Payments are not configured on the server yet, so no order can be placed or charged right now.';
+  'Online checkout is temporarily unavailable. No order was placed and you have not been charged.';
 
 /**
- * Public Stripe publishable key, if configured.
+ * Public Stripe publishable key, if configured. Not required for hosted
+ * Stripe Checkout, which is opened by URL from the backend.
  *
  * Only publishable client configuration belongs in a `VITE_*` variable —
  * everything in one is embedded in the shipped bundle. Secret keys must never
@@ -161,31 +140,22 @@ export function getPayPalClientId(): string | null {
 }
 
 /**
- * Describes why checkout is unavailable, for display and diagnostics.
+ * Describes whether checkout can run. Whether Stripe itself is configured is
+ * reported by the backend when an order is submitted.
  */
 export function getCheckoutAvailability(): {
   available: boolean;
   reason?: string;
   missing: string[];
 } {
-  const missing: string[] = [];
-
   if (!CHECKOUT_BACKEND_AVAILABLE) {
-    missing.push(
-      'Backend order and payment endpoints (POST /api/orders, POST /api/payments/intent, GET /api/payments/:id/status)'
-    );
+    return {
+      available: false,
+      reason: CHECKOUT_UNAVAILABLE_MESSAGE,
+      missing: ['Backend order and payment endpoints'],
+    };
   }
-  if (!getStripePublishableKey() && !getPayPalClientId()) {
-    missing.push('A public payment provider key (VITE_STRIPE_PUBLISHABLE_KEY or VITE_PAYPAL_CLIENT_ID)');
-  }
-
-  if (missing.length === 0) return { available: true, missing };
-
-  return {
-    available: false,
-    reason: CHECKOUT_UNAVAILABLE_MESSAGE,
-    missing,
-  };
+  return { available: true, missing: [] };
 }
 
 /**
@@ -240,6 +210,19 @@ export function clearPendingOrder(orderId?: string): void {
   }
 }
 
+interface CheckoutResponse {
+  order: Order | null;
+  orderId?: string;
+  checkoutUrl: string | null;
+  sessionId?: string;
+}
+
+interface PaymentStatusResponse {
+  status: 'paid' | 'pending' | 'failed' | 'cancelled';
+  order?: Order;
+  transactionId?: string;
+}
+
 /** Guards against a double-submitted checkout within one page session. */
 let inFlightCheckout: Promise<PaymentInitiationResult> | null = null;
 
@@ -256,71 +239,63 @@ export const paymentService = {
   },
 
   /**
-   * Starts a real checkout.
-   *
-   * While the backend has no order/payment endpoints this returns an
-   * unavailable configuration result and performs no network call, no local
-   * write, and no order creation. It never reports a payment as successful.
+   * Starts a real checkout. Card, Apple Pay and Google Pay return a Stripe
+   * Checkout URL to redirect to; cash on delivery returns the created order.
    *
    * Concurrent calls share one promise so a double click cannot submit twice.
    */
-  async initiatePayment(
-    // Retained so the call sites and the integration points below stay intact;
-    // nothing is read from it while checkout is disabled.
-    _params: InitiatePaymentParams
-  ): Promise<PaymentInitiationResult> {
+  async initiatePayment(params: InitiatePaymentParams): Promise<PaymentInitiationResult> {
     if (inFlightCheckout) return inFlightCheckout;
 
     inFlightCheckout = (async (): Promise<PaymentInitiationResult> => {
-      const availability = getCheckoutAvailability();
-
-      if (!availability.available) {
+      if (!getStoredAuthToken()) {
         return {
           success: false,
           orderId: '',
-          status: 'unavailable',
-          configurationRequired: true,
-          error: availability.reason || CHECKOUT_UNAVAILABLE_MESSAGE,
-          message: availability.missing.join('; '),
+          status: 'failed',
+          error: 'Please sign in to place your order.',
+          message: 'Please sign in to place your order.',
         };
       }
 
-      /* ---------------------------------------------------------------- *
-       * Integration point — enable once the backend endpoints exist.
-       *
-       * 1. Create a PENDING order; the server computes every total from its
-       *    own prices. Client-supplied amounts are inputs to validate, never
-       *    the source of truth:
-       *
-       *      const created = unwrap(await apiClient.post('/api/orders', {
-       *        items: _params.items.map((i) => ({
-       *          productId: i.product.id,
-       *          variantId: i.variantId,
-       *          quantity: i.quantity,
-       *        })),
-       *        shippingAddress: _params.shippingAddress,
-       *        deliveryMethodId: _params.deliveryMethod.id,
-       *        promoCode: _params.promoCode,
-       *        paymentMethod: _params.paymentMethod,
-       *      }));
-       *
-       * 2. Initialize the provider and hand off to its hosted checkout or
-       *    approved element. Raw card details are never collected into
-       *    application state.
-       *
-       * 3. Persist only the order id and provider session reference via
-       *    storePendingOrder(), then redirect.
-       *
-       * 4. On return, call verifyPayment() and render only the backend's
-       *    confirmed status.
-       * ---------------------------------------------------------------- */
+      // Only identifiers and quantities are sent; the server prices the order.
+      const response = await apiClient.post<ApiResponse<CheckoutResponse>>('/api/payments/checkout', {
+        paymentMethod: params.paymentMethod,
+        items: params.items.map((item) => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          selectedRingSize: item.selectedRingSize != null ? String(item.selectedRingSize) : undefined,
+          selectedSurpriseOption: item.selectedSurpriseOption,
+        })),
+        shippingAddress: params.shippingAddress,
+        deliveryMethodId: params.deliveryMethod.id,
+        promoCode: params.isPersonalPurchase ? undefined : params.promoCode,
+        repUsername: params.attributedRep?.repUsername,
+        notes: params.notes,
+      });
+      const data = unwrap<CheckoutResponse>(response, '/api/payments/checkout');
+
+      if (data.checkoutUrl && data.orderId) {
+        storePendingOrder(data.orderId, { sessionId: data.sessionId, provider: 'stripe' });
+        return {
+          success: true,
+          orderId: data.orderId,
+          status: 'redirect_required',
+          requiresRedirect: true,
+          checkoutUrl: data.checkoutUrl,
+        };
+      }
+
+      if (data.order) {
+        // Cash on delivery: the order is placed, payment is collected later.
+        return { success: true, orderId: data.order.id, status: 'succeeded', order: data.order };
+      }
 
       return {
         success: false,
         orderId: '',
-        status: 'unavailable',
-        configurationRequired: true,
-        error: CHECKOUT_UNAVAILABLE_MESSAGE,
+        status: 'failed',
+        error: 'The server did not return a payment session. You have not been charged.',
       };
     })();
 
@@ -332,16 +307,11 @@ export const paymentService = {
   },
 
   /**
-   * Asks the backend for the authoritative payment status.
-   *
-   * The backend's verified status is the only authority. A redirect to a
-   * success page is not proof of payment, so when no status can be obtained
-   * this reports `unknown` and `verified: false` — never `paid`.
+   * Asks the backend for the authoritative payment status. When no status can
+   * be obtained this reports `unknown` and `verified: false` — never `paid`.
    */
-  async verifyPayment(
-    params: VerifyPaymentParams
-  ): Promise<PaymentVerificationResult> {
-    if (!params.orderId && !params.sessionId && !params.paymentIntentId) {
+  async verifyPayment(params: VerifyPaymentParams): Promise<PaymentVerificationResult> {
+    if (!params.orderId) {
       return {
         success: false,
         verified: false,
@@ -350,40 +320,22 @@ export const paymentService = {
       };
     }
 
-    if (!CHECKOUT_BACKEND_AVAILABLE) {
-      return {
-        success: false,
-        verified: false,
-        status: 'unknown',
-        error:
-          'Payment status cannot be verified: the server has no payment verification endpoint.',
-      };
-    }
-
-    /* Integration point — once available:
-     *   GET /api/payments/:id/status  →  { status, order, transactionId }
-     * Map the backend status verbatim; do not infer success from navigation. */
     try {
-      const response = await apiClient.get<
-        ApiResponse<{
-          status: 'paid' | 'pending' | 'failed' | 'cancelled';
-          order?: Order;
-          transactionId?: string;
-        }>
-      >(`/api/payments/${encodeURIComponent(params.orderId)}/status`);
-
-      const data = unwrap<{
-        status: 'paid' | 'pending' | 'failed' | 'cancelled';
-        order?: Order;
-        transactionId?: string;
-      }>(response, '/api/payments/:id/status');
+      const response = await apiClient.get<ApiResponse<PaymentStatusResponse>>(
+        `/api/payments/orders/${encodeURIComponent(params.orderId)}/status`
+      );
+      const data = unwrap<PaymentStatusResponse>(response, '/api/payments/orders/:id/status');
 
       return {
         success: true,
-        verified: true,
+        verified: data.status === 'paid',
         status: data.status,
         order: data.order,
         transactionId: data.transactionId,
+        message:
+          data.status === 'failed'
+            ? 'Your payment did not complete. You have not been charged.'
+            : undefined,
       };
     } catch (err) {
       return {

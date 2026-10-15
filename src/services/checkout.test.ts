@@ -28,7 +28,7 @@ describe('checkout and payments', () => {
 
   const minimalParams = {
     paymentMethod: 'card' as never,
-    items: [],
+    items: [{ product: { id: 'prod-1', price: 999 }, quantity: 2, unitPrice: 999, totalPrice: 1998 }] as never,
     shippingAddress: { fullName: 'Test Person' } as never,
     deliveryMethod: { id: 'standard' } as never,
     subtotal: 100,
@@ -37,77 +37,102 @@ describe('checkout and payments', () => {
     total: 100,
   };
 
-  describe('availability', () => {
-    it('reports checkout as unavailable while the backend has no payment endpoints', () => {
-      expect(CHECKOUT_BACKEND_AVAILABLE).toBe(false);
+  const jsonResponse = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-      const availability = getCheckoutAvailability();
-      expect(availability.available).toBe(false);
-      expect(availability.missing.length).toBeGreaterThan(0);
-      expect(availability.missing.join(' ')).toMatch(/payment/i);
+  const signIn = () => localStorage.setItem('ilovesurprises_jwt_token', 'test-token');
+
+  describe('availability', () => {
+    it('reports checkout as available now that the backend has payment endpoints', () => {
+      expect(CHECKOUT_BACKEND_AVAILABLE).toBe(true);
+      expect(getCheckoutAvailability().available).toBe(true);
     });
   });
 
   describe('initiatePayment', () => {
-    it('never reports a successful payment', async () => {
+    it('asks a signed-out customer to sign in without calling the server', async () => {
       const result = await paymentService.initiatePayment(minimalParams);
 
       expect(result.success).toBe(false);
+      expect(result.error).toMatch(/sign in/i);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('sends only ids and quantities, never prices', async () => {
+      signIn();
+      fetchMock.mockResolvedValue(
+        jsonResponse({ status: 'success', data: { order: null, orderId: 'o1', checkoutUrl: 'https://checkout.stripe.com/x', sessionId: 'cs_1' } })
+      );
+
+      await paymentService.initiatePayment(minimalParams);
+
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(String(url)).toContain('/api/payments/checkout');
+      const body = JSON.parse(init.body);
+      expect(body.items).toEqual([{ productId: 'prod-1', quantity: 2 }]);
+      expect(JSON.stringify(body)).not.toMatch(/"(price|total|subtotal|unitPrice)"/);
+    });
+
+    it('returns the Stripe redirect without reporting success as paid', async () => {
+      signIn();
+      fetchMock.mockResolvedValue(
+        jsonResponse({ status: 'success', data: { order: null, orderId: 'o1', checkoutUrl: 'https://checkout.stripe.com/x', sessionId: 'cs_1' } })
+      );
+
+      const result = await paymentService.initiatePayment(minimalParams);
+
+      expect(result.requiresRedirect).toBe(true);
+      expect(result.checkoutUrl).toBe('https://checkout.stripe.com/x');
       expect(result.status).not.toBe('succeeded');
-      expect(result.status).toBe('unavailable');
-      expect(result.configurationRequired).toBe(true);
       expect(result.order).toBeUndefined();
     });
 
-    it('creates no order and makes no network call', async () => {
-      await paymentService.initiatePayment(minimalParams);
-
-      expect(fetchMock).not.toHaveBeenCalled();
-      expect(localStorage.getItem('ilovesurprises_orders_v1')).toBeNull();
-    });
-
-    it('does not invent a transaction id or card details', async () => {
-      const result = await paymentService.initiatePayment(minimalParams);
-      const serialized = JSON.stringify(result);
-
-      expect(serialized).not.toMatch(/TXN-/);
-      expect(serialized).not.toContain('4242');
-      expect(serialized).not.toContain('Visa');
-    });
-
     it('collapses concurrent submissions into one attempt', async () => {
+      signIn();
+      fetchMock.mockImplementation(async () =>
+        jsonResponse({ status: 'success', data: { order: null, orderId: 'o1', checkoutUrl: 'https://checkout.stripe.com/x' } })
+      );
+
       const [a, b] = await Promise.all([
         paymentService.initiatePayment(minimalParams),
         paymentService.initiatePayment(minimalParams),
       ]);
 
       expect(a).toEqual(b);
-      expect(fetchMock).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('verifyPayment', () => {
-    it('reports unknown rather than paid when there is no endpoint', async () => {
-      const result = await paymentService.verifyPayment({ orderId: 'ILS-123-US' });
+    it('reports paid only when the backend says paid', async () => {
+      fetchMock.mockResolvedValue(jsonResponse({ status: 'success', data: { status: 'paid', order: { id: 'o1' } } }));
+      const result = await paymentService.verifyPayment({ orderId: 'o1' });
+
+      expect(result.verified).toBe(true);
+      expect(result.status).toBe('paid');
+    });
+
+    it('does not verify a pending payment', async () => {
+      fetchMock.mockResolvedValue(jsonResponse({ status: 'success', data: { status: 'pending', order: { id: 'o1' } } }));
+      const result = await paymentService.verifyPayment({ orderId: 'o1', sessionId: 'cs_1' });
+
+      expect(result.verified).toBe(false);
+      expect(result.status).toBe('pending');
+    });
+
+    it('reports unknown rather than paid when the server cannot be reached', async () => {
+      fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+      const result = await paymentService.verifyPayment({ orderId: 'o1' });
 
       expect(result.verified).toBe(false);
       expect(result.status).toBe('unknown');
-      expect(result.status).not.toBe('paid');
     });
 
     it('rejects a verification with no order reference', async () => {
       const result = await paymentService.verifyPayment({ orderId: '' });
       expect(result.verified).toBe(false);
       expect(result.status).toBe('unknown');
-    });
-
-    it('never treats an arbitrary reference as proof of payment', async () => {
-      const result = await paymentService.verifyPayment({
-        orderId: 'anything-at-all',
-        sessionId: 'cs_fake_session',
-      });
-      expect(result.status).not.toBe('paid');
-      expect(result.verified).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 
