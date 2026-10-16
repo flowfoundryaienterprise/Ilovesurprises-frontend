@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Heart, Plus, Minus, Star, Gift } from 'lucide-react';
 import type { Product } from '../../types';
 import { resolveProductImage, cacheProduct } from '../../services/productService';
@@ -23,17 +23,19 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
   onSelectProduct,
   isWishlisted = false,
 }) => {
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const resolvedInitial = resolveProductImage(product.image, product.name, product.category, product.slug || product.id);
+  const [currentSrc, setCurrentSrc] = useState<string>(resolvedInitial);
 
-  const resolved = resolveProductImage(product.image, product.name, product.category);
-  const imageSrc =
-    failedSrc === resolved ? resolveProductImage(null, product.name, product.category) : resolved;
+  useEffect(() => {
+    setCurrentSrc(resolveProductImage(product.image, product.name, product.category, product.slug || product.id));
+  }, [product.image, product.name, product.category, product.slug, product.id]);
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    if (failedSrc !== resolved) {
-      setFailedSrc(resolved);
+    const fallback = getCategoryFallback(product.category);
+    if (currentSrc !== fallback) {
+      setCurrentSrc(fallback);
     } else {
-      handleImageErrorSafely(e, getCategoryFallback(product.category));
+      handleImageErrorSafely(e, fallback);
     }
   };
 
@@ -120,14 +122,14 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
       aria-label={`View product details for ${product.name}`}
       className="group relative rounded-[16px] sm:rounded-[20px] bg-white border border-[#eee7ed] hover:border-[#f1b8cb] p-2.5 sm:p-3.5 flex flex-col justify-between shadow-[0_2px_10px_rgba(50,31,63,0.03)] hover:shadow-[0_12px_32px_rgba(50,31,63,0.08)] hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden max-w-full touch-manipulation select-none"
     >
-      {/* Product Image Container with Hardware-Accelerated Isolated Overflow Clipping */}
-      <div className="relative w-full max-w-full aspect-square rounded-[12px] sm:rounded-[14px] overflow-hidden bg-white border border-[#f5edf2] mb-2 sm:mb-2.5 flex items-center justify-center isolate">
+      {/* Product Image Container with Guaranteed Non-Collapsing Aspect Ratio & Isolated Overflow */}
+      <div className="relative w-full aspect-square shrink-0 rounded-[12px] sm:rounded-[14px] overflow-hidden bg-white border border-[#f5edf2] mb-2 sm:mb-2.5 flex items-center justify-center isolate">
         <img
-          src={imageSrc}
+          src={currentSrc}
           alt={product.name}
           width={400}
           height={400}
-          className="w-full h-full max-w-full object-contain p-1 sm:p-1.5 transition-transform duration-500 ease-out group-hover:scale-105"
+          className="absolute inset-0 w-full h-full object-contain p-1 sm:p-1.5 transition-transform duration-500 ease-out group-hover:scale-105"
           loading="lazy"
           decoding="async"
           onError={handleImageError}

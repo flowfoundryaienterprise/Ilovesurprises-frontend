@@ -2,7 +2,7 @@ import { apiClient } from './apiClient';
 import type { Product, SurpriseType, Collection, ProductVariant, ProductOption } from '../types';
 import { categoriesData } from '../data/categories';
 import { deduplicateProducts, rankProductsBySearch } from '../utils/productUtils';
-import { getApprovedCollectionMeta, APPROVED_COLLECTIONS_MAP } from '../data/approvedCollectionsData';
+import { getApprovedCollectionMeta } from '../data/approvedCollectionsData';
 import { seedProductCache, getProductFromQueryCache } from '../lib/queryClient';
 import { getJewelryCandlePrimaryImage } from '../data/jewelryCandlesImages';
 import { productsData } from '../data/products';
@@ -27,8 +27,8 @@ const QUERY_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes fresh
 /**
  * Multi-layer storage cache helpers for instant (< 5ms) restores on page reload, navigation, and browser restarts.
  */
-const SESSION_CACHE_PREFIX = 'ils_prod_qcache_v4_';
-const LOCAL_STORAGE_PREFIX = 'ils_prod_store_v4_';
+const SESSION_CACHE_PREFIX = 'ils_prod_qcache_v6_';
+const LOCAL_STORAGE_PREFIX = 'ils_prod_store_v6_';
 
 function getLocalCache<T>(key: string, maxAgeMs = 24 * 60 * 60 * 1000): T | null {
   if (typeof window === 'undefined') return null;
@@ -117,10 +117,28 @@ export const SIGNATURE_COLLECTION_IMAGES: Record<string, string> = {
   'christmas-candles-1': 'https://cdn.shopify.com/s/files/1/0172/4672/products/1_Mockup_Jewelry_Jewelry_Candles_9c1f97ea-399f-403a-ae64-3f3afc816a87.jpg?v=1573149158',
   'christmas': 'https://cdn.shopify.com/s/files/1/0172/4672/products/1_Mockup_Jewelry_Jewelry_Candles_9c1f97ea-399f-403a-ae64-3f3afc816a87.jpg?v=1573149158',
   'cash-candles': '/assets/ilovesurprises/categories/Coke_CSH_Sodapop-CND_JC.jpg',
+  'cash-money-candles': '/assets/ilovesurprises/categories/cash_money_candles.jpg',
   'zodiac-cash-money-candles': '/assets/ilovesurprises/categories/AQUARIUSZODIACCANDLE.webp',
-  'giant-jewelry-wax-melts': 'https://cdn.shopify.com/s/files/1/0172/4672/products/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg',
-  'cash-figurine-wax-melts': '/assets/ilovesurprises/categories/Wax_melts_JC.jpg',
-  'cash-surprise-bear-and-cash-wax-melt-bundles': 'https://cdn.shopify.com/s/files/1/0172/4672/products/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg',
+  'jewelry-candles': 'https://cdn.shopify.com/s/files/1/0172/4672/files/fresh-cut-roses-jewelry-candle-two-flames.png?v=1791140724',
+  'wax-melts': '/assets/ilovesurprises/categories/Cat-2_Figurines_JWL_wax_melts.jpg',
+  'cash-wax-melts': '/assets/ilovesurprises/categories/Cat-2_Figurines_JWL_wax_melts.jpg',
+  'giant-jewelry-wax-melts': '/assets/ilovesurprises/categories/Cat-2_Figurines_JWL_wax_melts.jpg',
+  'cash-figurine-wax-melts': '/assets/ilovesurprises/categories/Cat-2_Figurines_JWL_wax_melts.jpg',
+  'cash-surprise-bear-and-cash-wax-melt-bundles': '/assets/ilovesurprises/products/Gummy-Bear_Figurines_JWL_wax_melts.jpg',
+  'bath-bombs': '/assets/ilovesurprises/categories/Heartfelt-Hugs.jpg',
+  'cash-bath-bombs': '/assets/ilovesurprises/categories/Heartfelt-Hugs.jpg',
+  'jewelry-bath-bombs': '/assets/ilovesurprises/categories/Heartfelt-Hugs.jpg',
+  'soaps': '/assets/ilovesurprises/categories/goats_milk_soaps.jpg',
+  'soap': '/assets/ilovesurprises/categories/goats_milk_soaps.jpg',
+  'money-soaps': '/assets/ilovesurprises/categories/goats_milk_soaps.jpg',
+  'slimes': '/assets/ilovesurprises/categories/BDayCake.webp',
+  'cash-slimes-a-cash-surprise-in-every-jar-of-slime': '/assets/ilovesurprises/categories/BDayCake.webp',
+  'cash-candy': '/assets/ilovesurprises/categories/cash_candy.jpg',
+  'candy': '/assets/ilovesurprises/categories/cash_candy.jpg',
+  'chocolates': '/assets/ilovesurprises/categories/chocolates.jpg',
+  'cash-chocolates': '/assets/ilovesurprises/categories/chocolates.jpg',
+  'funny-cash-greeting-cards': '/assets/ilovesurprises/banners/mjb.png',
+  'greeting-cards': '/assets/ilovesurprises/banners/mjb.png',
 };
 
 /**
@@ -131,79 +149,10 @@ const productSlugCache = new Map<string, Product>();
 let unifiedCatalogCache: Product[] | null = null;
 
 /**
- * Authoritative Unified Catalog synthesizing:
- * 1. 123 rich products from productsData (with descriptions, scent notes, prices, variants)
- * 2. Any dynamically cached single products from PDP or navigation
- * 3. Products belonging to authoritative approved collections
+ * Authoritative Unified Catalog backed by authentic productsData.
  */
 export function getUnifiedCatalog(): Product[] {
-  if (unifiedCatalogCache && unifiedCatalogCache.length > 0) {
-    return unifiedCatalogCache;
-  }
-
-  const map = new Map<string, Product>();
-
-  // 1. Authoritative static catalog
-  for (const p of productsData) {
-    if (!p) continue;
-    const key = (p.slug || p.id || '').toLowerCase().trim();
-    if (key) {
-      map.set(key, p);
-      if (p.id) map.set(p.id.toLowerCase().trim(), p);
-      if (p.slug) map.set(p.slug.toLowerCase().trim(), p);
-    }
-  }
-
-  // 2. Currently cached single products
-  productSlugCache.forEach((p, key) => {
-    if (p && !map.has(key)) {
-      map.set(key, p);
-    }
-  });
-
-  // 3. Approved collection products
-  try {
-    for (const col of Object.values(APPROVED_COLLECTIONS_MAP)) {
-      const handles = col.productHandles || [];
-      for (const h of handles) {
-        const key = h.toLowerCase().trim();
-        if (!map.has(key)) {
-          const cleanTitle = key
-            .replace(/-/g, ' ')
-            .replace(/\b\w/g, (c) => c.toUpperCase());
-          const isCash = key.includes('cash') || (col.name || '').toLowerCase().includes('cash');
-          const authImg =
-            getJewelryCandlePrimaryImage(key, cleanTitle) ||
-            col.imageUrl ||
-            SIGNATURE_COLLECTION_IMAGES[col.canonicalHandle] ||
-            '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg';
-
-          map.set(key, {
-            id: key,
-            name: cleanTitle,
-            slug: key,
-            category: col.name || col.category || 'Surprise Candles',
-            price: isCash ? 45.99 : 27.95,
-            originalPrice: isCash ? 54.99 : 34.95,
-            surpriseType: isCash ? 'cash' : 'jewelry',
-            surpriseValue: isCash ? 'Real Cash inside up to $2,500' : 'Jewelry inside worth $15 - $7,500',
-            rating: 4.8,
-            reviewCount: 24,
-            inStock: true,
-            isNew: false,
-            isBestSeller: true,
-            image: authImg,
-            images: [authImg],
-          });
-        }
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  unifiedCatalogCache = Array.from(new Set(map.values()));
-  return unifiedCatalogCache;
+  return productsData;
 }
 
 export function cacheProduct(product: Product) {
@@ -314,7 +263,8 @@ export function optimizeThumbnailUrl(url: string, width = 480): string {
 export function resolveProductImage(
   rawImage?: string | null,
   name?: string,
-  category?: string
+  category?: string,
+  _slugOrId?: string
 ): string {
   const img = (rawImage || '').trim();
   const isBroken =
@@ -324,17 +274,10 @@ export function resolveProductImage(
     img === '/placeholder.svg' ||
     img.includes('youtube.com') ||
     img.includes('youtu.be') ||
-    img.includes('vimeo.com') ||
-    img.includes('1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg');
+    img.includes('vimeo.com');
 
   if (!isBroken) {
     return optimizeThumbnailUrl(img);
-  }
-
-  // Authoritative Jewelry Candles resolution from approved CSV
-  const jcDirect = getJewelryCandlePrimaryImage(name, name);
-  if (jcDirect) {
-    return optimizeThumbnailUrl(jcDirect);
   }
 
   const n = (name || '').toLowerCase();
@@ -701,14 +644,24 @@ export function mapRowToProduct(row: any): Product {
     }
   }
 
-  // Authoritative Jewelry Candles mapping from CSV (Shopify ID first, then exact handle)
-  const jcApproved = getJewelryCandlePrimaryImage(id || slug, name);
-  if (jcApproved) {
-    rawImage = jcApproved;
-    allImages = [jcApproved, ...allImages.filter((u) => u !== jcApproved)];
+  // Check jewelry candle primary image if rawImage is missing or fallback
+  const jcImg = getJewelryCandlePrimaryImage(id, name, slug);
+  if (jcImg && (!rawImage || rawImage.includes('generic') || rawImage.includes('placeholder'))) {
+    rawImage = jcImg;
+    allImages = [jcImg, ...allImages.filter((u) => u !== jcImg)];
   }
 
-  const resolvedImage = resolveProductImage(rawImage, name, categoryName);
+  // Cancer Astrology Cash Bath Bombs Shopify image fix:
+  // Shopify's primary image was mistakenly uploaded as Aries (2_Mockup). The authentic Cancer mockup is 3_Mockup.
+  if (slug === 'cancer-astrology-cash-bath-bombs' || id === 'cancer-astrology-cash-bath-bombs') {
+    const cancerImg =
+      allImages.find((u) => u.includes('3_Mockup') || u.includes('e49e6059')) ||
+      'https://cdn.shopify.com/s/files/1/0172/4672/products/3_Mockup_Jewelry_Jewelry_Candles_e49e6059-3f71-453e-928d-13db1fc6dd83.jpg?v=1659255276';
+    rawImage = cancerImg;
+    allImages = [cancerImg, ...allImages.filter((u) => u !== cancerImg)];
+  }
+
+  const resolvedImage = resolveProductImage(rawImage, name, categoryName, slug || id);
   if (allImages.length === 0 && resolvedImage) {
     allImages = [resolvedImage];
   }
@@ -1231,48 +1184,16 @@ export const productService = {
       }
     }
 
-    // Fallback synthesis for any unresolved products to guarantee all requested products render
+    // For any remaining unresolved IDs, check offline static productsData
     const unresolved = ids.filter((id) => !productMap.has(id.toLowerCase()));
-    if (unresolved.length > 0) {
-      const catalog = getUnifiedCatalog();
-      const catalogMap = new Map<string, Product>();
-      catalog.forEach((p) => {
-        if (p.slug) catalogMap.set(p.slug.toLowerCase().trim(), p);
-        if (p.id) catalogMap.set(p.id.toLowerCase().trim(), p);
-      });
-
-      for (const id of unresolved) {
-        const cleanId = id.toLowerCase().trim();
-        const catProd = catalogMap.get(cleanId);
-        if (catProd) {
-          productMap.set(cleanId, catProd);
-          continue;
-        }
-
-        const authImg = getJewelryCandlePrimaryImage(cleanId);
-        const fallbackName = cleanId
-          .split('-')
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(' ');
-        const isCash = cleanId.includes('cash') || cleanId.includes('money');
-        const fallbackProd: Product = {
-          id: cleanId,
-          name: fallbackName,
-          slug: cleanId,
-          category: isCash ? 'Cash Candles' : 'Candles',
-          price: isCash ? 45.99 : 44.99,
-          surpriseType: isCash ? 'cash' : 'jewelry',
-          surpriseValue: isCash ? 'Real Cash inside up to $2,500' : 'Jewelry inside worth $10 - $7,500',
-          rating: 4.8,
-          reviewCount: 24,
-          image: authImg || '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg',
-          images: [authImg || '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg'],
-          inStock: true,
-          stock: 50,
-          ringSizes: [5, 6, 7, 8, 9, 10],
-          jewelryTypes: ['Ring', 'Necklace', 'Earrings', 'Bracelet'],
-        };
-        productMap.set(cleanId, fallbackProd);
+    for (const id of unresolved) {
+      const cleanId = id.toLowerCase().trim();
+      const fallback = productsData.find(
+        (p) => p.slug.toLowerCase() === cleanId || p.id.toLowerCase() === cleanId
+      );
+      if (fallback) {
+        productMap.set(cleanId, fallback);
+        cacheProduct(fallback);
       }
     }
 
@@ -1509,6 +1430,23 @@ export const productService = {
     };
 
     const targetHandle = ALIAS_MAP[clean] || clean;
+    const targetApprovedMeta = getApprovedCollectionMeta(targetHandle);
+    if (targetApprovedMeta) {
+      const fallbackImg =
+        targetApprovedMeta.imageUrl ||
+        SIGNATURE_COLLECTION_IMAGES[targetApprovedMeta.canonicalHandle] ||
+        SIGNATURE_COLLECTION_IMAGES['cash-candles'] ||
+        '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg';
+
+      return {
+        id: targetApprovedMeta.collectionId,
+        handle: targetApprovedMeta.canonicalHandle,
+        title: targetApprovedMeta.name,
+        bodyHtml: targetApprovedMeta.description,
+        productsCount: targetApprovedMeta.actualCount,
+        imageUrl: fallbackImg,
+      };
+    }
 
     // Check categoriesData first
     const matchedCategory = categoriesData.find(
@@ -1532,7 +1470,7 @@ export const productService = {
       handle: targetHandle,
       title: matchedCategory?.name || friendlyTitle,
       description: matchedCategory?.description || `Explore our authentic ${friendlyTitle} collection with guaranteed hidden cash or jewelry surprises inside!`,
-      productsCount: matchedCategory?.itemCount || 100,
+      productsCount: 0,
       imageUrl: fallbackImg,
     };
   },
@@ -1645,21 +1583,6 @@ export const productService = {
           }
         }
 
-        // Guarantee unique, non-repeated primary images for Jewelry Candles collection
-        if (col.handle === 'jewelry-candles' || inputHandle === 'jewelry-candles') {
-          prods = prods.map((p) => {
-            const authImg = getJewelryCandlePrimaryImage(p.id || p.slug, p.name);
-            if (authImg) {
-              return {
-                ...p,
-                image: authImg,
-                images: [authImg, ...(p.images || []).filter((u) => u !== authImg)],
-              };
-            }
-            return p;
-          });
-        }
-
         prods = deduplicateProducts(prods);
         prods.forEach((p) => cacheProduct(p));
 
@@ -1742,10 +1665,10 @@ export const productService = {
           params.sort === 'price-asc'
             ? 'price-asc'
             : params.sort === 'price-desc'
-              ? 'price-desc'
-              : params.sort === 'best-sellers'
-                ? 'bestseller'
-                : 'newest';
+            ? 'price-desc'
+            : params.sort === 'best-sellers'
+            ? 'bestseller'
+            : 'newest';
 
         const res = await apiClient.get<any>('/api/products', {
           search: searchKeyword,
@@ -1800,25 +1723,50 @@ export const productService = {
         return result;
       } catch (err: any) {
         console.warn(`Error fetching products for collection ${col.handle}:`, err);
-        const catalog = getUnifiedCatalog();
-        const searchWord = col.handle.replace(/-/g, ' ').toLowerCase();
-        let fallbackProds = catalog.filter((p) => {
-          const cat = (p.category || '').toLowerCase();
-          const nm = (p.name || '').toLowerCase();
-          const sl = (p.slug || '').toLowerCase();
-          return cat.includes(searchWord) || nm.includes(searchWord) || sl.includes(col.handle.toLowerCase());
+
+        // Graceful offline fallback to static dataset
+        const handleLower = col.handle.toLowerCase();
+        let fallbackProds = productsData.filter((p) => {
+          const pCat = (p.category || '').toLowerCase();
+          const pName = (p.name || '').toLowerCase();
+          const pSlug = (p.slug || '').toLowerCase();
+          const pBadge = (p.badge || '').toLowerCase();
+
+          if (handleLower.includes('cash') || handleLower.includes('money')) {
+            return p.surpriseType === 'cash' || pName.includes('cash') || pCat.includes('cash') || pBadge.includes('cash');
+          }
+          if (handleLower.includes('zodiac')) {
+            return pName.includes('zodiac') || pBadge.includes('zodiac') || pSlug.includes('zodiac');
+          }
+          if (handleLower.includes('halloween')) {
+            return pName.includes('halloween') || pCat.includes('halloween') || pBadge.includes('halloween');
+          }
+          if (handleLower.includes('christmas')) {
+            return pName.includes('christmas') || pCat.includes('christmas') || pBadge.includes('christmas') || pBadge.includes('holiday');
+          }
+          if (handleLower.includes('jewelry') || handleLower.includes('jewel')) {
+            return p.surpriseType === 'jewelry' || pName.includes('jewelry') || pCat.includes('jewelry');
+          }
+          if (handleLower.includes('melt')) {
+            return pCat.includes('melt') || pName.includes('melt');
+          }
+          return pCat.includes(handleLower) || pName.includes(handleLower) || pSlug.includes(handleLower);
         });
+
         if (fallbackProds.length === 0) {
-          fallbackProds = catalog.slice(0, limit);
+          fallbackProds = productsData.slice(0, 10);
         }
+
+        const total = fallbackProds.length;
         const skip = (page - 1) * limit;
-        const pageProds = fallbackProds.slice(skip, skip + limit);
+        const paginated = fallbackProds.slice(skip, skip + limit);
+
         return {
           collection: col,
-          products: pageProds,
-          total: fallbackProds.length,
+          products: paginated,
+          total,
           page,
-          totalPages: Math.max(1, Math.ceil(fallbackProds.length / limit)),
+          totalPages: Math.max(1, Math.ceil(total / limit)),
         };
       }
     })().finally(() => {
@@ -1960,38 +1908,11 @@ export const productService = {
         const p = getCachedProduct(h);
         if (p) {
           cachedProds.push(p);
-        } else {
-          // Synthesize instant preview card so collection renders in 0ms without waiting
-          const cleanTitle = h
-            .replace(/-/g, ' ')
-            .replace(/\b\w/g, (c) => c.toUpperCase());
-          const authImg =
-            getJewelryCandlePrimaryImage(h, cleanTitle) ||
-            approvedMeta.imageUrl ||
-            SIGNATURE_COLLECTION_IMAGES[approvedMeta.canonicalHandle] ||
-            '/assets/ilovesurprises/categories/1_Mockup_Jewelry_JewelryCandles_93d459aa-d530-474d-ba4c-32fb9af4f94c.jpg';
-
-          cachedProds.push({
-            id: h,
-            name: cleanTitle,
-            slug: h,
-            price: 27.95,
-            originalPrice: 34.95,
-            category: approvedMeta.name,
-            image: authImg,
-            images: [authImg],
-            rating: 4.8,
-            reviewCount: 14,
-            inStock: true,
-            isNew: false,
-            isBestSeller: true,
-            surpriseValue: '$10 - $7,500',
-            surpriseType: 'jewelry',
-          });
         }
       }
 
-      if (cachedProds.length > 0) {
+      // Only return synchronous cache hit if ALL products on the requested page are genuinely cached
+      if (cachedProds.length === pageHandles.length && pageHandles.length > 0) {
         const fallbackImg =
           approvedMeta.imageUrl ||
           SIGNATURE_COLLECTION_IMAGES[approvedMeta.canonicalHandle] ||
@@ -2007,15 +1928,13 @@ export const productService = {
         };
         const total = allHandles.length;
         const totalPages = Math.max(1, Math.ceil(total / limit));
-        const synthesized = {
+        return {
           collection: col,
           products: cachedProds,
-          total: Math.max(total, cachedProds.length),
+          total,
           page,
           totalPages,
         };
-        queryCache.set(`col_prods_${clean}_${page}_${limit}_${sort}`, { result: synthesized, timestamp: Date.now() });
-        return synthesized;
       }
     }
 
@@ -2050,7 +1969,7 @@ export const productService = {
       queryCache.set(cacheKey, { result: sess, timestamp: Date.now() });
       return sess;
     }
-    return productsData.slice(0, cappedLimit);
+    return null;
   },
 
   /**

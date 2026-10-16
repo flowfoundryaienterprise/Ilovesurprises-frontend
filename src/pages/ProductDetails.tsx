@@ -642,6 +642,8 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             alternateImages={alternateImages}
             badge={product.badge}
             surpriseValue={product.surpriseValue}
+            category={product.category}
+            slugOrId={product.slug || product.id}
           />
           {/* Floating Wishlist Heart on Gallery */}
           <button

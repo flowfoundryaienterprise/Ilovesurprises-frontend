@@ -13,8 +13,8 @@ export const ProductCardSkeleton: React.FC<ProductCardSkeletonProps> = ({
       aria-hidden="true"
       className={`rounded-[16px] sm:rounded-[20px] bg-white border border-[#eee7ed] p-2.5 sm:p-3.5 flex flex-col justify-between shadow-[0_2px_10px_rgba(50,31,63,0.03)] overflow-hidden max-w-full select-none ${className}`}
     >
-      {/* Product Image Skeleton (Exact aspect-square with 12px/14px radius) */}
-      <div className="relative w-full max-w-full aspect-square rounded-[12px] sm:rounded-[14px] overflow-hidden bg-gray-700 skeleton-shimmer mb-2 sm:mb-2.5 flex items-center justify-center isolate" />
+      {/* Product Image Skeleton (Exact aspect-square with 12px/14px radius, guaranteed non-collapsing) */}
+      <div className="relative w-full aspect-square shrink-0 rounded-[12px] sm:rounded-[14px] overflow-hidden bg-stone-100 skeleton-shimmer mb-2 sm:mb-2.5 flex items-center justify-center isolate" />
 
       {/* Product Information Skeleton */}
       <div className="px-0.5 sm:px-1 pt-1 sm:pt-1.5 flex flex-col flex-1 justify-between">

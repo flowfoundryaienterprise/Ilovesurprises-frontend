@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ShoppingBag, X, Plus, Minus, ArrowRight, ShieldCheck, Truck, Trash2, Tag, Check, Lock } from 'lucide-react';
 import type { CartItem } from '../../types';
 import { representativeService, type PublicRepresentative } from '../../services/representativeService';
+import { resolveProductImage } from '../../services/productService';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -228,7 +229,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <div className="relative shrink-0 overflow-visible" style={{ overflow: 'visible' }}>
                     <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-[14px] bg-white border border-[#f0e4ec] overflow-hidden flex items-center justify-center p-1 shadow-2xs">
                       <img
-                        src={item.product.image}
+                        src={resolveProductImage(item.product.image, item.product.name, item.product.category, item.product.slug || item.product.id)}
                         alt={item.product.name}
                         className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                         loading="lazy"

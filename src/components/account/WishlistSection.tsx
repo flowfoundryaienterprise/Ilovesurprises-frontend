@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Heart, ShoppingBag, Trash2, Sparkles, Star, ArrowRight } from 'lucide-react';
 import { ProductCardSkeleton } from '../ui/ProductCardSkeleton';
 import type { Product } from '../../types';
-import { productService } from '../../services/productService';
+import { productService, resolveProductImage } from '../../services/productService';
 
 import { deduplicateProducts } from '../../utils/productUtils';
 
@@ -114,12 +114,12 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
                 className="p-2.5 sm:p-4 rounded-[16px] sm:rounded-[20px] bg-[#fffafc] border border-[#eedbe6] hover:border-[#fecdd3] transition-all flex flex-col justify-between group shadow-2xs hover:shadow-[0_6px_20px_rgba(211,9,21,0.08)]"
               >
                 <div>
-                  <div className="relative w-full aspect-square rounded-[12px] sm:rounded-[16px] bg-white border border-[#eee2eb] p-1.5 sm:p-2 overflow-hidden flex items-center justify-center cursor-pointer mb-2 sm:mb-3">
+                  <div className="relative w-full aspect-square shrink-0 rounded-[12px] sm:rounded-[16px] bg-white border border-[#eee2eb] p-1.5 sm:p-2 overflow-hidden flex items-center justify-center cursor-pointer mb-2 sm:mb-3">
                     <img
-                      src={product.image}
+                      src={resolveProductImage(product.image, product.name, product.category, product.slug || product.id)}
                       alt={product.name}
                       onClick={() => onSelectProduct(product)}
-                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                      className="absolute inset-0 w-full h-full object-contain p-1.5 sm:p-2 group-hover:scale-105 transition-transform duration-300"
                     />
 
                     {product.badge && (

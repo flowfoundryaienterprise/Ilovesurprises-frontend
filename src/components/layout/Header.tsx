@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import type { UserProfile, Product } from '../../types';
 import { isAffiliateRole } from '../../types';
-import { productService } from '../../services/productService';
+import { productService, resolveProductImage } from '../../services/productService';
 import { adminService } from '../../services/adminService';
 import {
   NAVIGATION_CATEGORIES,
@@ -971,7 +971,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
                 <img
-                  src={p.image}
+                  src={resolveProductImage(p.image, p.name, p.category, p.slug || p.id)}
                   alt={p.name}
                   className="w-9 h-9 rounded-[8px] object-cover shrink-0 border border-[#eee0e8]"
                 />
@@ -1021,7 +1021,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
                 <img
-                  src={p.image}
+                  src={resolveProductImage(p.image, p.name, p.category, p.slug || p.id)}
                   alt={p.name}
                   className="w-9 h-9 rounded-[8px] object-cover shrink-0 border border-[#eee0e8]"
                 />

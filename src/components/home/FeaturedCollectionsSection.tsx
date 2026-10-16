@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowRight, DollarSign, Flame, Gift, Gem } from 'lucide-react';
 import { adminService } from '../../services/adminService';
-import { productService, getUnifiedCatalog } from '../../services/productService';
+import { productService } from '../../services/productService';
 import { deduplicateProducts } from '../../utils/productUtils';
 import { ProductCard } from '../products/ProductCard';
 import { ProductCardSkeleton } from '../ui/ProductCardSkeleton';
 import type { Product, CartItem } from '../../types';
-import { productsData } from '../../data/products';
 
 interface FeaturedCollectionsSectionProps {
   cart?: CartItem[];
@@ -101,44 +100,6 @@ const DEFAULT_CURATED_CARDS: Record<string, CuratedCollectionConfig> = {
   },
 };
 
-const ZODIAC_FALLBACK_PRODUCTS: Product[] = productsData
-  .filter((p) => p.name.toLowerCase().includes('zodiac'))
-  .slice(0, 10);
-
-const CASH_FALLBACK_PRODUCTS: Product[] = productsData
-  .filter((p) => p.name.toLowerCase().includes('cash') || p.category.toLowerCase().includes('cash'))
-  .slice(0, 10);
-
-const HALLOWEEN_FALLBACK_PRODUCTS: Product[] = getUnifiedCatalog()
-  .filter((p) => {
-    const s = (p.slug || '').toLowerCase();
-    const n = (p.name || '').toLowerCase();
-    return (
-      s.includes('halloween') ||
-      s.includes('pumpkin') ||
-      s.includes('spooky') ||
-      s.includes('skull') ||
-      n.includes('halloween') ||
-      n.includes('pumpkin')
-    );
-  })
-  .slice(0, 10);
-
-const CHRISTMAS_FALLBACK_PRODUCTS: Product[] = getUnifiedCatalog()
-  .filter((p) => {
-    const s = (p.slug || '').toLowerCase();
-    const n = (p.name || '').toLowerCase();
-    return (
-      s.includes('christmas') ||
-      s.includes('holiday') ||
-      s.includes('santa') ||
-      s.includes('grinch') ||
-      n.includes('christmas') ||
-      n.includes('holiday')
-    );
-  })
-  .slice(0, 10);
-
 export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProps> = ({
   cart = [],
   wishlistIds = [],
@@ -157,21 +118,7 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
     ids.forEach((id) => {
       const cached = productService.getCachedCollectionProducts(id, 10);
       if (cached && cached.length > 0) {
-        let prods = deduplicateProducts(cached).slice(0, 10);
-        if (id === 'zodiac-cash-money-candles' && prods.length < 10) {
-          const existingNames = new Set(prods.map((p) => p.name.toLowerCase().trim()));
-          const additional = ZODIAC_FALLBACK_PRODUCTS.filter((p) => !existingNames.has(p.name.toLowerCase().trim()));
-          prods = deduplicateProducts([...prods, ...additional]).slice(0, 10);
-        }
-        initial[id] = { status: 'success', products: prods };
-      } else if (id === 'zodiac-cash-money-candles') {
-        initial[id] = { status: 'success', products: ZODIAC_FALLBACK_PRODUCTS };
-      } else if (id === 'cash-candles') {
-        initial[id] = { status: 'success', products: CASH_FALLBACK_PRODUCTS };
-      } else if (id === 'halloween') {
-        initial[id] = { status: 'success', products: HALLOWEEN_FALLBACK_PRODUCTS.length > 0 ? HALLOWEEN_FALLBACK_PRODUCTS : productsData.slice(0, 10) };
-      } else if (id === 'christmas-candles-1') {
-        initial[id] = { status: 'success', products: CHRISTMAS_FALLBACK_PRODUCTS.length > 0 ? CHRISTMAS_FALLBACK_PRODUCTS : productsData.slice(10, 20) };
+        initial[id] = { status: 'success', products: deduplicateProducts(cached).slice(0, 10) };
       } else {
         initial[id] = { status: 'loading', products: [] };
       }
@@ -276,18 +223,7 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
         sort: 'featured',
       })
       .then((res) => {
-        let prods = deduplicateProducts(res?.products || []).slice(0, 10);
-        if (colId === 'zodiac-cash-money-candles' && prods.length < 10) {
-          const existingNames = new Set(prods.map((p) => p.name.toLowerCase().trim()));
-          const additional = ZODIAC_FALLBACK_PRODUCTS.filter((p) => !existingNames.has(p.name.toLowerCase().trim()));
-          prods = deduplicateProducts([...prods, ...additional]).slice(0, 10);
-        }
-        if (prods.length === 0) {
-          if (colId === 'zodiac-cash-money-candles') prods = ZODIAC_FALLBACK_PRODUCTS;
-          else if (colId === 'cash-candles') prods = CASH_FALLBACK_PRODUCTS;
-          else if (colId === 'halloween') prods = HALLOWEEN_FALLBACK_PRODUCTS;
-          else if (colId === 'christmas-candles-1') prods = CHRISTMAS_FALLBACK_PRODUCTS;
-        }
+        const prods = deduplicateProducts(res?.products || []).slice(0, 10);
         setCollectionStates((prev) => ({
           ...prev,
           [colId]: {
@@ -298,18 +234,12 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
       })
       .catch((err) => {
         console.warn(`Error fetching products for collection ${colId}:`, err);
-        let fallbackProds: Product[] = [];
-        if (colId === 'zodiac-cash-money-candles') fallbackProds = ZODIAC_FALLBACK_PRODUCTS;
-        else if (colId === 'cash-candles') fallbackProds = CASH_FALLBACK_PRODUCTS;
-        else if (colId === 'halloween') fallbackProds = HALLOWEEN_FALLBACK_PRODUCTS;
-        else if (colId === 'christmas-candles-1') fallbackProds = CHRISTMAS_FALLBACK_PRODUCTS;
-
         setCollectionStates((prev) => ({
           ...prev,
           [colId]: {
-            status: fallbackProds.length > 0 ? 'success' : 'error',
-            products: fallbackProds,
-            errorMessage: fallbackProds.length > 0 ? undefined : (err?.message || 'Failed to load products'),
+            status: 'error',
+            products: [],
+            errorMessage: err?.message || 'Failed to load products',
           },
         }));
       });
@@ -352,12 +282,7 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
   const renderCollectionGrid = (col: CuratedCollectionConfig) => {
     const colState = collectionStates[col.id] || { status: 'loading', products: [] };
     const { status } = colState;
-    let prods = colState.products;
-    if (col.id === 'zodiac-cash-money-candles' && prods.length < 10) {
-      const existingNames = new Set(prods.map((p) => p.name.toLowerCase().trim()));
-      const additional = ZODIAC_FALLBACK_PRODUCTS.filter((p) => !existingNames.has(p.name.toLowerCase().trim()));
-      prods = deduplicateProducts([...prods, ...additional]).slice(0, 10);
-    }
+    const prods = colState.products;
     const isCardLoading = status === 'loading' && prods.length === 0;
     const BadgeIcon = col.badgeIcon;
     const testId = `featured-collection-${col.id}`;

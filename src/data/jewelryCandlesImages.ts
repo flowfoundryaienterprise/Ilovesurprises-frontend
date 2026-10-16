@@ -316,21 +316,24 @@ export const JEWELRY_CANDLES_BY_TITLE: Record<string, string> = {
 
 export function getJewelryCandlePrimaryImage(
   identifier?: string | null,
-  name?: string | null
+  name?: string | null,
+  handle?: string | null
 ): string | null {
-  if (!identifier && !name) return null;
+  if (!identifier && !name && !handle) return null;
+
+  const candidates = [identifier, handle].filter(Boolean) as string[];
 
   // 1. Match by Shopify product ID first
-  if (identifier) {
-    const cleanId = String(identifier).trim().toLowerCase();
+  for (const cand of candidates) {
+    const cleanId = String(cand).trim().toLowerCase();
     if (JEWELRY_CANDLES_BY_SHOPIFY_ID[cleanId]) {
       return JEWELRY_CANDLES_BY_SHOPIFY_ID[cleanId];
     }
   }
 
   // 2. Match by exact product handle second
-  if (identifier) {
-    const cleanHandle = String(identifier).trim().toLowerCase();
+  for (const cand of candidates) {
+    const cleanHandle = String(cand).trim().toLowerCase();
     if (JEWELRY_CANDLES_BY_HANDLE[cleanHandle]) {
       return JEWELRY_CANDLES_BY_HANDLE[cleanHandle];
     }

@@ -19,63 +19,6 @@ export interface ApprovedCollectionMeta {
 }
 
 export const APPROVED_COLLECTIONS_MAP: Record<string, ApprovedCollectionMeta> = {
-  "halloween": {
-    "collectionId": "col_halloween_curated",
-    "name": "Halloween Candles",
-    "canonicalHandle": "halloween",
-    "aliases": [
-      "halloween",
-      "halloween-candles",
-      "halloween-collection"
-    ],
-    "category": "Candles",
-    "referenceCount": 10,
-    "actualCount": 10,
-    "title": "Halloween Candles & Melts",
-    "description": "<p>Discover spooky, sweet, and mesmerizing Halloween creations concealing guaranteed cash and jewelry reveals.</p>",
-    "imageUrl": "https://cdn.shopify.com/s/files/1/0172/4672/products/4_Mockup_Jewelry_JewelryCandles_37b9e8df-fc51-4b27-9db3-6236ee9d84b6.jpg?v=1602742369",
-    "productHandles": [
-      "pumpkin-spice-cash-money-candle",
-      "worlds-largest-giant-halloween-pumpkin-cash-wax-melt",
-      "giant-cash-money-surprise-skull",
-      "spooky-nights-collection-cash-wax-melt-bundle",
-      "pumpkin-express-collection-cash-wax-melt-bundle",
-      "pumpkin-spice-cereal-cash-candles",
-      "pumpkin-spice-jewelry-cereal-candles",
-      "pumpkin-spice-everything-nice-jewelry-candle",
-      "pumpkin-spice-cereal-bowl-cash-wax-melts",
-      "pumpkin-spice-cash-cereal-slimes"
-    ]
-  },
-  "christmas-candles-1": {
-    "collectionId": "col_christmas_curated",
-    "name": "Christmas Candles",
-    "canonicalHandle": "christmas-candles-1",
-    "aliases": [
-      "christmas-candles-1",
-      "christmas-candles",
-      "christmas",
-      "holiday-candles"
-    ],
-    "category": "Candles",
-    "referenceCount": 10,
-    "actualCount": 10,
-    "title": "Christmas & Holiday Candles",
-    "description": "<p>Celebrate the holidays with festive fragrance candles containing real cash up to $2,500 and authentic jewelry reveals.</p>",
-    "imageUrl": "https://cdn.shopify.com/s/files/1/0172/4672/files/1_Mockup_Jewelry_JewelryCandles_f3e6a9f6-1ca0-4e31-893f-c30932549d5a.jpg",
-    "productHandles": [
-      "believe-in-the-magic-of-christmas",
-      "a-christmas-story-christmas-cash-candle",
-      "here-comes-santa-claus-cash-money-candle",
-      "the-grinch-cash-candle",
-      "copy-of-believe-in-the-magic-of-christmas-cash-candle",
-      "christmas-tree-farm-jewelry-cereal-candles",
-      "christmas-in-october-jewelry-candle",
-      "christmas-in-march-jewelry-candle",
-      "around-the-christmas-tree-cash-wax-melt",
-      "christmas-cookies-cash-wax-melts"
-    ]
-  },
   "cash-money-candles": {
     "collectionId": "243231195325",
     "name": "Cash Candles",
@@ -181,8 +124,8 @@ export const APPROVED_COLLECTIONS_MAP: Record<string, ApprovedCollectionMeta> = 
       "zodiac"
     ],
     "category": "Candles",
-    "referenceCount": 15,
-    "actualCount": 15,
+    "referenceCount": 12,
+    "actualCount": 12,
     "title": "Zodiac Cash Money Candles",
     "description": "<p data-start=\"177\" data-end=\"445\">Celebrate astrology in a bold, unforgettable way with our <strong data-start=\"235\" data-end=\"268\">Zodiac Cash Candle Collection</strong> — personalized cash candles created for true zodiac lovers. Each candle features a <strong data-start=\"352\" data-end=\"388\">beautifully designed zodiac sign</strong>, making it a meaningful and memorable gift for any sign.</p>\n<p data-start=\"447\" data-end=\"660\">Every Zodiac Cash Candle includes a <strong data-start=\"483\" data-end=\"510\">guaranteed real $2 bill</strong> hidden inside. Select <strong data-start=\"533\" data-end=\"616\">randomized Cash Candles may also reveal a second cash prize valued up to $2,500</strong>, adding an exciting surprise to every burn.</p>\n<p data-start=\"662\" data-end=\"933\">These are <strong data-start=\"672\" data-end=\"698\">huge 2.5-pound candles</strong>, crafted from <strong data-start=\"713\" data-end=\"739\">highly scented soy wax</strong> and infused with <strong data-start=\"757\" data-end=\"789\">premium essential oil blends</strong> for an incredible fragrance experience. Each candle delivers <strong data-start=\"851\" data-end=\"881\">over 80 hours of burn time</strong> and fills your space with rich, long-lasting scent.</p>\n<p data-start=\"935\" data-end=\"1108\">Every candle in the collection comes in a <strong data-start=\"977\" data-end=\"1023\">luxurious 21 oz apothecary-style glass jar</strong> designed to complement <strong data-start=\"1047\" data-end=\"1065\">any home décor</strong>, making it as stylish as it is functional.</p>\n<p data-start=\"1110\" data-end=\"1394\">Customize your Zodiac Cash Candle by <strong data-start=\"1147\" data-end=\"1179\">choosing your favorite scent</strong> from our best-selling fragrance lineup using the dropdown menu. With personalization, premium craftsmanship, and a surprise element, these candles make the perfect <strong data-start=\"1344\" data-end=\"1393\">zodiac gift, astrology gift, or birthday gift</strong>.</p>\n<p data-start=\"1396\" data-end=\"1552\" data-is-last-node=\"\" data-is-only-node=\"\">Celebrate your sign. Choose your scent. Light your candle.<br data-start=\"1454\" data-end=\"1457\"><strong data-start=\"1457\" data-end=\"1550\">Shop the Zodiac Cash Candle Collection today and give a gift that’s written in the stars.</strong></p>",
     "productHandles": [
@@ -197,10 +140,7 @@ export const APPROVED_COLLECTIONS_MAP: Record<string, ApprovedCollectionMeta> = 
       "libra-zodiac-cash-money-candle",
       "scorpio-zodiac-cash-money-candle",
       "virgo-zodiac-cash-money-candle",
-      "sagittarius-zodiac-cash-money-candle",
-      "aquarius-astrology-birthday-cash-candles",
-      "aries-astrology-birthday-cash-candles",
-      "cancer-astrology-birthday-cash-candles"
+      "sagittarius-zodiac-cash-money-candle"
     ]
   },
   "cereal-candles-cereal-cash-candles": {

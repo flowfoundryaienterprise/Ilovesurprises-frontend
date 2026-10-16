@@ -5,7 +5,6 @@ import { deduplicateProducts } from '../../utils/productUtils';
 import { ProductCard } from '../products/ProductCard';
 import { ProductCardSkeleton } from '../ui/ProductCardSkeleton';
 import type { Product, CartItem } from '../../types';
-import { productsData } from '../../data/products';
 
 interface FeaturedProductsProps {
   cart?: CartItem[];
@@ -39,15 +38,20 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
 }) => {
   const wishlistSet = useMemo(() => new Set(wishlistIds), [wishlistIds]);
 
-  const [status, setStatus] = useState<SectionStatus>('success');
   const [products, setProducts] = useState<Product[]>(() => {
     const cached = productService.getCachedTrendingProducts(10);
     if (cached && cached.length > 0) return deduplicateProducts(cached).slice(0, 10);
-    return productsData.slice(0, 10);
+    return [];
+  });
+  const [status, setStatus] = useState<SectionStatus>(() => {
+    const cached = productService.getCachedTrendingProducts(10);
+    return cached && cached.length > 0 ? 'success' : 'loading';
   });
 
   const loadTrending = useCallback(() => {
-    setStatus((prev) => (prev === 'success' && products.length > 0 ? prev : 'loading'));
+    if (products.length === 0) {
+      setStatus('loading');
+    }
 
     productService
       .getCuratedTrendingProducts(10)
@@ -57,14 +61,12 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
           setProducts(dedupled);
           setStatus('success');
         } else {
-          setProducts((prev) => (prev.length > 0 ? prev : productsData.slice(0, 10)));
-          setStatus('success');
+          setStatus(products.length > 0 ? 'success' : 'empty');
         }
       })
       .catch((err) => {
         console.warn('Error fetching curated trending products:', err);
-        setProducts((prev) => (prev.length > 0 ? prev : productsData.slice(0, 10)));
-        setStatus('success');
+        setStatus(products.length > 0 ? 'success' : 'error');
       });
   }, [products.length]);
 

@@ -31,13 +31,14 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.VITE_BACKEND_URL || 'https://api.ilovesurprises.com',
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       '/health': {
-        target: 'http://localhost:3000',
+        target: process.env.VITE_BACKEND_URL || 'https://api.ilovesurprises.com',
         changeOrigin: true,
+        secure: true,
       },
     },
     watch: {

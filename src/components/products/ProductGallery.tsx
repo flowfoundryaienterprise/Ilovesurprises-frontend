@@ -10,7 +10,7 @@ import {
   ChevronRight,
   RotateCcw,
 } from 'lucide-react';
-import { resolveProductImage } from '../../services/productService';
+import { resolveProductImage, optimizeThumbnailUrl } from '../../services/productService';
 import { handleImageErrorSafely } from '../../utils/imageUtils';
 
 interface ProductGalleryProps {
@@ -19,6 +19,8 @@ interface ProductGalleryProps {
   alternateImages?: string[];
   badge?: string;
   surpriseValue?: string;
+  category?: string;
+  slugOrId?: string;
 }
 
 export const ProductGallery: React.FC<ProductGalleryProps> = ({
@@ -27,10 +29,26 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
   alternateImages = [],
   badge,
   surpriseValue,
+  category,
+  slugOrId,
 }) => {
-  const resolvedMain = resolveProductImage(mainImage, productName);
+  const resolvedMain = resolveProductImage(mainImage, productName, category, slugOrId);
+
+  const isBrokenUrl = (u?: string | null) =>
+    !u ||
+    u.includes('generic-candle.jpg') ||
+    u.includes('placeholder') ||
+    u === '/placeholder.svg' ||
+    u.includes('youtube.com') ||
+    u.includes('youtu.be') ||
+    u.includes('vimeo.com');
+
+  const resolvedAlternates = alternateImages
+    .filter((img) => img && !isBrokenUrl(img) && img !== mainImage && img !== resolvedMain)
+    .map((img) => optimizeThumbnailUrl(img));
+
   const allImages = Array.from(
-    new Set([resolvedMain, ...alternateImages.map((img) => resolveProductImage(img, productName))].filter(Boolean))
+    new Set([resolvedMain, ...resolvedAlternates].filter(Boolean))
   );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHoverZooming, setIsHoverZooming] = useState(false);
@@ -59,7 +77,7 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
 
   const rawCurrentImage = allImages[currentIndex] || resolvedMain;
   const currentImage = failedImages[rawCurrentImage]
-    ? resolveProductImage(null, productName)
+    ? resolveProductImage(null, productName, category, slugOrId)
     : rawCurrentImage;
 
   // Body scroll lock during Lightbox
@@ -126,7 +144,7 @@ export const ProductGallery: React.FC<ProductGalleryProps> = ({
         onMouseLeave={() => setIsHoverZooming(false)}
         onMouseMove={handleMouseMove}
         onClick={() => setIsLightboxOpen(true)}
-        className="relative w-full max-w-full aspect-square max-h-[520px] rounded-2xl overflow-hidden bg-white border border-[#ebdce5] p-3 sm:p-6 flex items-center justify-center isolate group shadow-[0_4px_24px_rgba(50,31,63,0.04)] cursor-zoom-in transition-all duration-300"
+        className="relative w-full max-w-full aspect-square shrink-0 max-h-[520px] rounded-2xl overflow-hidden bg-white border border-[#ebdce5] p-3 sm:p-6 flex items-center justify-center isolate group shadow-[0_4px_24px_rgba(50,31,63,0.04)] cursor-zoom-in transition-all duration-300"
       >
         {/* Main Product Image with Smooth Transform Origin Zoom */}
         <img
