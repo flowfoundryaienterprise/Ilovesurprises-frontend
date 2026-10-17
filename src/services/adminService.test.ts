@@ -68,10 +68,10 @@ describe('adminService', () => {
       expect(ADMIN_FEATURE_AVAILABILITY.analytics).toBe(true);
       expect(ADMIN_FEATURE_AVAILABILITY.commissionLedger).toBe(true);
       expect(ADMIN_FEATURE_AVAILABILITY.storefrontContent).toBe(true);
+      expect(ADMIN_FEATURE_AVAILABILITY.orders).toBe(true);
     });
 
     it('marks features with no backend endpoint as unavailable', () => {
-      expect(ADMIN_FEATURE_AVAILABILITY.orders).toBe(false);
       expect(ADMIN_FEATURE_AVAILABILITY.collectionsCrud).toBe(false);
       expect(ADMIN_FEATURE_AVAILABILITY.inventoryLog).toBe(false);
       expect(ADMIN_FEATURE_AVAILABILITY.storeSettings).toBe(false);
@@ -386,8 +386,251 @@ describe('adminService', () => {
   });
 
   describe('orders', () => {
-    it('returns no orders rather than mock sales', async () => {
+    it('returns empty list synchronously if not loaded yet', async () => {
+      fetchMock.mockImplementation(() =>
+        jsonResponse({
+          status: 'success',
+          data: { orders: [], pagination: { total: 0, page: 1, limit: 20 }, summary: { totalOrders: 0, totalRevenue: 0 } },
+        })
+      );
+      adminService._cachedOrders = [];
       await expect(adminService.getCommerceOrders()).resolves.toEqual([]);
+    });
+
+    it('fetches orders list from GET /api/admin/orders matching AdminOrders view model', async () => {
+      fetchMock.mockImplementation(() =>
+        jsonResponse({
+          status: 'success',
+          data: {
+            orders: [
+              {
+                id: 'ord_123',
+                orderNumber: 'ILS-TEST-12345',
+                customerName: 'Emma Watson',
+                customerEmail: 'emma@example.com',
+                total: 49.99,
+                paymentStatus: 'paid',
+                status: 'confirmed',
+                itemCount: 1,
+                itemsSummary: 'Mystery Diamond Candle',
+                createdAt: '2026-10-17T06:00:00.000Z',
+              },
+            ],
+            pagination: { total: 1, page: 1, limit: 20 },
+            summary: { totalOrders: 1, totalRevenue: 49.99 },
+          },
+        })
+      );
+
+      const registry = await adminService.fetchOrdersRegistry();
+      expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/orders');
+      expect(registry.orders).toHaveLength(1);
+      expect(registry.orders[0].orderNumber).toBe('ILS-TEST-12345');
+      expect(registry.orders[0].customerName).toBe('Emma Watson');
+      expect(registry.orders[0].total).toBe(49.99);
+      expect(registry.orders[0].paymentStatus).toBe('paid');
+      expect(registry.orders[0].status).toBe('processing');
+      expect(registry.summary.totalRevenue).toBe(49.99);
+    });
+
+    it('filters orders by search, status, and paymentStatus', async () => {
+      fetchMock.mockImplementation(() =>
+        jsonResponse({
+          status: 'success',
+          data: {
+            orders: [],
+            pagination: { total: 0, page: 1, limit: 20 },
+            summary: { totalOrders: 0, totalRevenue: 0 },
+          },
+        })
+      );
+
+      await adminService.fetchCommerceOrders({
+        search: 'ILS-TEST',
+        status: 'processing',
+        paymentStatus: 'paid',
+      });
+
+      const calledUrl = String(fetchMock.mock.calls[0][0]);
+      expect(calledUrl).toContain('search=ILS-TEST');
+      expect(calledUrl).toContain('status=processing');
+      expect(calledUrl).toContain('paymentStatus=paid');
+    });
+
+    it('retrieves complete order manifest from GET /api/admin/orders/:id', async () => {
+      fetchMock.mockImplementation(() =>
+        jsonResponse({
+          status: 'success',
+          data: {
+            order: {
+              id: 'ord_123',
+              orderNumber: 'ILS-TEST-12345',
+              status: 'confirmed',
+              paymentStatus: 'paid',
+              subtotal: 49.99,
+              shippingFee: 0,
+              totalAmount: 49.99,
+              shippingAddressSnapshot: {
+                fullName: 'Emma Watson',
+                email: 'emma@example.com',
+                phone: '555-0199',
+                addressLine1: '123 Magic Way',
+                city: 'Beverly Hills',
+                state: 'CA',
+                zipCode: '90210',
+                country: 'US',
+              },
+              items: [
+                {
+                  id: 'it_1',
+                  productId: 'p_1',
+                  productName: 'Mystery Diamond Candle',
+                  sku: 'SKU-001',
+                  unitPrice: 49.99,
+                  quantity: 1,
+                  lineTotal: 49.99,
+                  selectedRingSize: '7',
+                  selectedScent: 'Lavender Breeze',
+                },
+              ],
+            },
+          },
+        })
+      );
+
+      const order = await adminService.fetchOrderById('ord_123');
+      expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/orders/ord_123');
+      expect(order.orderNumber).toBe('ILS-TEST-12345');
+      expect(order.shippingAddressSnapshot?.city).toBe('Beverly Hills');
+      expect(order.items?.[0].selectedRingSize).toBe('7');
+    });
+
+    it('updates order status via PATCH /api/admin/orders/:id/status', async () => {
+      fetchMock.mockImplementation(() =>
+        jsonResponse({
+          status: 'success',
+          data: {
+            order: {
+              id: 'ord_123',
+              orderNumber: 'ILS-TEST-12345',
+              status: 'processing',
+            },
+          },
+        })
+      );
+
+      const updated = await adminService.updateOrderStatus(
+        'ord_123',
+        'PROCESSING',
+        'Candle being hand-poured in workshop'
+      );
+
+      expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/orders/ord_123/status');
+      expect(fetchMock.mock.calls[0][1].method).toBe('PATCH');
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+        status: 'PROCESSING',
+        notes: 'Candle being hand-poured in workshop',
+      });
+      expect(updated.status).toBe('processing');
+    });
+
+    it('records carrier tracking and marks order as SHIPPED via POST /api/admin/orders/:id/fulfillment', async () => {
+      fetchMock.mockImplementation(() =>
+        jsonResponse({
+          status: 'success',
+          data: {
+            order: {
+              id: 'ord_123',
+              orderNumber: 'ILS-TEST-12345',
+              status: 'shipped',
+              carrier: 'USPS',
+              trackingNumber: '940011189922315582',
+              trackingUrl: 'https://tools.usps.com/go/TrackConfirmAction?tLabels=940011189922315582',
+              fulfillments: [
+                {
+                  id: 'ful_1',
+                  carrier: 'USPS',
+                  trackingNumber: '940011189922315582',
+                  status: 'SHIPPED',
+                },
+              ],
+            },
+          },
+        })
+      );
+
+      const fulfilled = await adminService.createOrderFulfillment('ord_123', {
+        carrier: 'USPS',
+        trackingNumber: '940011189922315582',
+        status: 'SHIPPED',
+        notes: 'Dispatched via Priority Tracked Mail',
+      });
+
+      expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/orders/ord_123/fulfillment');
+      expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+      expect(fulfilled.status).toBe('shipped');
+      expect(fulfilled.carrier).toBe('USPS');
+      expect(fulfilled.trackingNumber).toBe('940011189922315582');
+      expect(fulfilled.trackingUrl).toContain('tools.usps.com');
+    });
+
+    it('adds internal admin note via POST /api/admin/orders/:id/notes', async () => {
+      fetchMock.mockImplementation(() =>
+        jsonResponse(
+          {
+            status: 'success',
+            data: {
+              note: {
+                id: 'not_1',
+                note: 'Customer called to confirm ring size is 7. Verified.',
+                authorRole: 'ADMIN',
+              },
+            },
+          },
+          201
+        )
+      );
+
+      const note = await adminService.addOrderNote('ord_123', {
+        note: 'Customer called to confirm ring size is 7. Verified.',
+        isCustomerVisible: false,
+      });
+
+      expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/orders/ord_123/notes');
+      expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+      expect(note.note).toContain('ring size is 7');
+      expect(note.authorRole).toBe('ADMIN');
+    });
+
+    it('processes order refund via POST /api/admin/orders/:id/refund', async () => {
+      fetchMock.mockImplementation(() =>
+        jsonResponse({
+          status: 'success',
+          data: {
+            order: {
+              id: 'ord_123',
+              orderNumber: 'ILS-TEST-12345',
+              paymentStatus: 'refunded',
+            },
+            refund: {
+              amount: 49.99,
+              reason: 'Customer return requested',
+            },
+          },
+        })
+      );
+
+      const result = await adminService.processOrderRefund('ord_123', {
+        amount: 49.99,
+        reason: 'Customer return requested',
+        restockInventory: true,
+      });
+
+      expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/orders/ord_123/refund');
+      expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+      expect(result.order.paymentStatus).toBe('refunded');
+      expect(result.refund.amount).toBe(49.99);
+      expect(result.refund.reason).toBe('Customer return requested');
     });
   });
 });

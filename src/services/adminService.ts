@@ -1,4 +1,4 @@
-import type {
+  import type {
   AdminRole,
   AdminRoleDefinition,
   AdminTab,
@@ -17,6 +17,7 @@ import type {
   AdminReportData,
   AdminSettingsData,
   AdminOrderItem,
+  AdminOrderNote,
   HomepageContentConfig,
   AdminStaffUser,
 } from '../types/admin';
@@ -28,12 +29,12 @@ import { cmsService } from './cmsService';
 /**
  * Admin service.
  *
- * Products, users, roles, storefront content, analytics, and the commission
- * ledger are read from and written to the Express backend; those are
- * server-authoritative and have no local mirror.
+ * Products, users, roles, storefront content, analytics, commission
+ * ledger, and orders & fulfillment tracking are read from and written to the
+ * Express backend; those are server-authoritative and have no local mirror.
  *
- * Some admin surfaces have no backend endpoint yet (orders, collections CRUD,
- * inventory logs, store settings, refunds, discounts, memberships, appraisals).
+ * Some admin surfaces have no backend endpoint yet (collections CRUD,
+ * inventory logs, store settings, discounts, memberships, appraisals).
  * Those remain browser-local and are explicitly flagged by
  * `ADMIN_FEATURE_AVAILABILITY` so the UI can label them instead of presenting
  * local state as persisted business data.
@@ -56,12 +57,12 @@ export const ADMIN_FEATURE_AVAILABILITY = {
   commissionLedger: true,
   analytics: true,
   storefrontContent: true,
-  orders: false,
-  paymentStatuses: false,
+  orders: true,
+  paymentStatuses: true,
   inventoryLog: false,
   collectionsCrud: false,
   storeSettings: false,
-  refunds: false,
+  refunds: true,
   discounts: false,
   memberships: false,
   appraisals: false,
@@ -344,6 +345,184 @@ export function mapBackendLedgerEntry(
       : '',
     customerName: entry.orderAndCustomer?.customerName || '',
     ...(entry.note ? { unqualifiedReason: entry.note } : {}),
+  };
+}
+
+/** Backend admin order summary DTO (mirrors backend AdminOrderResponseDTO). */
+export interface BackendAdminOrderSummary {
+  id: string;
+  orderNumber: string;
+  customerName?: string;
+  customerEmail?: string;
+  total?: number;
+  totalAmount?: number;
+  subtotal?: number;
+  shippingFee?: number;
+  discountAmount?: number;
+  paymentStatus?: string;
+  status?: string;
+  itemCount?: number;
+  itemsSummary?: string;
+  carrier?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  shippingAddressSnapshot?: any;
+  items?: any[];
+  order_items?: any[];
+  fulfillments?: any[];
+  notes?: any[];
+  order_notes?: any[];
+  refunds?: any[];
+  refund_records?: any[];
+  customerNote?: string | null;
+  createdAt?: string;
+  user?: {
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string;
+  };
+}
+
+export interface BackendAdminOrderListPayload {
+  orders: BackendAdminOrderSummary[];
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages?: number;
+  };
+  summary?: {
+    totalOrders: number;
+    totalRevenue: number;
+  };
+}
+
+/** Maps a backend order status enum to the admin UI's lowercase status. */
+export function toUiOrderStatus(status: string | undefined): AdminOrderItem['status'] {
+  const s = String(status || '').toLowerCase();
+  if (s === 'shipped') return 'shipped';
+  if (s === 'delivered') return 'delivered';
+  if (s === 'cancelled') return 'cancelled';
+  if (s === 'confirmed' || s === 'processing' || s === 'pending') return 'processing';
+  return (s as any) || 'processing';
+}
+
+/** Maps a backend payment status enum to the admin UI's lowercase status. */
+export function toUiPaymentStatus(status: string | undefined): AdminOrderItem['paymentStatus'] {
+  const s = String(status || '').toLowerCase();
+  if (s === 'refunded') return 'refunded';
+  if (s === 'pending') return 'pending';
+  if (s === 'paid') return 'paid';
+  return (s as any) || 'pending';
+}
+
+/** Maps a backend order response onto the AdminOrderItem view model. */
+export function mapBackendOrderToAdmin(raw: any): AdminOrderItem {
+  if (!raw) {
+    return {
+      id: '',
+      orderNumber: '',
+      customerName: '',
+      customerEmail: '',
+      total: 0,
+      status: 'processing',
+      paymentStatus: 'pending',
+      itemCount: 0,
+      itemsSummary: '',
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  const total =
+    typeof raw.total === 'number'
+      ? raw.total
+      : typeof raw.totalAmount === 'number'
+      ? raw.totalAmount
+      : Number(raw.total || raw.totalAmount || 0);
+
+  const status = toUiOrderStatus(raw.status);
+  const paymentStatus = toUiPaymentStatus(raw.paymentStatus);
+
+  const customerName =
+    raw.customerName ||
+    (raw.user ? [raw.user.firstName, raw.user.lastName].filter(Boolean).join(' ').trim() : '') ||
+    (raw.shippingAddressSnapshot ? raw.shippingAddressSnapshot.fullName : '') ||
+    'Customer';
+
+  const customerEmail =
+    raw.customerEmail ||
+    (raw.user ? raw.user.email : '') ||
+    (raw.shippingAddressSnapshot ? raw.shippingAddressSnapshot.email : '') ||
+    '';
+
+  const items = Array.isArray(raw.items)
+    ? raw.items
+    : Array.isArray(raw.order_items)
+    ? raw.order_items
+    : [];
+
+  const itemCount =
+    typeof raw.itemCount === 'number'
+      ? raw.itemCount
+      : items.length > 0
+      ? items.reduce((acc: number, it: any) => acc + (it.quantity || 1), 0)
+      : 1;
+
+  const itemsSummary =
+    raw.itemsSummary ||
+    (items.length > 0
+      ? items
+          .map((it: any) => it.productName || it.name || it.sku)
+          .filter(Boolean)
+          .join(', ')
+      : 'Surprise Candle Item');
+
+  return {
+    id: String(raw.id || raw.orderNumber),
+    orderNumber: String(raw.orderNumber || raw.id),
+    customerName,
+    customerEmail,
+    total,
+    status,
+    paymentStatus,
+    itemCount,
+    itemsSummary,
+    createdAt: raw.createdAt ? new Date(raw.createdAt).toISOString() : new Date().toISOString(),
+    subtotal: typeof raw.subtotal === 'number' ? raw.subtotal : total,
+    shippingFee: typeof raw.shippingFee === 'number' ? raw.shippingFee : 0,
+    discountAmount: typeof raw.discountAmount === 'number' ? raw.discountAmount : 0,
+    totalAmount: total,
+    customerNote: raw.customerNote || null,
+    carrier: raw.carrier || (raw.fulfillments && raw.fulfillments[0]?.carrier) || null,
+    trackingNumber: raw.trackingNumber || (raw.fulfillments && raw.fulfillments[0]?.trackingNumber) || null,
+    trackingUrl: raw.trackingUrl || (raw.fulfillments && raw.fulfillments[0]?.trackingUrl) || null,
+    shippingAddressSnapshot: raw.shippingAddressSnapshot || undefined,
+    items: items.map((it: any) => ({
+      id: it.id,
+      productId: it.productId,
+      productName: it.productName || it.name || 'Surprise Item',
+      sku: it.sku || null,
+      unitPrice: typeof it.unitPrice === 'number' ? it.unitPrice : Number(it.price || 0),
+      quantity: it.quantity || 1,
+      lineTotal:
+        typeof it.lineTotal === 'number'
+          ? it.lineTotal
+          : (typeof it.unitPrice === 'number' ? it.unitPrice : Number(it.price || 0)) * (it.quantity || 1),
+      selectedRingSize: it.selectedRingSize || null,
+      selectedScent: it.selectedScent || null,
+      customNote: it.customNote || null,
+    })),
+    fulfillments: Array.isArray(raw.fulfillments) ? raw.fulfillments : undefined,
+    notes: Array.isArray(raw.notes)
+      ? raw.notes
+      : Array.isArray(raw.order_notes)
+      ? raw.order_notes
+      : undefined,
+    refunds: Array.isArray(raw.refunds)
+      ? raw.refunds
+      : Array.isArray(raw.refund_records)
+      ? raw.refund_records
+      : undefined,
   };
 }
 
@@ -1412,19 +1591,202 @@ export const adminService = {
     return this.updateCollection(id, { featured: !item.featured });
   },
 
+  /** In-memory cache of last fetched admin orders. */
+  _cachedOrders: [] as AdminOrderItem[],
+
   /**
-   * Store orders.
-   *
-   * BLOCKED: the backend exposes no order endpoint (the `orders` table exists
-   * in Prisma but no route reads it). The previous implementation returned
-   * locally stored mock orders, which presented fabricated sales to the admin.
-   *
-   * This returns an empty list so the Orders view shows an accurate empty
-   * state; `ADMIN_FEATURE_AVAILABILITY.orders === false` lets the UI explain
-   * that the endpoint is missing rather than implying the store has no sales.
+   * Synchronous / cached accessor for orders.
+   * If orders have not been fetched yet, attempts to fetch them.
    */
   async getCommerceOrders(): Promise<AdminOrderItem[]> {
-    return [];
+    if (this._cachedOrders.length > 0) {
+      return this._cachedOrders;
+    }
+    return this.fetchCommerceOrders().catch(() => []);
+  },
+
+  /**
+   * Loads paginated admin orders from `GET /api/admin/orders`.
+   * Accepts search, status, paymentStatus, page, limit query filters.
+   */
+  async fetchOrdersRegistry(options?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    paymentStatus?: string;
+    signal?: AbortSignal;
+  }): Promise<{
+    orders: AdminOrderItem[];
+    pagination: { total: number; page: number; limit: number; totalPages?: number };
+    summary: { totalOrders: number; totalRevenue: number };
+  }> {
+    const params: Record<string, any> = {};
+    if (options?.page) params.page = options.page;
+    if (options?.limit) params.limit = options.limit;
+    if (options?.search) params.search = options.search;
+    if (options?.status && options.status !== 'all') params.status = options.status;
+    if (options?.paymentStatus && options.paymentStatus !== 'all') params.paymentStatus = options.paymentStatus;
+
+    const response = await apiClient.get<ApiResponse<BackendAdminOrderListPayload>>(
+      '/api/admin/orders',
+      params,
+      { signal: options?.signal }
+    );
+
+    const payload = unwrap<BackendAdminOrderListPayload>(response, '/api/admin/orders');
+    const rawOrders = Array.isArray(payload.orders) ? payload.orders : [];
+    const mapped = rawOrders.map(mapBackendOrderToAdmin);
+
+    this._cachedOrders = mapped;
+
+    return {
+      orders: mapped,
+      pagination: payload.pagination || {
+        total: mapped.length,
+        page: options?.page || 1,
+        limit: options?.limit || 20,
+      },
+      summary: payload.summary || {
+        totalOrders: mapped.length,
+        totalRevenue: mapped.reduce((acc, o) => acc + o.total, 0),
+      },
+    };
+  },
+
+  /**
+   * Loads orders list for the admin orders view from `GET /api/admin/orders`.
+   */
+  async fetchCommerceOrders(options?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    paymentStatus?: string;
+    signal?: AbortSignal;
+  }): Promise<AdminOrderItem[]> {
+    const res = await this.fetchOrdersRegistry(options);
+    return res.orders;
+  },
+
+  /**
+   * Detailed Order Manifest lookup from `GET /api/admin/orders/:id`.
+   * Retrieves complete order details by ID or orderNumber.
+   */
+  async fetchOrderById(
+    id: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<AdminOrderItem> {
+    const response = await apiClient.get<ApiResponse<{ order: any } | any>>(
+      `/api/admin/orders/${encodeURIComponent(id)}`,
+      undefined,
+      { signal: options?.signal }
+    );
+    const payload = unwrap<{ order?: any } | any>(response, `/api/admin/orders/${id}`);
+    const rawOrder = payload.order || payload;
+    return mapBackendOrderToAdmin(rawOrder);
+  },
+
+  /**
+   * Status transitions via `PATCH /api/admin/orders/:id/status`.
+   * Accepts statuses such as PROCESSING, SHIPPED, DELIVERED, CANCELLED.
+   */
+  async updateOrderStatus(
+    id: string,
+    status: string,
+    notes?: string
+  ): Promise<AdminOrderItem> {
+    const response = await apiClient.patch<ApiResponse<{ order: any } | any>>(
+      `/api/admin/orders/${encodeURIComponent(id)}/status`,
+      { status: status.toUpperCase(), notes }
+    );
+    const payload = unwrap<{ order?: any } | any>(response, `/api/admin/orders/${id}/status`);
+    const updated = mapBackendOrderToAdmin(payload.order || payload);
+
+    this._cachedOrders = this._cachedOrders.map((o) =>
+      o.id === id || o.orderNumber === id ? { ...o, ...updated } : o
+    );
+    return updated;
+  },
+
+  /**
+   * Carrier tracking and dispatch via `POST /api/admin/orders/:id/fulfillment`.
+   */
+  async createOrderFulfillment(
+    id: string,
+    data: {
+      carrier: string;
+      trackingNumber: string;
+      status?: string;
+      notes?: string;
+    }
+  ): Promise<AdminOrderItem> {
+    const response = await apiClient.post<ApiResponse<{ order: any } | any>>(
+      `/api/admin/orders/${encodeURIComponent(id)}/fulfillment`,
+      {
+        carrier: data.carrier,
+        trackingNumber: data.trackingNumber,
+        status: (data.status || 'SHIPPED').toUpperCase(),
+        notes: data.notes,
+      }
+    );
+    const payload = unwrap<{ order?: any } | any>(response, `/api/admin/orders/${id}/fulfillment`);
+    const updated = mapBackendOrderToAdmin(payload.order || payload);
+
+    this._cachedOrders = this._cachedOrders.map((o) =>
+      o.id === id || o.orderNumber === id ? { ...o, ...updated } : o
+    );
+    return updated;
+  },
+
+  /**
+   * Internal admin note creation via `POST /api/admin/orders/:id/notes`.
+   */
+  async addOrderNote(
+    id: string,
+    data: { note: string; isCustomerVisible?: boolean }
+  ): Promise<AdminOrderNote> {
+    const response = await apiClient.post<ApiResponse<{ note: any } | any>>(
+      `/api/admin/orders/${encodeURIComponent(id)}/notes`,
+      {
+        note: data.note,
+        isCustomerVisible: Boolean(data.isCustomerVisible),
+      }
+    );
+    const payload = unwrap<{ note?: any } | any>(response, `/api/admin/orders/${id}/notes`);
+    return payload.note || payload;
+  },
+
+  /**
+   * Order refund processing via `POST /api/admin/orders/:id/refund`.
+   */
+  async processOrderRefund(
+    id: string,
+    data: {
+      amount: number;
+      reason: string;
+      restockInventory?: boolean;
+    }
+  ): Promise<{ order: AdminOrderItem; refund: any }> {
+    const response = await apiClient.post<ApiResponse<{ order: any; refund: any } | any>>(
+      `/api/admin/orders/${encodeURIComponent(id)}/refund`,
+      {
+        amount: data.amount,
+        reason: data.reason,
+        restockInventory: data.restockInventory ?? true,
+      }
+    );
+    const payload = unwrap<{ order?: any; refund?: any } | any>(response, `/api/admin/orders/${id}/refund`);
+    const updatedOrder = mapBackendOrderToAdmin(payload.order || payload);
+
+    this._cachedOrders = this._cachedOrders.map((o) =>
+      o.id === id || o.orderNumber === id ? { ...o, ...updatedOrder } : o
+    );
+
+    return {
+      order: updatedOrder,
+      refund: payload.refund,
+    };
   },
 
   /** Synchronous placeholder; customers come from the backend. */

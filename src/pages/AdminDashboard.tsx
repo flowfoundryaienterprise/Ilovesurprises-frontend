@@ -71,7 +71,8 @@ type AdminSectionKey =
   | 'customers'
   | 'representatives'
   | 'commissions'
-  | 'reports';
+  | 'reports'
+  | 'orders';
 
 type AdminSectionStatus = Record<AdminSectionKey, 'loading' | 'ready' | 'error'>;
 type AdminSectionError = Partial<Record<AdminSectionKey, string | undefined>>;
@@ -153,6 +154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     representatives: 'loading',
     commissions: 'loading',
     reports: 'loading',
+    orders: 'loading',
   });
   const [sectionError, setSectionError] = useState<AdminSectionError>({});
 
@@ -211,13 +213,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           const live = await adminService.fetchReportsData(timeframe, { signal });
           if (!signal?.aborted) setReportData(live);
         }),
+        run('orders', async () => {
+          const live = await adminService.fetchCommerceOrders({ signal });
+          if (!signal?.aborted) setOrders(live);
+        }),
       ]);
-
-      // Orders have no backend endpoint yet; keep the list empty so the Orders
-      // panel renders its "endpoint unavailable" state instead of mock sales.
-      if (!signal?.aborted) {
-        setOrders(await adminService.getCommerceOrders());
-      }
     },
     [markSection]
   );
@@ -666,28 +666,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {activeTab === 'orders' && (
-                <div className="space-y-4">
-                  <AdminFeatureUnavailable
-                    feature="Orders"
-                    requirement="The backend exposes no order endpoint yet. The orders table exists in the database, but no API route reads it, so no order history can be shown here."
-                  />
-                  <AdminOrders
-                    orders={orders}
-                    onProcessRefund={handleProcessRefund}
-                    onShowToast={onShowToast}
-                  />
-                </div>
-              )}
+              {activeTab === 'orders' &&
+                withSectionState(
+                  'orders',
+                  <div className="space-y-4">
+                    {!ADMIN_FEATURE_AVAILABILITY.orders && (
+                      <AdminFeatureUnavailable
+                        feature="Orders"
+                        requirement="The backend exposes no order endpoint yet. The orders table exists in the database, but no API route reads it, so no order history can be shown here."
+                      />
+                    )}
+                    <AdminOrders
+                      orders={orders}
+                      onProcessRefund={handleProcessRefund}
+                      onShowToast={onShowToast}
+                    />
+                  </div>,
+                  <AdminTableSkeleton />
+                )}
 
               {activeTab === 'customers' &&
                 withSectionState(
                   'customers',
                   <div className="space-y-4">
-                    <AdminFeatureUnavailable
-                      feature="Customer order history"
-                      requirement="Customer accounts are live from the database. Order counts, lifetime spend, and last-order dates show as empty because the backend has no order endpoint yet."
-                    />
+                    {!ADMIN_FEATURE_AVAILABILITY.orders && (
+                      <AdminFeatureUnavailable
+                        feature="Customer order history"
+                        requirement="Customer accounts are live from the database. Order counts, lifetime spend, and last-order dates show as empty because the backend has no order endpoint yet."
+                      />
+                    )}
                     <AdminCustomers
                       customers={customers}
                       orders={orders}

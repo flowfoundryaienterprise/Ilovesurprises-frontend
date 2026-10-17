@@ -161,17 +161,73 @@ export interface AdminCollectionItem {
   seoDescription?: string;
 }
 
+export interface AdminOrderDetailItem {
+  id?: string;
+  productId?: string;
+  productName: string;
+  sku?: string | null;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+  selectedRingSize?: string | null;
+  selectedScent?: string | null;
+  customNote?: string | null;
+}
+
+export interface AdminOrderShippingAddress {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  addressLine1?: string;
+  addressLine2?: string | null;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+}
+
+export interface AdminOrderFulfillment {
+  id?: string;
+  carrier?: string;
+  trackingNumber?: string;
+  trackingUrl?: string | null;
+  status?: string;
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface AdminOrderNote {
+  id?: string;
+  note: string;
+  authorRole?: string;
+  isCustomerVisible?: boolean;
+  createdAt?: string;
+}
+
 export interface AdminOrderItem {
   id: string;
   orderNumber: string;
   customerName: string;
   customerEmail: string;
   total: number;
-  status: 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  paymentStatus: 'paid' | 'refunded' | 'pending';
+  status: 'processing' | 'shipped' | 'delivered' | 'cancelled' | string;
+  paymentStatus: 'paid' | 'refunded' | 'pending' | string;
   itemCount: number;
   itemsSummary: string;
   createdAt: string;
+  subtotal?: number;
+  shippingFee?: number;
+  discountAmount?: number;
+  totalAmount?: number;
+  customerNote?: string | null;
+  carrier?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  shippingAddressSnapshot?: AdminOrderShippingAddress;
+  items?: AdminOrderDetailItem[];
+  fulfillments?: AdminOrderFulfillment[];
+  notes?: AdminOrderNote[];
+  refunds?: AdminRefundRecord[];
 }
 
 export interface AdminCustomerItem {

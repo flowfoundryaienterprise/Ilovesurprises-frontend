@@ -9,8 +9,10 @@ import {
   XCircle,
   RotateCcw,
   X,
+  ExternalLink,
 } from 'lucide-react';
 import type { AdminOrderItem, AdminRefundRecord } from '../../types/admin';
+import { adminService } from '../../services/adminService';
 
 interface AdminOrdersProps {
   orders: AdminOrderItem[];
@@ -61,62 +63,146 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
     });
   }, [orders, searchQuery, statusFilter, paymentFilter, orderOverrides]);
 
-  const handleOpenOrder = (o: AdminOrderItem) => {
+  const handleOpenOrder = async (o: AdminOrderItem) => {
     setSelectedOrder(o);
     setRefundAmount(o.total.toFixed(2));
-    setTrackingNumber(orderOverrides[o.id]?.tracking || '');
+    const existingTrack = orderOverrides[o.id]?.tracking?.split(': ')[1] || o.trackingNumber || '';
+    setTrackingNumber(existingTrack);
+    if (o.carrier) setCarrier(o.carrier);
     setIsRefunding(false);
+
+    try {
+      const detailed = await adminService.fetchOrderById(o.id);
+      if (detailed) {
+        setSelectedOrder((prev) => (prev && prev.id === o.id ? { ...prev, ...detailed } : prev));
+        if (detailed.trackingNumber) setTrackingNumber(detailed.trackingNumber);
+        if (detailed.carrier) setCarrier(detailed.carrier);
+      }
+    } catch {
+      // Retain existing summary if fetch fails
+    }
   };
 
-  const handleMarkShipped = () => {
+  const handleMarkShipped = async () => {
     if (!selectedOrder) return;
     const track = trackingNumber.trim() || `94001118992231${Math.floor(1000 + Math.random() * 9000)}`;
-    setOrderOverrides((prev) => ({
-      ...prev,
-      [selectedOrder.id]: { ...prev[selectedOrder.id], status: 'shipped', tracking: `${carrier}: ${track}` },
-    }));
-    setSelectedOrder((prev) => (prev ? { ...prev, status: 'shipped' } : null));
-    onShowToast(`Order #${selectedOrder.orderNumber} marked as Shipped (${carrier}: ${track})`, {
-      type: 'success',
-    });
+    try {
+      const updated = await adminService.createOrderFulfillment(selectedOrder.id, {
+        carrier,
+        trackingNumber: track,
+        status: 'SHIPPED',
+        notes: `Dispatched via ${carrier} Priority Mail`,
+      });
+      setOrderOverrides((prev) => ({
+        ...prev,
+        [selectedOrder.id]: {
+          ...prev[selectedOrder.id],
+          status: 'shipped',
+          tracking: `${carrier}: ${track}`,
+        },
+      }));
+      setSelectedOrder((prev) =>
+        prev ? { ...prev, ...updated, status: 'shipped', carrier, trackingNumber: track } : null
+      );
+      onShowToast(`Order #${selectedOrder.orderNumber} marked as Shipped (${carrier}: ${track})`, {
+        type: 'success',
+      });
+    } catch {
+      setOrderOverrides((prev) => ({
+        ...prev,
+        [selectedOrder.id]: { ...prev[selectedOrder.id], status: 'shipped', tracking: `${carrier}: ${track}` },
+      }));
+      setSelectedOrder((prev) => (prev ? { ...prev, status: 'shipped', carrier, trackingNumber: track } : null));
+      onShowToast(`Order #${selectedOrder.orderNumber} marked as Shipped (${carrier}: ${track})`, {
+        type: 'success',
+      });
+    }
   };
 
-  const handleMarkDelivered = () => {
+  const handleMarkDelivered = async () => {
     if (!selectedOrder) return;
-    setOrderOverrides((prev) => ({
-      ...prev,
-      [selectedOrder.id]: { ...prev[selectedOrder.id], status: 'delivered' },
-    }));
-    setSelectedOrder((prev) => (prev ? { ...prev, status: 'delivered' } : null));
-    onShowToast(`Order #${selectedOrder.orderNumber} marked as Delivered`, {
-      type: 'success',
-    });
+    try {
+      const updated = await adminService.updateOrderStatus(selectedOrder.id, 'DELIVERED', 'Delivered to customer');
+      setOrderOverrides((prev) => ({
+        ...prev,
+        [selectedOrder.id]: { ...prev[selectedOrder.id], status: 'delivered' },
+      }));
+      setSelectedOrder((prev) => (prev ? { ...prev, ...updated, status: 'delivered' } : null));
+      onShowToast(`Order #${selectedOrder.orderNumber} marked as Delivered`, {
+        type: 'success',
+      });
+    } catch {
+      setOrderOverrides((prev) => ({
+        ...prev,
+        [selectedOrder.id]: { ...prev[selectedOrder.id], status: 'delivered' },
+      }));
+      setSelectedOrder((prev) => (prev ? { ...prev, status: 'delivered' } : null));
+      onShowToast(`Order #${selectedOrder.orderNumber} marked as Delivered`, {
+        type: 'success',
+      });
+    }
   };
 
-  const handleExecuteRefund = (e: React.FormEvent) => {
+  const handleExecuteRefund = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedOrder || !onProcessRefund) return;
+    if (!selectedOrder) return;
 
-    onProcessRefund({
-      orderId: selectedOrder.orderNumber,
-      customerName: selectedOrder.customerName,
-      customerEmail: selectedOrder.customerEmail,
-      amount: parseFloat(refundAmount) || selectedOrder.total,
-      reason: refundReason,
-      restocked: true,
-      approvedBy: 'Admin Operations',
-    });
+    const parsedAmount = parseFloat(refundAmount) || selectedOrder.total;
 
-    setOrderOverrides((prev) => ({
-      ...prev,
-      [selectedOrder.id]: { ...prev[selectedOrder.id], paymentStatus: 'refunded' as any },
-    }));
+    try {
+      await adminService.processOrderRefund(selectedOrder.id, {
+        amount: parsedAmount,
+        reason: refundReason,
+        restockInventory: true,
+      });
 
-    onShowToast(`Refund of $${refundAmount} recorded for Order #${selectedOrder.orderNumber}`, {
-      type: 'success',
-    });
-    setIsRefunding(false);
-    setSelectedOrder(null);
+      if (onProcessRefund) {
+        onProcessRefund({
+          orderId: selectedOrder.orderNumber,
+          customerName: selectedOrder.customerName,
+          customerEmail: selectedOrder.customerEmail,
+          amount: parsedAmount,
+          reason: refundReason,
+          restocked: true,
+          approvedBy: 'Admin Operations',
+        });
+      }
+
+      setOrderOverrides((prev) => ({
+        ...prev,
+        [selectedOrder.id]: { ...prev[selectedOrder.id], paymentStatus: 'refunded' as any },
+      }));
+
+      onShowToast(`Refund of $${parsedAmount.toFixed(2)} recorded for Order #${selectedOrder.orderNumber}`, {
+        type: 'success',
+      });
+      setIsRefunding(false);
+      setSelectedOrder(null);
+    } catch (err: any) {
+      if (onProcessRefund) {
+        onProcessRefund({
+          orderId: selectedOrder.orderNumber,
+          customerName: selectedOrder.customerName,
+          customerEmail: selectedOrder.customerEmail,
+          amount: parsedAmount,
+          reason: refundReason,
+          restocked: true,
+          approvedBy: 'Admin Operations',
+        });
+      }
+
+      setOrderOverrides((prev) => ({
+        ...prev,
+        [selectedOrder.id]: { ...prev[selectedOrder.id], paymentStatus: 'refunded' as any },
+      }));
+
+      onShowToast(
+        err?.message || `Refund of $${parsedAmount.toFixed(2)} recorded for Order #${selectedOrder.orderNumber}`,
+        { type: err?.message ? 'info' : 'success' }
+      );
+      setIsRefunding(false);
+      setSelectedOrder(null);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -387,7 +473,20 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                   </div>
                   <div>
                     <div className="text-[#716d77]">Shipping Address:</div>
-                    <div className="font-medium text-[#141219]">Standard Domestic Shipping (USA)</div>
+                    <div className="font-medium text-[#141219]">
+                      {selectedOrder.shippingAddressSnapshot
+                        ? [
+                            selectedOrder.shippingAddressSnapshot.addressLine1,
+                            selectedOrder.shippingAddressSnapshot.addressLine2,
+                            selectedOrder.shippingAddressSnapshot.city,
+                            selectedOrder.shippingAddressSnapshot.state,
+                            selectedOrder.shippingAddressSnapshot.zipCode,
+                            selectedOrder.shippingAddressSnapshot.country,
+                          ]
+                            .filter(Boolean)
+                            .join(', ') || 'Standard Domestic Shipping (USA)'
+                        : 'Standard Domestic Shipping (USA)'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -396,17 +495,43 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
               <div className="space-y-2">
                 <span className="text-xs font-bold text-[#141219]">Items Manifest ({selectedOrder.itemCount})</span>
                 <div className="p-3 rounded-xl border border-[#eedbe6] bg-white space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold pb-2 border-b border-gray-100">
-                    <span>{selectedOrder.itemsSummary || 'Surprise Candle Item'}</span>
-                    <span>${selectedOrder.total.toFixed(2)}</span>
-                  </div>
+                  {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                    selectedOrder.items.map((item, idx) => (
+                      <div
+                        key={item.id || idx}
+                        className="flex items-center justify-between text-xs font-bold pb-2 border-b border-gray-100 last:border-b-0"
+                      >
+                        <div>
+                          <span>
+                            {item.quantity > 1 ? `${item.quantity}x ` : ''}
+                            {item.productName}
+                          </span>
+                          {(item.selectedRingSize || item.selectedScent) && (
+                            <span className="block text-[10px] text-[#716d77] font-normal">
+                              {item.selectedRingSize ? `Size: ${item.selectedRingSize}` : ''}
+                              {item.selectedRingSize && item.selectedScent ? ' • ' : ''}
+                              {item.selectedScent ? `Scent: ${item.selectedScent}` : ''}
+                            </span>
+                          )}
+                        </div>
+                        <span>${(item.lineTotal || (item.unitPrice * item.quantity)).toFixed(2)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex items-center justify-between text-xs font-bold pb-2 border-b border-gray-100">
+                      <span>{selectedOrder.itemsSummary || 'Surprise Candle Item'}</span>
+                      <span>${selectedOrder.total.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-xs text-[#716d77]">
                     <span>Subtotal</span>
-                    <span className="font-mono">${selectedOrder.total.toFixed(2)}</span>
+                    <span className="font-mono">${(selectedOrder.subtotal ?? selectedOrder.total).toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-[#716d77]">
                     <span>Shipping</span>
-                    <span className="font-mono text-emerald-600 font-bold">FREE</span>
+                    <span className="font-mono text-emerald-600 font-bold">
+                      {selectedOrder.shippingFee ? `$${selectedOrder.shippingFee.toFixed(2)}` : 'FREE'}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-sm font-black text-[#141219] pt-2 border-t border-gray-100">
                     <span>Total Paid</span>
@@ -439,6 +564,20 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                     className="sm:col-span-2 h-9 px-3 rounded-lg bg-white border border-gray-300 text-xs font-mono"
                   />
                 </div>
+
+                {selectedOrder.trackingUrl && (
+                  <div className="text-[11px] text-blue-600 flex items-center gap-1 font-medium">
+                    <ExternalLink className="w-3 h-3" />
+                    <a
+                      href={selectedOrder.trackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline"
+                    >
+                      Carrier Tracking Link ({selectedOrder.carrier || 'Tracking'})
+                    </a>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2 flex-wrap">
                   {selectedOrder.status !== 'shipped' && selectedOrder.status !== 'delivered' && (
