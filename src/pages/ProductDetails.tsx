@@ -76,6 +76,97 @@ export function isJewelryOrRingOption(opt: { name?: string; values?: string[] })
   return false;
 }
 
+/**
+ * Utility to strip HTML tags, markdown asterisks, and decode common entities
+ */
+export function cleanPlainText(str?: string): string {
+  return (str || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\*\*|\*/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export interface ShortDescriptionData {
+  shortSummary: string;
+  highlights: string[];
+  hasMore: boolean;
+}
+
+/**
+ * Derives a concise, scannable product overview and key feature bullet points
+ * from the authentic product data without altering or losing source content.
+ */
+export function getShortDescriptionData(product: Product): ShortDescriptionData {
+  const raw = product.description || '';
+  const plain = cleanPlainText(raw);
+
+  let shortSummary = '';
+  if (plain) {
+    const sentences = plain.match(/[^.!?]+[.!?]+(?:\s|$)/g) || [plain];
+    if (sentences.length >= 2 && sentences[0].length < 80) {
+      shortSummary = (sentences[0] + sentences[1]).trim();
+    } else {
+      shortSummary = (sentences[0] || plain).trim();
+    }
+    if (shortSummary.length > 220) {
+      const truncated = shortSummary.slice(0, 210);
+      const lastSpace = truncated.lastIndexOf(' ');
+      shortSummary = (lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated) + '...';
+    }
+  } else {
+    shortSummary =
+      'Crafted with 100% natural organic soy wax, clean aromatic oils, and lead-free cotton wicks for a long-lasting, clean burn. Hand-poured in the USA.';
+  }
+
+  const rawLower = (raw + ' ' + (product.category || '')).toLowerCase();
+
+  const surpriseHighlight =
+    product.surpriseValue ||
+    (product.surpriseType === 'cash'
+      ? 'Guaranteed real $2 bill hidden inside with bonus cash prizes up to $2,500'
+      : product.surpriseType === 'jewelry'
+      ? 'Guaranteed fine jewelry surprise hidden inside appraised from $10 up to $7,500'
+      : 'Guaranteed authentic surprise reveal sealed inside every item');
+
+  let craftHighlight = '100% natural organic soy wax, premium aromatic oils & lead-free cotton wicks';
+  if (/bath bomb|bath salt|sugar scrub|soap/i.test(rawLower)) {
+    craftHighlight = 'Skin-softening formula with pure Epsom salt, rich botanical oils & clean ingredients';
+  } else if (/wax melt/i.test(rawLower)) {
+    craftHighlight = 'Premium coconut-soy wax blend delivering maximum room-filling fragrance throw';
+  } else if (/slime/i.test(rawLower)) {
+    craftHighlight = 'Handcrafted sensory slime with charming mix-in accents & reusable container';
+  }
+
+  let durationHighlight = 'Over 80–100 hours of slow, clean-burning aroma in a reusable glass jar';
+  if (/bath bomb/i.test(rawLower)) {
+    durationHighlight = 'Deeply relaxing aromatherapy soak with rich fizz and soothing skin hydration';
+  } else if (/bath salt|scrub|soap/i.test(rawLower)) {
+    durationHighlight = 'Gentle, moisturizing formula safe for daily self-care rituals';
+  } else if (/wax melt/i.test(rawLower)) {
+    durationHighlight = 'Over 100 hours of long-lasting fragrance enjoyment in standard warmers';
+  } else if (/cereal/i.test(rawLower) && /bowl/i.test(rawLower)) {
+    durationHighlight = 'Comes in a real reusable cereal bowl with spoon after reveal';
+  } else if (/mug|coffee/i.test(rawLower)) {
+    durationHighlight = 'Comes in a real 12 oz enamel coffee mug, reusable after candle burns';
+  }
+
+  const highlights = [
+    surpriseHighlight,
+    craftHighlight,
+    durationHighlight,
+    'Proudly handcrafted in the USA • 100% Win Guarantee',
+  ];
+
+  const hasMore = plain.length > shortSummary.length + 35 || raw.includes('<');
+
+  return { shortSummary, highlights, hasMore };
+}
+
 // Authoritative 20 Scents in exact founder non-alphabetized order
 export const FOUNDER_SCENTS = [
   'Birthday Cake',
@@ -116,7 +207,16 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
 }) => {
   const [quantity, setQuantity] = useState(1);
   const [selectedSize] = useState('Classic 14oz');
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const isCurrentProductWishlisted = wishlistIds.includes(product.id);
+
+  // Reset description expansion state when viewing a different product
+  useEffect(() => {
+    setIsDescriptionExpanded(false);
+  }, [product.id]);
+
+  // Derive concise scannable summary and key benefits from product data
+  const descriptionData = useMemo(() => getShortDescriptionData(product), [product]);
 
   // Detect whether this is a jewelry surprise product
   // Detect whether this is a jewelry surprise product
@@ -742,64 +842,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </div>
             )}
 
-            {/* Real-time Urgency Countdown Timer (JewelryCandles Conversion Feature) */}
-            <div className="mb-4 p-3 sm:p-3.5 rounded-[16px] bg-gradient-to-r from-[#fff1f2] via-[#fff7f8] to-[#fff1f2] border border-[#fecdd3] flex items-center justify-between gap-2 shadow-2xs">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-[#D30915] text-white flex items-center justify-center shrink-0 shadow-2xs">
-                  <Clock className="w-4 h-4 animate-spin-slow" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[11px] sm:text-xs font-black text-[#141219] uppercase tracking-wider flex items-center gap-1.5 truncate">
-                    <span>Limited Surprise Batch</span>
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#D30915] animate-ping" />
-                  </div>
-                  <div className="text-[10.5px] sm:text-[11px] text-[#716d77] font-medium truncate">
-                    Order in next {pTimerHours}h {pTimerMinutes}m to ship today!
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1 shrink-0 font-mono">
-                <div className="bg-[#141219] text-white px-2 py-1 rounded-[8px] text-xs font-black text-center min-w-[28px]">
-                  {pTimerHours}h
-                </div>
-                <span className="font-bold text-[#D30915]">:</span>
-                <div className="bg-[#141219] text-white px-2 py-1 rounded-[8px] text-xs font-black text-center min-w-[28px]">
-                  {pTimerMinutes}m
-                </div>
-                <span className="font-bold text-[#D30915]">:</span>
-                <div className="bg-[#D30915] text-white px-2 py-1 rounded-[8px] text-xs font-black text-center min-w-[28px] animate-pulse">
-                  {pTimerSeconds}s
-                </div>
-              </div>
-            </div>
-
-            {/* Surprise Reveal Guarantee Feature Card */}
-            <div className="p-4 rounded-[18px] bg-gradient-to-r from-[#fff5f5] via-[#fff8fb] to-[#fff5f5] border border-[#fecdd3] mb-5 shadow-2xs">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-7 h-7 rounded-full bg-[#D30915] text-white flex items-center justify-center shrink-0">
-                  {product.surpriseType === 'cash' ? (
-                    <DollarSign className="w-4 h-4 stroke-[3]" />
-                  ) : (
-                    <Gem className="w-4 h-4" />
-                  )}
-                </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-black text-[#141219] m-0 leading-tight">
-                    {product.surpriseType === 'cash'
-                      ? 'Guaranteed Real Cash Prize Inside'
-                      : 'Guaranteed Fine Jewelry Inside'}
-                  </h4>
-                  <p className="text-[11px] text-[#D30915] font-black m-0">
-                    {product.surpriseValue || 'Authentic Reveal in Every Jar'}
-                  </p>
-                </div>
-              </div>
-              <p className="text-xs text-[#55505a] leading-relaxed m-0 font-medium pl-9">
-                Every single handcrafted product holds a sealed, waterproof, heat-resistant capsule with your guaranteed surprise. Burn or unwrap to reveal your treasure!
-              </p>
-            </div>
-
             {/* Clean Dropdown Scent Selection (Exact 20 Scents in Founder Order) - Only for Customizable Scented Products */}
             {isScentedProduct && showScentDropdown && (
               <div className="mb-5 p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] shadow-2xs">
@@ -866,7 +908,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             )}
 
             {isJewelrySurprise && (
-              <div className="mb-6 p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] space-y-4">
+              <div className="mb-5 p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] space-y-4">
                 {/* Jewelry Type Selector */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -949,45 +991,64 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </div>
             )}
 
-            {/* Scent Notes & Aroma Profile */}
-            {product.scentNotes && product.scentNotes.length > 0 && (
-              <div className="mb-5">
-                <span className="block text-[11px] font-black uppercase tracking-wider text-[#8a858f] mb-2">
-                  Aromatic Scent Notes
+            {/* Product Details & Experience (Shortened, Scannable & Expandable) */}
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="block text-[11px] font-black uppercase tracking-wider text-[#8a858f]">
+                  Product Details &amp; Experience
                 </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {product.scentNotes.map((note, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1 rounded-[10px] bg-white border border-[#ebdce5] text-xs font-bold text-[#141219] shadow-2xs"
-                    >
-                      🌸 {note}
-                    </span>
-                  ))}
-                </div>
+                {descriptionData.hasMore && (
+                  <button
+                    type="button"
+                    onClick={() => setIsDescriptionExpanded((prev) => !prev)}
+                    className="text-[11px] font-bold text-[#D30915] hover:text-[#B60711] hover:underline inline-flex items-center gap-1 cursor-pointer transition-colors"
+                    aria-expanded={isDescriptionExpanded}
+                  >
+                    <span>{isDescriptionExpanded ? 'Show Less Details' : 'Read Full Description'}</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                        isDescriptionExpanded ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                )}
               </div>
-            )}
 
-            {/* Authoritative Description & Write-up (Preserves HTML) */}
-            <div className="mb-6">
-              <span className="block text-[11px] font-black uppercase tracking-wider text-[#8a858f] mb-1.5">
-                Product Details & Experience
-              </span>
-              {product.description && product.description.includes('<') ? (
-                <div
-                  className="text-xs sm:text-sm text-[#55505a] leading-relaxed font-medium space-y-2 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_iframe]:w-full [&_iframe]:max-w-[560px] [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:my-3"
-                  dangerouslySetInnerHTML={{ __html: product.description }}
-                />
-              ) : (
-                <p className="text-xs sm:text-sm text-[#55505a] leading-relaxed m-0 font-medium">
-                  {product.description ||
-                    'Crafted with 100% natural organic soy wax, clean aromatic oils, and lead-free cotton wicks for a long-lasting, clean burn. Hand-poured in the USA.'}
-                </p>
+              {/* Concise Primary Summary Paragraph */}
+              <p className="text-xs sm:text-sm text-[#55505a] leading-relaxed m-0 font-medium mb-2.5">
+                {descriptionData.shortSummary}
+              </p>
+
+              {/* Amazon-Style Key Benefits / Scannable Bullet Points */}
+              <ul className="text-xs sm:text-[13px] text-[#55505a] space-y-1.5 mb-2 pl-0 list-none font-medium">
+                {descriptionData.highlights.map((highlight, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-[#D30915] font-black text-sm leading-none shrink-0 mt-0.5">•</span>
+                    <span className="leading-snug">{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Expandable Full Authoritative Description (Preserves all HTML & rich details) */}
+              {descriptionData.hasMore && isDescriptionExpanded && (
+                <div className="mt-3 pt-3 border-t border-[#f2edf1] text-xs sm:text-sm text-[#55505a] leading-relaxed font-medium space-y-2 animate-in fade-in duration-200">
+                  {product.description && product.description.includes('<') ? (
+                    <div
+                      className="space-y-2 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_iframe]:w-full [&_iframe]:max-w-[560px] [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:my-3"
+                      dangerouslySetInnerHTML={{ __html: product.description }}
+                    />
+                  ) : (
+                    <p className="m-0 leading-relaxed font-medium">
+                      {product.description ||
+                        'Crafted with 100% natural organic soy wax, clean aromatic oils, and lead-free cotton wicks for a long-lasting, clean burn. Hand-poured in the USA.'}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 
             {/* Quantity Stepper, Add to Cart & Buy It Now Controls */}
-            <div className="space-y-2.5 sm:space-y-3 mb-6 pt-4 border-t border-[#f2edf1]">
+            <div className="space-y-2.5 sm:space-y-3 mb-5 pt-3 border-t border-[#f2edf1]">
               {/* Row 1: Quantity Stepper & ADD TO CART Button */}
               <div className="flex items-center gap-2 sm:gap-2.5 w-full">
                 {/* Stepper with Curved Pill Background */}
@@ -1067,7 +1128,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             </div>
 
             {/* 4 Guarantees Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-[16px] bg-[#fffafc] border border-[#f2e6ee] text-[11px] font-bold text-[#55505a]">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-[16px] bg-[#fffafc] border border-[#f2e6ee] text-[11px] font-bold text-[#55505a] mb-4">
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>100% Win Guarantee</span>
@@ -1085,6 +1146,83 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 <span>Made in USA</span>
               </div>
             </div>
+
+            {/* Real-time Urgency Countdown Timer (JewelryCandles Conversion Feature) */}
+            <div className="mb-4 p-3 sm:p-3.5 rounded-[16px] bg-gradient-to-r from-[#fff1f2] via-[#fff7f8] to-[#fff1f2] border border-[#fecdd3] flex items-center justify-between gap-2 shadow-2xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-[#D30915] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <Clock className="w-4 h-4 animate-spin-slow" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] sm:text-xs font-black text-[#141219] uppercase tracking-wider flex items-center gap-1.5 truncate">
+                    <span>Limited Surprise Batch</span>
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#D30915] animate-ping" />
+                  </div>
+                  <div className="text-[10.5px] sm:text-[11px] text-[#716d77] font-medium truncate">
+                    Order in next {pTimerHours}h {pTimerMinutes}m to ship today!
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0 font-mono">
+                <div className="bg-[#141219] text-white px-2 py-1 rounded-[8px] text-xs font-black text-center min-w-[28px]">
+                  {pTimerHours}h
+                </div>
+                <span className="font-bold text-[#D30915]">:</span>
+                <div className="bg-[#141219] text-white px-2 py-1 rounded-[8px] text-xs font-black text-center min-w-[28px]">
+                  {pTimerMinutes}m
+                </div>
+                <span className="font-bold text-[#D30915]">:</span>
+                <div className="bg-[#D30915] text-white px-2 py-1 rounded-[8px] text-xs font-black text-center min-w-[28px] animate-pulse">
+                  {pTimerSeconds}s
+                </div>
+              </div>
+            </div>
+
+            {/* Surprise Reveal Guarantee Feature Card */}
+            <div className="p-4 rounded-[18px] bg-gradient-to-r from-[#fff5f5] via-[#fff8fb] to-[#fff5f5] border border-[#fecdd3] mb-4 shadow-2xs">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-7 h-7 rounded-full bg-[#D30915] text-white flex items-center justify-center shrink-0">
+                  {product.surpriseType === 'cash' ? (
+                    <DollarSign className="w-4 h-4 stroke-[3]" />
+                  ) : (
+                    <Gem className="w-4 h-4" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-[#141219] m-0 leading-tight">
+                    {product.surpriseType === 'cash'
+                      ? 'Guaranteed Real Cash Prize Inside'
+                      : 'Guaranteed Fine Jewelry Inside'}
+                  </h4>
+                  <p className="text-[11px] text-[#D30915] font-black m-0">
+                    {product.surpriseValue || 'Authentic Reveal in Every Jar'}
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-[#55505a] leading-relaxed m-0 font-medium pl-9">
+                Every single handcrafted product holds a sealed, waterproof, heat-resistant capsule with your guaranteed surprise. Burn or unwrap to reveal your treasure!
+              </p>
+            </div>
+
+            {/* Scent Notes & Aroma Profile */}
+            {product.scentNotes && product.scentNotes.length > 0 && (
+              <div className="mb-4">
+                <span className="block text-[11px] font-black uppercase tracking-wider text-[#8a858f] mb-2">
+                  Aromatic Scent Notes
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {product.scentNotes.map((note, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1 rounded-[10px] bg-white border border-[#ebdce5] text-xs font-bold text-[#141219] shadow-2xs"
+                    >
+                      🌸 {note}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
