@@ -50,7 +50,7 @@ export interface JewelryAppraisal {
 export interface PublicAppraisalResult {
   code: string;
   name: string;
-  type: JewelryType;
+  type: JewelryType | string;
   estimatedValue: number;
   retailValue?: number;
   image: string;
@@ -65,6 +65,11 @@ export interface PublicAppraisalResult {
   serialNumber: string;
   certificateNumber?: string;
   inspectedDate: string;
+  isSubmission?: boolean;
+  submissionStatus?: AppraisalSubmissionStatus;
+  referenceId?: string;
+  customerNotes?: string;
+  appraiserNotes?: string;
 }
 
 export interface AppraisalLookupResponse {
@@ -75,10 +80,15 @@ export interface AppraisalLookupResponse {
 
 export interface CustomerAppraisalSubmission {
   id: string;
+  referenceId?: string;
   customerName: string;
+  name?: string;
   customerEmail: string;
+  email?: string;
   customerPhone?: string;
+  phone?: string;
   orderNumber?: string;
+  orderId?: string;
   productName: string;
   jewelryType: string;
   metalType?: string;
@@ -86,8 +96,10 @@ export interface CustomerAppraisalSubmission {
   codeInfo?: string;
   photoPreviews?: string[];
   images?: string[];
+  photos?: string[];
   status: AppraisalSubmissionStatus;
   notes?: string;
+  customerNotes?: string;
   appraiserNotes?: string;
   estimatedValue?: number;
   appraisedValue?: number;
@@ -181,9 +193,13 @@ export interface UpdateAppraisalDTO {
 
 export interface SubmitCustomerAppraisalDTO {
   customerName: string;
+  name?: string;
   customerEmail: string;
+  email?: string;
   customerPhone?: string;
+  phone?: string;
   orderNumber?: string;
+  orderId?: string;
   productName: string;
   jewelryType: string;
   metalType?: string;
@@ -191,13 +207,16 @@ export interface SubmitCustomerAppraisalDTO {
   codeInfo?: string;
   photoPreviews?: string[];
   images?: string[];
+  photos?: (File | string)[];
   notes?: string;
+  customerNotes?: string;
   estimatedValue?: number;
 }
 
 export interface UpdateCustomerSubmissionDTO {
   status?: AppraisalSubmissionStatus;
   notes?: string;
+  customerNotes?: string;
   appraiserNotes?: string;
   estimatedValue?: number;
   appraisedValue?: number;

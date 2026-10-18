@@ -231,16 +231,20 @@ describe('appraisalService', () => {
       expect(deleted).toBe(true);
     });
 
-    it('submits a customer appraisal reveal to /api/appraisals/submit', async () => {
+    it('submits a customer appraisal reveal to /api/appraisals/submit with aliases and referenceId', async () => {
       fetchMock.mockResolvedValueOnce(
         jsonResponse({
           status: 'success',
           data: {
-            id: 'sub-server-123',
+            id: 'appr-sub-1792346688703-ydtc3',
+            referenceId: '#appr-sub-1792346688703-ydtc3',
             customerName: 'Jane Doe',
             customerEmail: 'jane@example.com',
+            customerPhone: '555-1234',
+            orderNumber: 'ILS-9988',
             productName: 'Surprise Candle',
             jewelryType: 'Necklace',
+            customerNotes: 'Found inside soy wax candle',
             status: 'pending',
             createdAt: '2026-01-01T00:00:00.000Z',
           },
@@ -255,17 +259,73 @@ describe('appraisalService', () => {
 
       const submission = await appraisalService.submitAppraisal({
         customerName: 'Jane Doe',
+        name: 'Jane Doe',
         customerEmail: 'jane@example.com',
+        email: 'jane@example.com',
+        customerPhone: '555-1234',
+        orderNumber: 'ILS-9988',
         productName: 'Surprise Candle',
         jewelryType: 'Necklace',
+        customerNotes: 'Found inside soy wax candle',
       });
 
       expect(submission.customerName).toBe('Jane Doe');
+      expect(submission.referenceId).toBe('#appr-sub-1792346688703-ydtc3');
+      expect(submission.customerNotes).toBe('Found inside soy wax candle');
       expect(subEventTriggered).toBe(true);
       window.removeEventListener(APPRAISAL_SUBMISSIONS_UPDATED_EVENT, handler);
     });
 
-    it('updates customer submission gemologist review notes and valuation', async () => {
+    it('tracks customer submission via instant lookup by Reference ID', async () => {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({
+          status: 'success',
+          data: {
+            id: 'appr-sub-1792346688703-ydtc3',
+            referenceId: '#appr-sub-1792346688703-ydtc3',
+            name: 'Gold Ring',
+            jewelryType: 'Ring',
+            status: 'pending',
+            customerNotes: 'Found in lavender candle',
+          },
+        })
+      );
+
+      const res = await appraisalService.lookupJewelryCode('#appr-sub-1792346688703-ydtc3');
+      expect(res.success).toBe(true);
+      expect(res.data?.isSubmission).toBe(true);
+      expect(res.data?.submissionStatus).toBe('pending');
+      expect(res.data?.referenceId).toBe('#appr-sub-1792346688703-ydtc3');
+      expect(res.data?.customerNotes).toBe('Found in lavender candle');
+    });
+
+    it('fetches admin customer submissions from /api/admin/appraisals/submissions', async () => {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({
+          status: 'success',
+          data: [
+            {
+              id: 'srv-sub-101',
+              referenceId: '#srv-sub-101',
+              customerName: 'Sam Smith',
+              customerEmail: 'sam@example.com',
+              productName: 'Rose Candle',
+              jewelryType: 'Earrings',
+              status: 'pending',
+              createdAt: '2026-01-02T00:00:00.000Z',
+            },
+          ],
+        })
+      );
+
+      const subs = await appraisalService.fetchAdminSubmissions();
+      expect(subs.length).toBeGreaterThanOrEqual(1);
+      const found = subs.find((s) => s.id === 'srv-sub-101');
+      expect(found).toBeDefined();
+      expect(found?.customerName).toBe('Sam Smith');
+    });
+
+    it('preserves customerNotes when updating appraiserNotes and valuation', async () => {
       fetchMock.mockResolvedValue(jsonResponse({ status: 'success' }));
 
       const sub = await appraisalService.submitAppraisal({
@@ -273,15 +333,21 @@ describe('appraisalService', () => {
         customerEmail: 'bob@example.com',
         productName: 'Bath Bomb',
         jewelryType: 'Earrings',
+        customerNotes: 'Revealed with hallmark 925 stamped inside band',
       });
 
       const updated = await appraisalService.updateSubmission(sub.id, {
         status: 'reviewed',
         estimatedValue: 450,
-        notes: 'Gemologist verified genuine sterling silver',
+        appraiserNotes: 'Gemologist verified genuine sterling silver',
       });
 
       expect(updated).toBe(true);
+      const stored = appraisalService.getSubmissionById(sub.id);
+      expect(stored?.customerNotes).toBe('Revealed with hallmark 925 stamped inside band');
+      expect(stored?.appraiserNotes).toBe('Gemologist verified genuine sterling silver');
+      expect(stored?.status).toBe('reviewed');
+      expect(stored?.estimatedValue).toBe(450);
     });
   });
 });

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { AdminKPIs, AdminActivityItem, AdminTab, AdminCollectionItem } from '../../types/admin';
 import { adminService } from '../../services/adminService';
+import { appraisalService } from '../../services/appraisalService';
 
 interface AdminOverviewProps {
   kpis: AdminKPIs;
@@ -237,10 +238,12 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               </div>
             </div>
             <div className="text-xl font-black text-[#141219]">
-              50+
+              {appraisalService.getAllSubmissions().length}
             </div>
             <div className="text-[10px] text-indigo-700 font-bold">
-              Certificates
+              {appraisalService.getAllSubmissions().filter((s) => s.status === 'pending').length > 0
+                ? `${appraisalService.getAllSubmissions().filter((s) => s.status === 'pending').length} Pending Review`
+                : `${appraisalService.getAllAppraisals().length} Certificates`}
             </div>
           </div>
         </div>

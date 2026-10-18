@@ -60,10 +60,13 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
   // Form states for "What to Submit"
   const [customerName, setCustomerName] = useState(() => accountService.getStoredUser()?.name || '');
   const [email, setEmail] = useState(() => accountService.getStoredUser()?.email || '');
+  const [phone, setPhone] = useState('');
   const [orderNumber, setOrderNumber] = useState('');
   const [productName, setProductName] = useState('');
   const [jewelryType, setJewelryType] = useState('Ring');
   const [codeInfo, setCodeInfo] = useState('');
+  const [customerNotes, setCustomerNotes] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedPhotoNames, setSelectedPhotoNames] = useState<string[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -107,6 +110,7 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files);
+      setSelectedFiles(files);
       setSelectedPhotoNames(files.map((f) => f.name));
 
       const previews: string[] = [];
@@ -140,28 +144,43 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
     setSubmissionFeedback(null);
 
     try {
-      // 1. Save to authoritative customer appraisal submissions registry
+      // Save to customer appraisal submissions registry (supports aliases & files)
       const savedSubmission = await appraisalService.submitAppraisal({
         customerName: customerName.trim(),
+        name: customerName.trim(),
         customerEmail: email.trim(),
+        email: email.trim(),
+        customerPhone: phone.trim() || undefined,
+        phone: phone.trim() || undefined,
         orderNumber: orderNumber.trim() || undefined,
+        orderId: orderNumber.trim() || undefined,
         productName: productName.trim(),
         jewelryType,
         codeInfo: codeInfo.trim() || undefined,
+        customerNotes: customerNotes.trim() || undefined,
+        notes: customerNotes.trim() || undefined,
+        photos: selectedFiles.length > 0 ? selectedFiles : undefined,
         photoPreviews: photoPreviews.length > 0 ? photoPreviews : undefined,
       });
+
+      const displayRefId =
+        savedSubmission.referenceId ||
+        (savedSubmission.id.startsWith('#') ? savedSubmission.id : `#${savedSubmission.id}`);
 
       setIsSubmitting(false);
       setSubmissionFeedback({
         type: 'success',
-        message: `Your jewelry appraisal submission was received successfully! Reference ID: #${savedSubmission.id}. Our gemology team has logged your photos and details for appraisal.`,
+        message: `Your jewelry appraisal submission was received successfully! Reference ID: ${displayRefId}. Our gemology team has logged your photos and details for appraisal.`,
       });
 
       // Reset form fields
       setCustomerName('');
       setProductName('');
+      setPhone('');
       setOrderNumber('');
       setCodeInfo('');
+      setCustomerNotes('');
+      setSelectedFiles([]);
       setSelectedPhotoNames([]);
       setPhotoPreviews([]);
     } catch (err: any) {
@@ -380,7 +399,7 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
               )}
 
               <form onSubmit={handleAppraisalFormSubmit} className="space-y-4 sm:space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-[#141219] mb-1.5">
                       Customer Name *
@@ -405,6 +424,19 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="example@gmail.com"
+                      className="w-full h-11 px-3.5 rounded-xl border border-[#eedbe6] focus:border-[#D30915] focus:ring-2 focus:ring-[#D30915]/10 text-xs sm:text-sm text-[#141219] outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#141219] mb-1.5">
+                      Phone Number (optional)
+                    </label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="(555) 000-0000"
                       className="w-full h-11 px-3.5 rounded-xl border border-[#eedbe6] focus:border-[#D30915] focus:ring-2 focus:ring-[#D30915]/10 text-xs sm:text-sm text-[#141219] outline-none"
                     />
                   </div>
@@ -467,6 +499,19 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
                     onChange={(e) => setCodeInfo(e.target.value)}
                     placeholder="e.g. Tag Code ILS-GOLD-550, foil pouch markings, hallmark stamps"
                     className="w-full h-11 px-3.5 rounded-xl border border-[#eedbe6] focus:border-[#D30915] focus:ring-2 focus:ring-[#D30915]/10 text-xs sm:text-sm text-[#141219] outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#141219] mb-1.5">
+                    Discovery Notes / Item Description (optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={customerNotes}
+                    onChange={(e) => setCustomerNotes(e.target.value)}
+                    placeholder="Describe where or how you revealed the piece, metal stamps (.925/14K), stone details, or notes for our gemologists..."
+                    className="w-full p-3 rounded-xl border border-[#eedbe6] focus:border-[#D30915] focus:ring-2 focus:ring-[#D30915]/10 text-xs sm:text-sm text-[#141219] outline-none resize-none"
                   />
                 </div>
 
@@ -619,7 +664,119 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
             </div>
 
             {/* Appraisal Result Card */}
-            {appraisalResult && (
+            {appraisalResult && appraisalResult.isSubmission ? (
+              <div
+                ref={resultCardRef}
+                className="mt-8 rounded-3xl bg-white border-2 border-amber-300 shadow-xl p-6 sm:p-8 text-left relative overflow-hidden"
+              >
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-amber-100">
+                  <div>
+                    {appraisalResult.submissionStatus === 'pending' && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-black uppercase tracking-wider mb-2">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Awaiting Gemologist Review</span>
+                      </span>
+                    )}
+                    {appraisalResult.submissionStatus === 'reviewed' && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-900 text-xs font-black uppercase tracking-wider mb-2">
+                        <Check className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Preliminary Valuation Logged</span>
+                      </span>
+                    )}
+                    {appraisalResult.submissionStatus === 'approved' && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-black uppercase tracking-wider mb-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Official Valuation Approved</span>
+                      </span>
+                    )}
+                    {appraisalResult.submissionStatus === 'rejected' && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-900 text-xs font-black uppercase tracking-wider mb-2">
+                        <X className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Appraisal Ineligible</span>
+                      </span>
+                    )}
+                    <h3 className="text-xl sm:text-2xl font-black text-[#141219] m-0">
+                      {appraisalResult.name}
+                    </h3>
+                    <p className="text-xs text-[#716d77] m-0 mt-1 font-mono font-bold">
+                      Reference ID: {appraisalResult.referenceId || appraisalResult.code}
+                    </p>
+                  </div>
+
+                  <div className="text-left sm:text-right">
+                    <span className="text-xs uppercase font-bold text-amber-900 block">
+                      {appraisalResult.submissionStatus === 'approved' ? 'Certified Valuation' : 'Estimated Value'}
+                    </span>
+                    <span className="text-2xl sm:text-3xl font-black text-amber-700">
+                      {appraisalResult.estimatedValue > 0
+                        ? `$${appraisalResult.estimatedValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                        : 'Review In Progress'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-5 border-b border-amber-100 text-xs">
+                  <div>
+                    <span className="text-[#8a858f] font-bold block">Type</span>
+                    <span className="font-bold text-[#141219]">{appraisalResult.type}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#8a858f] font-bold block">Metal / Setting</span>
+                    <span className="font-bold text-[#141219]">{appraisalResult.material}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#8a858f] font-bold block">Ref #</span>
+                    <span className="font-mono font-bold text-[#141219]">{appraisalResult.serialNumber}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#8a858f] font-bold block">Submitted / Inspected</span>
+                    <span className="font-bold text-[#141219]">{appraisalResult.inspectedDate}</span>
+                  </div>
+                </div>
+
+                {/* Status info & Notes */}
+                <div className="pt-4 space-y-3">
+                  {appraisalResult.appraiserNotes && (
+                    <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200 text-xs">
+                      <span className="font-bold text-blue-900 block mb-0.5">Gemologist Appraisal Remarks:</span>
+                      <p className="text-blue-950 font-medium m-0 leading-relaxed">{appraisalResult.appraiserNotes}</p>
+                    </div>
+                  )}
+
+                  {appraisalResult.customerNotes && (
+                    <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 text-xs">
+                      <span className="font-bold text-stone-700 block mb-0.5">Your Submission Discovery Notes:</span>
+                      <p className="text-stone-800 font-medium m-0 leading-relaxed">{appraisalResult.customerNotes}</p>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCopyCode}
+                      className="text-xs font-bold text-[#55505a] hover:text-[#141219] inline-flex items-center gap-1.5"
+                    >
+                      {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedCode ? 'Reference ID Copied!' : `Copy Reference: ${appraisalResult.referenceId || appraisalResult.code}`}</span>
+                    </button>
+
+                    {appraisalResult.submissionStatus === 'approved' && appraisalResult.estimatedValue > 0 && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleDownloadPdf}
+                          disabled={isDownloadingPdf}
+                          className="px-4 py-2.5 rounded-xl bg-[#fff0f3] hover:bg-[#ffe0e6] text-[#D30915] text-xs font-bold transition-colors cursor-pointer border border-[#fecdd3] flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download Certificate PDF'}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : appraisalResult ? (
               <div
                 ref={resultCardRef}
                 className="mt-8 rounded-3xl bg-white border-2 border-amber-300 shadow-xl p-6 sm:p-8 text-left relative overflow-hidden"
@@ -639,7 +796,7 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
                       Certified Appraisal Value
                     </span>
                     <span className="text-2xl sm:text-3xl font-black text-amber-700">
-                      ${appraisalResult.estimatedValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      ${(appraisalResult.estimatedValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
@@ -698,7 +855,7 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
           </section>
         )}
 

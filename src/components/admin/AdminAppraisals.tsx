@@ -54,6 +54,7 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
   const [submissionSearch, setSubmissionSearch] = useState('');
   const [submissionStatusFilter, setSubmissionStatusFilter] = useState<'all' | AppraisalSubmissionStatus>('all');
   const [selectedSubmission, setSelectedSubmission] = useState<CustomerAppraisalSubmission | null>(null);
+  const [isRefreshingSubmissions, setIsRefreshingSubmissions] = useState(false);
   const [reviewStatus, setReviewStatus] = useState<AppraisalSubmissionStatus>('pending');
   const [reviewValuation, setReviewValuation] = useState<number>(0);
   const [reviewNotes, setReviewNotes] = useState<string>('');
@@ -106,6 +107,7 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
 
     // Fetch latest appraisals & customer submissions from backend on mount
     appraisalService.fetchAdminAppraisals().catch(() => {});
+    appraisalService.fetchAdminSubmissions().catch(() => {});
 
     return () => {
       window.removeEventListener(APPRAISALS_UPDATED_EVENT, handleUpdate);
@@ -113,18 +115,36 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
     };
   }, []);
 
-  // Filtered Submissions
+  // Sync submissions when switching to submissions tab
+  useEffect(() => {
+    if (activeSection === 'submissions') {
+      appraisalService.fetchAdminSubmissions().catch(() => {});
+    }
+  }, [activeSection]);
+
+  // Filtered Submissions matching Reference ID (#appr-sub-...), Name, Email, Phone, Order #, Type, Tag Code, Notes
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((sub) => {
       const q = submissionSearch.toLowerCase().trim();
+      const cleanQ = q.startsWith('#') ? q.slice(1) : q;
       const matchesSearch =
         !q ||
+        sub.id.toLowerCase().includes(q) ||
+        sub.id.toLowerCase().includes(cleanQ) ||
+        (sub.referenceId && sub.referenceId.toLowerCase().includes(q)) ||
         sub.customerName.toLowerCase().includes(q) ||
+        (sub.name && sub.name.toLowerCase().includes(q)) ||
         sub.customerEmail.toLowerCase().includes(q) ||
+        (sub.email && sub.email.toLowerCase().includes(q)) ||
+        (sub.customerPhone && sub.customerPhone.toLowerCase().includes(q)) ||
+        (sub.phone && sub.phone.toLowerCase().includes(q)) ||
         sub.productName.toLowerCase().includes(q) ||
         sub.jewelryType.toLowerCase().includes(q) ||
         (sub.orderNumber && sub.orderNumber.toLowerCase().includes(q)) ||
-        (sub.codeInfo && sub.codeInfo.toLowerCase().includes(q));
+        (sub.orderId && sub.orderId.toLowerCase().includes(q)) ||
+        (sub.codeInfo && sub.codeInfo.toLowerCase().includes(q)) ||
+        (sub.customerNotes && sub.customerNotes.toLowerCase().includes(q)) ||
+        (sub.notes && sub.notes.toLowerCase().includes(q));
 
       const matchesStatus =
         submissionStatusFilter === 'all' || sub.status === submissionStatusFilter;
@@ -307,21 +327,52 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
     }
   };
 
-  const handleOpenReviewSubmission = (sub: CustomerAppraisalSubmission) => {
-    setSelectedSubmission(sub);
-    setReviewStatus(sub.status);
-    setReviewValuation(sub.estimatedValue || 0);
-    setReviewNotes(sub.notes || '');
+  const handleRefreshSubmissions = async () => {
+    setIsRefreshingSubmissions(true);
+    try {
+      const latest = await appraisalService.fetchAdminSubmissions({
+        search: submissionSearch.trim() || undefined,
+        status: submissionStatusFilter !== 'all' ? submissionStatusFilter : undefined,
+      });
+      setSubmissions(latest);
+      onShowToast(`Refreshed ${latest.length} customer appraisal submissions.`, {
+        title: 'Submissions Synced',
+        type: 'success',
+      });
+    } finally {
+      setIsRefreshingSubmissions(false);
+    }
   };
 
-  const handleSaveSubmissionReview = (e: React.FormEvent) => {
+  const handleOpenReviewSubmission = async (sub: CustomerAppraisalSubmission) => {
+    setSelectedSubmission(sub);
+    setReviewStatus(sub.status);
+    setReviewValuation(sub.appraisedValue || sub.estimatedValue || 0);
+    setReviewNotes(sub.appraiserNotes || '');
+
+    // Fetch fresh submission details by ID if available from backend
+    try {
+      const fresh = await appraisalService.fetchSubmissionById(sub.id);
+      if (fresh) {
+        setSelectedSubmission(fresh);
+        setReviewStatus(fresh.status);
+        setReviewValuation(fresh.appraisedValue || fresh.estimatedValue || 0);
+        setReviewNotes(fresh.appraiserNotes || '');
+      }
+    } catch {
+      // Keep optimistic sub
+    }
+  };
+
+  const handleSaveSubmissionReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSubmission) return;
 
-    appraisalService.updateSubmission(selectedSubmission.id, {
+    await appraisalService.updateSubmission(selectedSubmission.id, {
       status: reviewStatus,
       estimatedValue: reviewValuation > 0 ? Number(reviewValuation) : undefined,
-      notes: reviewNotes.trim() || undefined,
+      appraisedValue: reviewValuation > 0 ? Number(reviewValuation) : undefined,
+      appraiserNotes: reviewNotes.trim() || undefined,
     });
 
     onShowToast(`Appraisal submission for ${selectedSubmission.customerName} updated (${reviewStatus}).`, {
@@ -514,7 +565,7 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
                 type="text"
                 value={submissionSearch}
                 onChange={(e) => setSubmissionSearch(e.target.value)}
-                placeholder="Search by customer name, email, product, order #..."
+                placeholder="Search by ref ID (#appr-sub-...), customer name, email, order, tag..."
                 className="w-full h-10 pl-9 pr-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] focus:outline-none focus:border-[#D30915]"
               />
               <Search className="w-4 h-4 text-[#8a858f] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -532,6 +583,17 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
               </select>
+
+              <button
+                type="button"
+                onClick={handleRefreshSubmissions}
+                disabled={isRefreshingSubmissions}
+                className="h-10 px-3.5 rounded-xl bg-white border border-[#eedbe6] hover:bg-stone-50 text-[#55505a] text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                title="Refresh customer appraisal submissions from server"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingSubmissions ? 'animate-spin text-[#D30915]' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
             </div>
           </div>
 
@@ -563,127 +625,152 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#f5eaf1] font-medium">
-                    {filteredSubmissions.map((sub) => (
-                      <tr key={sub.id} className="hover:bg-[#fffbfd] transition-colors">
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <div className="font-mono font-bold text-[#141219] text-[11px]">{sub.id}</div>
-                          <div className="text-[10px] text-[#716d77] mt-0.5">
-                            {new Date(sub.createdAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </div>
-                        </td>
+                    {filteredSubmissions.map((sub) => {
+                      const displayRefId = sub.referenceId || (sub.id.startsWith('#') ? sub.id : `#${sub.id}`);
+                      const photos = sub.photoPreviews?.length
+                        ? sub.photoPreviews
+                        : sub.images?.length
+                        ? sub.images
+                        : (sub as any).photos || [];
+                      const displayNotes = sub.customerNotes || sub.notes;
 
-                        <td className="py-3 px-3">
-                          <div className="font-bold text-[#141219]">{sub.customerName}</div>
-                          <div className="text-[11px] text-[#716d77] truncate max-w-[180px]">
-                            {sub.customerEmail}
-                          </div>
-                          {sub.orderNumber && (
-                            <div className="text-[10px] text-purple-700 font-medium">
-                              Order #{sub.orderNumber}
+                      return (
+                        <tr key={sub.id} className="hover:bg-[#fffbfd] transition-colors">
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <div className="font-mono font-bold text-[#141219] text-[11px] text-[#D30915]">
+                              {displayRefId}
                             </div>
-                          )}
-                        </td>
-
-                        <td className="py-3 px-3">
-                          <div className="font-semibold text-[#141219] truncate max-w-[200px]">
-                            {sub.productName}
-                          </div>
-                          <span className="inline-block mt-0.5 px-2 py-0.2 rounded-full text-[10px] font-bold bg-[#fff0f3] text-[#D30915]">
-                            {sub.jewelryType}
-                          </span>
-                        </td>
-
-                        <td className="py-3 px-3 font-mono text-[11px] text-[#55505a]">
-                          {sub.codeInfo ? (
-                            <span className="font-bold text-[#141219]">{sub.codeInfo}</span>
-                          ) : (
-                            <span className="text-[#8a858f] italic">None</span>
-                          )}
-                        </td>
-
-                        <td className="py-3 px-3">
-                          {sub.photoPreviews && sub.photoPreviews.length > 0 ? (
-                            <div className="flex items-center gap-1">
-                              <img
-                                src={sub.photoPreviews[0]}
-                                alt="Jewelry preview"
-                                className="w-8 h-8 rounded-lg object-cover border border-[#eedbe6]"
-                              />
-                              {sub.photoPreviews.length > 1 && (
-                                <span className="text-[10px] font-bold text-[#716d77]">
-                                  +{sub.photoPreviews.length - 1}
-                                </span>
-                              )}
+                            <div className="text-[10px] text-[#716d77] mt-0.5">
+                              {new Date(sub.createdAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
                             </div>
-                          ) : (
-                            <span className="text-[10px] text-[#8a858f]">No photos</span>
-                          )}
-                        </td>
+                          </td>
 
-                        <td className="py-3 px-3 whitespace-nowrap">
-                          {sub.status === 'pending' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
-                              <Clock className="w-3 h-3" />
-                              <span>Pending</span>
-                            </span>
-                          )}
-                          {sub.status === 'reviewed' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-bold">
-                              <Check className="w-3 h-3" />
-                              <span>Reviewed</span>
-                            </span>
-                          )}
-                          {sub.status === 'approved' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>Approved</span>
-                            </span>
-                          )}
-                          {sub.status === 'rejected' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200 text-[10px] font-bold">
-                              <X className="w-3 h-3" />
-                              <span>Rejected</span>
-                            </span>
-                          )}
-                        </td>
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-[#141219]">{sub.customerName || sub.name}</div>
+                            <div className="text-[11px] text-[#716d77] truncate max-w-[180px]">
+                              {sub.customerEmail || sub.email}
+                            </div>
+                            {(sub.customerPhone || sub.phone) && (
+                              <div className="text-[10px] text-[#716d77]">
+                                {sub.customerPhone || sub.phone}
+                              </div>
+                            )}
+                            {(sub.orderNumber || sub.orderId) && (
+                              <div className="text-[10px] text-purple-700 font-medium">
+                                Order #{sub.orderNumber || sub.orderId}
+                              </div>
+                            )}
+                          </td>
 
-                        <td className="py-3 px-3 whitespace-nowrap">
-                          {sub.estimatedValue ? (
-                            <span className="font-black text-[#D30915] text-xs">
-                              ${sub.estimatedValue.toFixed(2)}
+                          <td className="py-3 px-3">
+                            <div className="font-semibold text-[#141219] truncate max-w-[200px]">
+                              {sub.productName}
+                            </div>
+                            <span className="inline-block mt-0.5 px-2 py-0.2 rounded-full text-[10px] font-bold bg-[#fff0f3] text-[#D30915]">
+                              {sub.jewelryType}
                             </span>
-                          ) : (
-                            <span className="text-[#8a858f] text-[11px] italic">Pending</span>
-                          )}
-                        </td>
+                            {displayNotes && (
+                              <div
+                                className="text-[10px] text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 mt-1 truncate max-w-[170px]"
+                                title={displayNotes}
+                              >
+                                Note: {displayNotes}
+                              </div>
+                            )}
+                          </td>
 
-                        <td className="py-3 px-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenReviewSubmission(sub)}
-                              className="px-2.5 py-1 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-[#141219] hover:text-[#D30915] hover:border-[#D30915] text-xs font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                              <span>Review</span>
-                            </button>
+                          <td className="py-3 px-3 font-mono text-[11px] text-[#55505a]">
+                            {sub.codeInfo ? (
+                              <span className="font-bold text-[#141219]">{sub.codeInfo}</span>
+                            ) : (
+                              <span className="text-[#8a858f] italic">None</span>
+                            )}
+                          </td>
 
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteSubmission(sub.id, sub.customerName)}
-                              className="p-1 rounded-lg text-[#716d77] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                              title="Delete submission"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          <td className="py-3 px-3">
+                            {photos.length > 0 ? (
+                              <div className="flex items-center gap-1">
+                                <img
+                                  src={photos[0]}
+                                  alt="Jewelry preview"
+                                  className="w-8 h-8 rounded-lg object-cover border border-[#eedbe6]"
+                                />
+                                {photos.length > 1 && (
+                                  <span className="text-[10px] font-bold text-[#716d77]">
+                                    +{photos.length - 1}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-[#8a858f]">No photos</span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            {sub.status === 'pending' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
+                                <Clock className="w-3 h-3" />
+                                <span>Pending</span>
+                              </span>
+                            )}
+                            {sub.status === 'reviewed' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-bold">
+                                <Check className="w-3 h-3" />
+                                <span>Reviewed</span>
+                              </span>
+                            )}
+                            {sub.status === 'approved' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Approved</span>
+                              </span>
+                            )}
+                            {sub.status === 'rejected' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200 text-[10px] font-bold">
+                                <X className="w-3 h-3" />
+                                <span>Rejected</span>
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            {(sub.appraisedValue || sub.estimatedValue) ? (
+                              <span className="font-black text-[#D30915] text-xs">
+                                ${(sub.appraisedValue || sub.estimatedValue)!.toFixed(2)}
+                              </span>
+                            ) : (
+                              <span className="text-[#8a858f] text-[11px] italic">Pending</span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReviewSubmission(sub)}
+                                className="px-2.5 py-1 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-[#141219] hover:text-[#D30915] hover:border-[#D30915] text-xs font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                <span>Review</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSubmission(sub.id, sub.customerName)}
+                                className="p-1 rounded-lg text-[#716d77] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                title="Delete submission"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -705,7 +792,7 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
                     Review Appraisal Submission
                   </h3>
                   <p className="text-[11px] text-[#716d77] m-0 mt-0.5">
-                    Reference #{selectedSubmission.id}
+                    Reference ID: {selectedSubmission.referenceId || (selectedSubmission.id.startsWith('#') ? selectedSubmission.id : `#${selectedSubmission.id}`)}
                   </p>
                 </div>
               </div>
@@ -723,17 +810,29 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
               {/* Customer Details Summary */}
               <div className="p-3.5 rounded-xl bg-[#faf7f9] border border-[#eedbe6] space-y-2 text-xs">
                 <div className="flex justify-between">
+                  <span className="text-[#716d77]">Reference ID:</span>
+                  <span className="font-mono font-bold text-[#D30915]">
+                    {selectedSubmission.referenceId || (selectedSubmission.id.startsWith('#') ? selectedSubmission.id : `#${selectedSubmission.id}`)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-[#716d77]">Customer Name:</span>
-                  <span className="font-bold text-[#141219]">{selectedSubmission.customerName}</span>
+                  <span className="font-bold text-[#141219]">{selectedSubmission.customerName || selectedSubmission.name}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#716d77]">Customer Email:</span>
-                  <span className="font-bold text-[#141219]">{selectedSubmission.customerEmail}</span>
+                  <span className="font-bold text-[#141219]">{selectedSubmission.customerEmail || selectedSubmission.email}</span>
                 </div>
-                {selectedSubmission.orderNumber && (
+                {(selectedSubmission.customerPhone || selectedSubmission.phone) && (
+                  <div className="flex justify-between">
+                    <span className="text-[#716d77]">Customer Phone:</span>
+                    <span className="font-bold text-[#141219]">{selectedSubmission.customerPhone || selectedSubmission.phone}</span>
+                  </div>
+                )}
+                {(selectedSubmission.orderNumber || selectedSubmission.orderId) && (
                   <div className="flex justify-between">
                     <span className="text-[#716d77]">Associated Order #:</span>
-                    <span className="font-bold text-purple-700">{selectedSubmission.orderNumber}</span>
+                    <span className="font-bold text-purple-700">{selectedSubmission.orderNumber || selectedSubmission.orderId}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -752,23 +851,43 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
                 )}
               </div>
 
-              {/* Photo Gallery Previews */}
-              {selectedSubmission.photoPreviews && selectedSubmission.photoPreviews.length > 0 && (
-                <div className="space-y-1.5">
-                  <span className="text-xs font-bold text-[#141219]">Customer Uploaded Photos:</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedSubmission.photoPreviews.map((photo, idx) => (
-                      <div key={idx} className="rounded-xl overflow-hidden border border-[#eedbe6] bg-gray-50 h-36">
-                        <img
-                          src={photo}
-                          alt={`Customer photo ${idx + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ))}
-                  </div>
+              {/* Preserved Customer Discovery Notes Card */}
+              <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-1">
+                <div className="flex items-center gap-1.5 text-amber-900 text-xs font-black uppercase tracking-wider">
+                  <FileText className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Customer Discovery Notes (Preserved)</span>
                 </div>
-              )}
+                <p className="text-xs text-amber-950/90 font-medium leading-relaxed m-0 whitespace-pre-wrap">
+                  {selectedSubmission.customerNotes || selectedSubmission.notes || 'No customer remarks attached.'}
+                </p>
+              </div>
+
+              {/* Photo Gallery Previews */}
+              {(() => {
+                const photos = selectedSubmission.photoPreviews?.length
+                  ? selectedSubmission.photoPreviews
+                  : selectedSubmission.images?.length
+                  ? selectedSubmission.images
+                  : (selectedSubmission as any).photos || [];
+                if (!photos.length) return null;
+
+                return (
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-bold text-[#141219]">Customer Uploaded Photos:</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {photos.map((photo: string, idx: number) => (
+                        <div key={idx} className="rounded-xl overflow-hidden border border-[#eedbe6] bg-gray-50 h-36">
+                          <img
+                            src={photo}
+                            alt={`Customer photo ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Gemologist Review Form */}
               <form onSubmit={handleSaveSubmissionReview} className="space-y-3 pt-2 border-t border-gray-100">
@@ -805,7 +924,7 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
 
                 <div>
                   <label className="block text-[11px] font-bold text-[#141219] mb-1">
-                    Gemologist / Internal Review Notes
+                    Gemologist / Internal Review Notes (Appraiser Notes)
                   </label>
                   <textarea
                     rows={2}
