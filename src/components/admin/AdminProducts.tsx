@@ -16,6 +16,12 @@ import {
   Tag,
   ArrowUpDown,
   Gift,
+  Bold,
+  Italic,
+  List,
+  Heading2,
+  Globe,
+  Hash,
 } from 'lucide-react';
 import { AdminCustomSelect, type AdminSelectOption } from './AdminCustomSelect';
 import type {
@@ -59,12 +65,13 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalTab, setModalTab] = useState<'general' | 'pricing' | 'variants' | 'images'>('general');
+  const [modalTab, setModalTab] = useState<'general' | 'pricing' | 'variants' | 'images' | 'seo'>('general');
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   // Form State
   const [formName, setFormName] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  const [isDescriptionPreview, setIsDescriptionPreview] = useState(false);
   const [formCategory, setFormCategory] = useState(collections[0]?.name || 'Cash Candles');
   const [formPrice, setFormPrice] = useState('29.99');
   const [formOriginalPrice, setFormOriginalPrice] = useState('');
@@ -75,6 +82,13 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   const [formSurpriseValue, setFormSurpriseValue] = useState('$100 Cash Prize');
   const [formIsBestSeller, setFormIsBestSeller] = useState(false);
   const [formStatus, setFormStatus] = useState<'active' | 'draft' | 'archived'>('active');
+
+  // SEO, Tags, and Accessibility Form States
+  const [formSlug, setFormSlug] = useState('');
+  const [formTags, setFormTags] = useState('');
+  const [formSeoTitle, setFormSeoTitle] = useState('');
+  const [formMetaDescription, setFormMetaDescription] = useState('');
+  const [formImageAltText, setFormImageAltText] = useState('');
 
   // Images state in modal
   const [formImages, setFormImages] = useState<string[]>([
@@ -240,11 +254,30 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     return filteredProducts.slice(start, start + pageSize);
   }, [filteredProducts, currentPage, pageSize]);
 
+  const handleInsertFormatting = (prefix: string, suffix: string = '') => {
+    const textarea = document.getElementById('product-description-editor') as HTMLTextAreaElement | null;
+    if (!textarea) {
+      setFormDescription((prev) => prev + prefix + suffix);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = formDescription.substring(start, end);
+    const replacement = prefix + (selected || 'sample text') + suffix;
+    const newText = formDescription.substring(0, start) + replacement + formDescription.substring(end);
+    setFormDescription(newText);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + prefix.length, start + prefix.length + (selected ? selected.length : 11));
+    }, 10);
+  };
+
   // Handlers for Add/Edit Modal
   const handleOpenAdd = () => {
     setEditingProductId(null);
     setFormName('');
     setFormDescription('');
+    setIsDescriptionPreview(false);
     setFormCategory(collections[0]?.name || 'Cash Candles');
     setFormPrice('29.99');
     setFormOriginalPrice('');
@@ -258,6 +291,11 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     setFormImages(['/assets/ilovesurprises/categories/Coke_CSH_Sodapop-CND_JC.jpg']);
     setFormOptions([]);
     setFormVariants([]);
+    setFormSlug('');
+    setFormTags('');
+    setFormSeoTitle('');
+    setFormMetaDescription('');
+    setFormImageAltText('');
     setModalTab('general');
     setIsModalOpen(true);
   };
@@ -266,6 +304,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     setEditingProductId(p.id);
     setFormName(p.name);
     setFormDescription(p.description || '');
+    setIsDescriptionPreview(false);
     setFormCategory(p.category);
     setFormPrice(p.price.toString());
     setFormOriginalPrice(p.originalPrice ? p.originalPrice.toString() : '');
@@ -279,6 +318,11 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     setFormImages(p.images && p.images.length > 0 ? p.images : [p.image]);
     setFormOptions(p.options || []);
     setFormVariants(p.variants || []);
+    setFormSlug(p.slug || '');
+    setFormTags(Array.isArray(p.tags) ? p.tags.join(', ') : ((p as any).tags || ''));
+    setFormSeoTitle(p.seoTitle || '');
+    setFormMetaDescription(p.metaDescription || '');
+    setFormImageAltText(p.imageAltText || '');
     setModalTab('general');
     setIsModalOpen(true);
   };
@@ -397,6 +441,11 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
       return;
     }
 
+    const parsedTags = formTags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
     const payload: Partial<AdminProductItem> = {
       name: formName.trim(),
       category: formCategory,
@@ -414,6 +463,11 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
       variants: formVariants,
       isBestSeller: formIsBestSeller,
       status: formStatus,
+      slug: formSlug.trim() || undefined,
+      tags: parsedTags.length > 0 ? parsedTags : undefined,
+      seoTitle: formSeoTitle.trim() || undefined,
+      metaDescription: formMetaDescription.trim() || undefined,
+      imageAltText: formImageAltText.trim() || undefined,
     };
 
     if (editingProductId) {
@@ -565,7 +619,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
           </div>
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse min-w-[850px]">
               <thead className="bg-[#fdf9fb] border-b border-[#eedbe6] text-[10px] font-extrabold uppercase text-[#716d77] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Item & Details</th>
@@ -796,19 +850,20 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
             </div>
 
             {/* Modal Sub-Tabs */}
-            <div className="flex items-center gap-1 px-4 pt-3 border-b border-[#eedbe6] bg-[#fdf9fb] text-xs font-bold">
+            <div className="flex items-center gap-1 px-4 pt-3 border-b border-[#eedbe6] bg-[#fdf9fb] text-xs font-bold overflow-x-auto">
               {[
-                { id: 'general', label: 'General & Surprise' },
+                { id: 'general', label: 'General & Description' },
                 { id: 'pricing', label: 'Pricing & Stock' },
                 { id: 'variants', label: `Options (${formOptions.length})` },
                 { id: 'images', label: `Images (${formImages.length})` },
+                { id: 'seo', label: 'SEO & Metadata' },
               ].map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => setModalTab(t.id as any)}
-                  className={`px-3 py-2 border-b-2 transition-all cursor-pointer ${modalTab === t.id
-                      ? 'border-[#D30915] text-[#D30915]'
+                  className={`px-3 py-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${modalTab === t.id
+                      ? 'border-[#D30915] text-[#D30915] font-bold'
                       : 'border-transparent text-[#716d77] hover:text-[#141219]'
                     }`}
                 >
@@ -858,15 +913,117 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                     </div>
                   </div>
 
+                  {/* Rich-Text Product Description Editor */}
                   <div>
-                    <label className="block text-xs font-bold text-[#141219] mb-1">Product Description</label>
-                    <textarea
-                      rows={3}
-                      value={formDescription}
-                      onChange={(e) => setFormDescription(e.target.value)}
-                      placeholder="Enter aromatic notes, soy wax details, reveal prize descriptions..."
-                      className="w-full p-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] focus:outline-none focus:border-[#D30915]"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-[#141219]">Product Description</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleInsertFormatting('**', '**')}
+                          title="Bold text"
+                          className="px-2 py-0.5 rounded bg-white border border-[#eedbe6] text-[11px] font-bold text-[#55505a] hover:bg-[#fff1f2] hover:text-[#D30915] cursor-pointer flex items-center gap-0.5"
+                        >
+                          <Bold className="w-3 h-3" />
+                          <span className="hidden sm:inline">Bold</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleInsertFormatting('*', '*')}
+                          title="Italic text"
+                          className="px-2 py-0.5 rounded bg-white border border-[#eedbe6] text-[11px] font-bold text-[#55505a] hover:bg-[#fff1f2] hover:text-[#D30915] cursor-pointer flex items-center gap-0.5"
+                        >
+                          <Italic className="w-3 h-3" />
+                          <span className="hidden sm:inline">Italic</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleInsertFormatting('### ')}
+                          title="Heading 3"
+                          className="px-2 py-0.5 rounded bg-white border border-[#eedbe6] text-[11px] font-bold text-[#55505a] hover:bg-[#fff1f2] hover:text-[#D30915] cursor-pointer flex items-center gap-0.5"
+                        >
+                          <Heading2 className="w-3 h-3" />
+                          <span className="hidden sm:inline">H3</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleInsertFormatting('\n• ')}
+                          title="Bullet list item"
+                          className="px-2 py-0.5 rounded bg-white border border-[#eedbe6] text-[11px] font-bold text-[#55505a] hover:bg-[#fff1f2] hover:text-[#D30915] cursor-pointer flex items-center gap-0.5"
+                        >
+                          <List className="w-3 h-3" />
+                          <span className="hidden sm:inline">List</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsDescriptionPreview((p) => !p)}
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-all ${
+                            isDescriptionPreview
+                              ? 'bg-[#D30915] text-white border border-[#D30915]'
+                              : 'bg-white border border-[#eedbe6] text-[#716d77] hover:text-[#141219]'
+                          }`}
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>{isDescriptionPreview ? 'Edit Source' : 'Visual Preview'}</span>
+                        </button>
+                      </div>
+                    </div>
+                    {isDescriptionPreview ? (
+                      <div className="w-full min-h-[90px] p-3 rounded-xl bg-white border border-[#eedbe6] text-xs text-[#141219] leading-relaxed space-y-1">
+                        {formDescription ? (
+                          <div
+                            className="prose prose-xs max-w-none [&_h3]:font-bold [&_h3]:text-sm [&_ul]:list-disc [&_ul]:pl-4"
+                            dangerouslySetInnerHTML={{
+                              __html: formDescription
+                                .replace(/### (.*)/g, '<h3 class="font-bold text-sm my-1">$1</h3>')
+                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                                .replace(/• (.*)/g, '<li>$1</li>')
+                                .replace(/\n/g, '<br/>'),
+                            }}
+                          />
+                        ) : (
+                          <p className="text-gray-400 italic m-0">No description entered yet. Switch back to Edit Source to compose.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <textarea
+                        id="product-description-editor"
+                        rows={3}
+                        value={formDescription}
+                        onChange={(e) => setFormDescription(e.target.value)}
+                        placeholder="Enter aromatic notes, soy wax details, reveal prize descriptions, or use toolbar buttons above for rich-text styling..."
+                        className="w-full p-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] focus:outline-none focus:border-[#D30915]"
+                      />
+                    )}
+                  </div>
+
+                  {/* Product Tags */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#141219] mb-1">Product Tags</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={formTags}
+                        onChange={(e) => setFormTags(e.target.value)}
+                        placeholder="e.g. Cash Surprise, Birthday Gift, Soy Wax, Best Seller (comma-separated)"
+                        className="w-full h-10 px-3 pl-8 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] focus:outline-none focus:border-[#D30915]"
+                      />
+                      <Hash className="w-3.5 h-3.5 text-[#716d77] absolute left-2.5 top-3" />
+                    </div>
+                    {formTags && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {formTags.split(',').map((tag, idx) => {
+                          const clean = tag.trim();
+                          if (!clean) return null;
+                          return (
+                            <span key={idx} className="text-[10px] font-bold bg-[#fff1f2] text-[#D30915] border border-[#fecdd3] px-2 py-0.5 rounded-full">
+                              #{clean}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#f4e2ed]">
@@ -1181,6 +1338,119 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                         </div>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Primary Image Alt Text for Accessibility & SEO */}
+                  <div className="p-3.5 bg-[#faf7f9] rounded-xl border border-[#eedbe6]">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-[#141219]">Primary Image Alt Text</label>
+                      <span className="text-[10px] text-[#716d77]">Accessibility &amp; Image SEO</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={formImageAltText}
+                      onChange={(e) => setFormImageAltText(e.target.value)}
+                      placeholder="e.g. Hand-poured Birthday Cake soy candle with genuine surprise reveal"
+                      className="w-full h-10 px-3 rounded-xl bg-white border border-[#eedbe6] text-xs text-[#141219] focus:outline-none focus:border-[#D30915]"
+                    />
+                    <p className="text-[10.5px] text-[#716d77] m-0 mt-1">
+                      Describe the product visual clearly for screen readers and search engines.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {modalTab === 'seo' && (
+                <div className="space-y-4">
+                  <div className="p-3 bg-[#fff1f2] border border-[#fecdd3] rounded-xl text-xs text-[#D30915] leading-relaxed flex items-center gap-2">
+                    <Globe className="w-4 h-4 shrink-0" />
+                    <span>Configure search engine optimization, URL permalinks, and meta snippets.</span>
+                  </div>
+
+                  {/* URL Slug */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-[#141219]">URL Handle / Slug</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (formName) {
+                            setFormSlug(formName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+                            onShowToast('Slug generated from product title', { type: 'success' });
+                          }
+                        }}
+                        className="text-[11px] font-bold text-[#D30915] hover:underline cursor-pointer"
+                      >
+                        Auto-generate from Title
+                      </button>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="h-10 px-3 flex items-center bg-[#f0e8ee] border border-r-0 border-[#eedbe6] rounded-l-xl text-xs text-[#716d77] font-mono select-none">
+                        /products/
+                      </span>
+                      <input
+                        type="text"
+                        value={formSlug}
+                        onChange={(e) => setFormSlug(e.target.value)}
+                        placeholder="birthday-cake-cash-money-candle"
+                        className="flex-1 h-10 px-3 rounded-r-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-mono text-[#141219] focus:outline-none focus:border-[#D30915]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* SEO Title */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-[#141219]">SEO Page Title (&lt;title&gt;)</label>
+                      <span className={`text-[10.5px] font-bold ${formSeoTitle.length > 60 ? 'text-amber-600' : 'text-[#716d77]'}`}>
+                        {formSeoTitle.length}/60 chars
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={formSeoTitle}
+                      onChange={(e) => setFormSeoTitle(e.target.value)}
+                      placeholder={formName ? `${formName} | I Love Surprises` : 'Product Title | I Love Surprises'}
+                      className="w-full h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] focus:outline-none focus:border-[#D30915]"
+                    />
+                    <p className="text-[10.5px] text-[#716d77] m-0 mt-1">
+                      Leave blank to default to storefront product name. Recommended length: 50–60 characters.
+                    </p>
+                  </div>
+
+                  {/* Meta Description */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-[#141219]">Meta Description</label>
+                      <span className={`text-[10.5px] font-bold ${formMetaDescription.length > 160 ? 'text-amber-600' : 'text-[#716d77]'}`}>
+                        {formMetaDescription.length}/160 chars
+                      </span>
+                    </div>
+                    <textarea
+                      rows={3}
+                      value={formMetaDescription}
+                      onChange={(e) => setFormMetaDescription(e.target.value)}
+                      placeholder="Write a concise meta summary for Google search snippets (recommended 150–160 characters)..."
+                      className="w-full p-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] focus:outline-none focus:border-[#D30915]"
+                    />
+                  </div>
+
+                  {/* Google SERP Search Result Preview */}
+                  <div className="p-4 bg-white rounded-2xl border border-[#eedbe6] shadow-2xs space-y-1">
+                    <span className="text-[11px] font-bold text-[#716d77] uppercase tracking-wider block mb-2">
+                      Search Engine Result Preview (Google SERP)
+                    </span>
+                    <div className="text-xs text-[#202124] flex items-center gap-1.5 font-mono truncate">
+                      <span className="w-4 h-4 rounded-full bg-[#D30915] text-white text-[9px] flex items-center justify-center font-bold">S</span>
+                      <span className="text-emerald-700">https://www.ilovesurprises.com</span>
+                      <span className="text-[#5f6368]">› products › {formSlug || 'product-handle'}</span>
+                    </div>
+                    <div className="text-sm font-medium text-[#1a0dab] hover:underline cursor-pointer truncate">
+                      {formSeoTitle || formName || 'Product Title | Handcrafted Surprise Candles'}
+                    </div>
+                    <p className="text-xs text-[#4d5156] leading-relaxed line-clamp-2 m-0">
+                      {formMetaDescription || (formDescription ? formDescription.slice(0, 155) + '...' : 'Discover handcrafted clean soy candles with guaranteed authentic surprise reveal inside. Hand-poured in the USA with 100% win guarantee.')}
+                    </p>
                   </div>
                 </div>
               )}

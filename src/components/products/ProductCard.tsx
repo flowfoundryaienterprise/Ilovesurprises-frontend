@@ -8,7 +8,7 @@ interface ProductCardProps {
   product: Product;
   cartQuantity?: number;
   onAddToCart?: (product: Product) => void;
-  onUpdateQuantity?: (productId: string, quantity: number) => void;
+  onUpdateQuantity?: (productId: string, delta: number) => void;
   onToggleWishlist?: (productId: string) => void;
   onSelectProduct?: (product: Product) => void;
   isWishlisted?: boolean;
@@ -61,12 +61,12 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({
     if (isOutOfStock || (typeof product.stock === 'number' && cartQuantity >= product.stock)) {
       return;
     }
-    onUpdateQuantity?.(product.id, cartQuantity + 1);
+    onUpdateQuantity?.(product.id, 1);
   };
 
   const handleDecrement = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onUpdateQuantity?.(product.id, Math.max(0, cartQuantity - 1));
+    onUpdateQuantity?.(product.id, -1);
   };
 
   const handleWishlist = (e: React.MouseEvent) => {

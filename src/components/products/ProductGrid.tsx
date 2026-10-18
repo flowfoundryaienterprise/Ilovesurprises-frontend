@@ -53,20 +53,12 @@ export const ProductGrid: React.FC<ProductGridProps> = React.memo(({
   const cartQuantityMap = useMemo(() => {
     const map: Record<string, number> = {};
     for (let i = 0; i < cart.length; i++) {
-      map[cart[i].product.id] = cart[i].quantity;
+      map[cart[i].product.id] = (map[cart[i].product.id] || 0) + cart[i].quantity;
     }
     return map;
   }, [cart]);
 
   const wishlistSet = useMemo(() => new Set(wishlistIds), [wishlistIds]);
-
-  const handleUpdate = useCallback(
-    (productId: string, newQty: number) => {
-      const currentQty = cartQuantityMap[productId] || 0;
-      onUpdateQuantity(productId, newQty - currentQty);
-    },
-    [cartQuantityMap, onUpdateQuantity]
-  );
 
   const handleToggle = useCallback(
     (productId: string) => {
@@ -169,7 +161,7 @@ export const ProductGrid: React.FC<ProductGridProps> = React.memo(({
               product={product}
               cartQuantity={qty}
               onAddToCart={onAddToCart}
-              onUpdateQuantity={handleUpdate}
+              onUpdateQuantity={onUpdateQuantity}
               onToggleWishlist={handleToggle}
               onSelectProduct={onSelectProduct}
               isWishlisted={isWishlisted}

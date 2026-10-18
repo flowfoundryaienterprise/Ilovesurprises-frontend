@@ -117,7 +117,7 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
           </div>
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse min-w-[820px]">
               <thead className="bg-[#fdf9fb] border-b border-[#eedbe6] text-[10px] font-extrabold uppercase text-[#716d77] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Customer Name</th>

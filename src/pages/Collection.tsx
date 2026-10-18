@@ -161,7 +161,8 @@ export const CollectionPage: React.FC<CollectionPageProps> = ({
   const cartQuantityMap = useMemo(() => {
     const map = new Map<string, number>();
     cart.forEach((item) => {
-      map.set(item.product.id, item.quantity);
+      const current = map.get(item.product.id) || 0;
+      map.set(item.product.id, current + item.quantity);
     });
     return map;
   }, [cart]);

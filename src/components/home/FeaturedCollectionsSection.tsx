@@ -273,8 +273,7 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
   };
 
   const getProductQuantity = (productId: string) => {
-    const item = cart.find((i) => i.product.id === productId);
-    return item ? item.quantity : 0;
+    return cart.reduce((sum, item) => (item.product.id === productId ? sum + item.quantity : sum), 0);
   };
 
   const handleAddToCart = onAddToCart || ((product: Product) => onSelectProduct?.(product));

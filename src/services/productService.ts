@@ -711,11 +711,24 @@ export function mapRowToProduct(row: any): Product {
       : [];
 
   // Scent options & notes
-  const scentNotes: string[] = Array.isArray(row.scentNotes)
+  const rawScentNotes: string[] = Array.isArray(row.scentNotes)
     ? row.scentNotes
     : Array.isArray(row.scent_notes)
       ? row.scent_notes
       : [];
+
+  const disallowedKeywords = [
+    'holiday priority',
+    'halloween priority',
+    'spooky spiced apple cider',
+    'midnight marshmallow cauldron',
+  ];
+  const scentNotes: string[] = rawScentNotes
+    .map((s: any) => String(s || '').trim())
+    .filter((note: string) => {
+      const lower = note.toLowerCase();
+      return !disallowedKeywords.some((kw) => lower.includes(kw));
+    });
 
   // Options & Variants (Exclude redundant jewelry and scent options; handled by dedicated selectors)
   const options: ProductOption[] = [];

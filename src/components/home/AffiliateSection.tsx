@@ -112,8 +112,8 @@ export const AffiliateSection: React.FC<AffiliateSectionProps> = ({ isLoading = 
               </div>
             </div>
 
-            {/* CTAs with Smooth Hover States: Stack on ultra-compact mobile, side-by-side on 380px+ */}
-            <div className="flex flex-col min-[380px]:flex-row items-stretch min-[380px]:items-center gap-2 min-[375px]:gap-2.5 sm:gap-3 w-full sm:w-auto">
+            {/* CTAs with Smooth Hover States: Stack on ultra-compact mobile and lg 2-column split, side-by-side on 380px+ and xl */}
+            <div className="flex flex-col min-[380px]:flex-row lg:flex-col xl:flex-row items-stretch lg:items-start xl:items-center gap-2 min-[375px]:gap-2.5 sm:gap-3 w-full sm:w-auto">
               <a
                 href="/affiliate"
                 role="button"
@@ -126,7 +126,7 @@ export const AffiliateSection: React.FC<AffiliateSectionProps> = ({ isLoading = 
               <a
                 href="/affiliate"
                 aria-label="Learn more about becoming an independent consultant with I Love Surprises"
-                className="inline-flex items-center justify-center min-h-[44px] sm:min-h-[48px] px-3 min-[380px]:px-4 sm:px-6 rounded-[13px] sm:rounded-[14px] bg-white hover:bg-[#fff9fb] border border-[#ebdce5] hover:border-[#D30915] text-[#141219] hover:text-[#D30915] font-black text-[11px] min-[375px]:text-xs sm:text-[13px] uppercase tracking-wider shadow-2xs hover:shadow-[0_6px_18px_rgba(50,31,63,0.06)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 text-center"
+                className="inline-flex items-center justify-center min-h-[44px] sm:min-h-[48px] px-3 min-[380px]:px-4 sm:px-6 rounded-[13px] sm:rounded-[14px] bg-white hover:bg-[#fff9fb] border border-[#ebdce5] hover:border-[#D30915] text-[#141219] hover:text-[#D30915] font-black text-[11px] min-[375px]:text-xs sm:text-[13px] uppercase tracking-wider shadow-2xs hover:shadow-[0_6px_18px_rgba(50,31,63,0.06)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-200 cursor-pointer text-center"
               >
                 Learn More About Consultant Program
               </a>
@@ -177,7 +177,7 @@ export const AffiliateSection: React.FC<AffiliateSectionProps> = ({ isLoading = 
                 </div>
 
                 {/* Team Overrides: 5 Levels in a Straight Line on Desktop */}
-                <div className="grid grid-cols-5 gap-1.5 sm:gap-2.5">
+                <div className="grid grid-cols-5 gap-1 min-[360px]:gap-1.5 sm:gap-2.5">
                   {[
                     { level: 1, rate: '5%' },
                     { level: 2, rate: '4%' },
@@ -187,15 +187,15 @@ export const AffiliateSection: React.FC<AffiliateSectionProps> = ({ isLoading = 
                   ].map((tier) => (
                     <div
                       key={tier.level}
-                      className="flex flex-col items-center justify-center p-2 sm:p-3 rounded-[13px] sm:rounded-[15px] bg-[#faf6f9] border border-[#f0e4ec] hover:border-[#D30915] hover:bg-[#fff9fb] transition-all duration-200 hover:-translate-y-0.5 text-center shadow-2xs"
+                      className="flex flex-col items-center justify-center p-1 min-[360px]:p-2 sm:p-3 rounded-[10px] min-[360px]:rounded-[13px] sm:rounded-[15px] bg-[#faf6f9] border border-[#f0e4ec] hover:border-[#D30915] hover:bg-[#fff9fb] transition-all duration-200 hover:-translate-y-0.5 text-center shadow-2xs"
                     >
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-[6px] bg-purple-100 text-purple-700 flex items-center justify-center font-black text-[10px] sm:text-xs mb-1 shadow-2xs">
+                      <div className="w-4 h-4 min-[360px]:w-5 min-[360px]:h-5 sm:w-6 sm:h-6 rounded-[5px] sm:rounded-[6px] bg-purple-100 text-purple-700 flex items-center justify-center font-black text-[9px] min-[360px]:text-[10px] sm:text-xs mb-0.5 sm:mb-1 shadow-2xs">
                         {tier.level}
                       </div>
-                      <span className="text-[10px] sm:text-xs font-bold text-[#141219] block leading-tight whitespace-nowrap">
+                      <span className="text-[8.5px] min-[360px]:text-[10px] sm:text-xs font-bold text-[#141219] block leading-tight whitespace-nowrap">
                         Level {tier.level}
                       </span>
-                      <strong className="text-xs sm:text-sm lg:text-base font-black text-purple-700 block mt-1 leading-tight">
+                      <strong className="text-[11px] min-[360px]:text-xs sm:text-sm lg:text-base font-black text-purple-700 block mt-0.5 sm:mt-1 leading-tight">
                         {tier.rate}
                       </strong>
                     </div>

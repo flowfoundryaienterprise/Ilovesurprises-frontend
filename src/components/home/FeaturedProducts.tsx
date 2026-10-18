@@ -87,8 +87,7 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
   };
 
   const getProductQuantity = (productId: string) => {
-    const item = cart.find((i) => i.product.id === productId);
-    return item ? item.quantity : 0;
+    return cart.reduce((sum, item) => (item.product.id === productId ? sum + item.quantity : sum), 0);
   };
 
   const displayedProducts = products.slice(0, 10);

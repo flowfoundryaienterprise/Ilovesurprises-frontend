@@ -712,19 +712,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {activeTab === 'representatives' &&
                 withSectionState(
                   'representatives',
-                  <div className="space-y-4">
-                    <AdminFeatureUnavailable
-                      feature="Representative sales and team metrics"
-                      requirement="Representative accounts, roles, and active status are live from the database. Sales, team size, rank, and commission totals show as empty because the backend has no admin affiliate-profile endpoint yet."
-                    />
-                    <AdminRepresentatives
-                      representatives={representatives}
-                      onUpdateStatus={handleUpdateRepStatus}
-                      onApprove={handleApproveRep}
-                      onReject={handleRejectRep}
-                      onShowToast={onShowToast}
-                    />
-                  </div>
+                  <AdminRepresentatives
+                    representatives={representatives}
+                    onUpdateStatus={handleUpdateRepStatus}
+                    onApprove={handleApproveRep}
+                    onReject={handleRejectRep}
+                    onShowToast={onShowToast}
+                  />
                 )}
 
               {activeTab === 'memberships' && (

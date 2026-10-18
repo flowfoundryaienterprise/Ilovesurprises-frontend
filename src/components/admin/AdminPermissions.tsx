@@ -202,7 +202,7 @@ export const AdminPermissions: React.FC<AdminPermissionsProps> = ({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-[#141219]">
+          <table className="w-full min-w-[750px] text-left text-xs text-[#141219]">
             <thead className="bg-[#fdf9fb] border-b border-[#eedbe6] text-[10px] font-extrabold uppercase text-[#716d77] tracking-wider">
               <tr>
                 <th className="py-3 px-4">Staff Member</th>
@@ -307,7 +307,7 @@ export const AdminPermissions: React.FC<AdminPermissionsProps> = ({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-[#141219]">
+          <table className="w-full min-w-[750px] text-left text-xs text-[#141219]">
             <thead className="bg-[#fdf9fb] border-b border-[#eedbe6] text-[11px] font-extrabold uppercase text-[#716d77] tracking-wider">
               <tr>
                 <th className="py-3.5 px-4">Admin Module</th>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Layers,
   Search,
@@ -10,6 +10,8 @@ import {
   Package,
   X,
   MinusCircle,
+  UploadCloud,
+  RefreshCw,
 } from 'lucide-react';
 import type {
   AdminCollectionItem,
@@ -57,6 +59,38 @@ export const AdminCollections: React.FC<AdminCollectionsProps> = ({
   const [formFeatured, setFormFeatured] = useState(false);
   const [formSeoTitle, setFormSeoTitle] = useState('');
   const [formSeoDescription, setFormSeoDescription] = useState('');
+
+  // Collection Image Upload States
+  const collectionFileInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingCollectionFile, setIsDraggingCollectionFile] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+
+  const handleCollectionFileSelected = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      onShowToast('Please select a valid image file (JPG, PNG, WEBP)', { type: 'info' });
+      return;
+    }
+    setUploadProgress(25);
+    const reader = new FileReader();
+    reader.onprogress = (e) => {
+      if (e.lengthComputable) {
+        setUploadProgress(Math.round((e.loaded / e.total) * 90));
+      }
+    };
+    reader.onload = (e) => {
+      if (typeof e.target?.result === 'string') {
+        setFormImage(e.target.result);
+        setUploadProgress(100);
+        setTimeout(() => setUploadProgress(null), 600);
+        onShowToast(`Loaded ${file.name} for collection preview`, { type: 'success' });
+      }
+    };
+    reader.onerror = () => {
+      setUploadProgress(null);
+      onShowToast('Failed to read image file', { type: 'info' });
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Delete Confirmation Modal
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
@@ -249,7 +283,7 @@ export const AdminCollections: React.FC<AdminCollectionsProps> = ({
           </div>
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full min-w-[800px] text-left text-xs border-collapse">
               <thead className="bg-[#fdf9fb] border-b border-[#eedbe6] text-[10px] font-extrabold uppercase text-[#716d77] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Collection Title</th>
@@ -472,15 +506,144 @@ export const AdminCollections: React.FC<AdminCollectionsProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#141219] mb-1">Header Image URL</label>
+              {/* Collection Image Management UI */}
+              <div className="space-y-2 pt-2 border-t border-[#f4e2ed]">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-[#141219]">Collection Header Image</label>
+                  {formImage && (
+                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                      Image Configured
+                    </span>
+                  )}
+                </div>
+
+                {/* Image Preview & Replacement Card */}
+                {formImage ? (
+                  <div className="relative rounded-2xl border border-[#eedbe6] p-2.5 bg-[#faf7f9] flex flex-col sm:flex-row items-center gap-3">
+                    <div className="w-full sm:w-36 h-24 shrink-0 rounded-xl overflow-hidden bg-white border border-[#eedbe6] relative group">
+                      <img
+                        src={formImage}
+                        alt={formName || 'Collection preview'}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            '/assets/ilovesurprises/categories/Coke_CSH_Sodapop-CND_JC.jpg';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-[10px] text-white font-bold bg-black/60 px-2 py-0.5 rounded">
+                          Preview
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 w-full space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => collectionFileInputRef.current?.click()}
+                          className="px-3 py-1.5 rounded-xl bg-white border border-[#eedbe6] hover:border-[#D30915] text-[#141219] hover:text-[#D30915] text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Replace Image</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormImage('');
+                            onShowToast('Collection image cleared', { type: 'info' });
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Remove</span>
+                        </button>
+                      </div>
+
+                      <div className="text-[11px] text-[#716d77] truncate font-mono">
+                        Source: {formImage.startsWith('data:') ? 'Local file (data URL preview)' : formImage}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Empty state - prompt upload */
+                  <div className="p-4 rounded-xl border border-dashed border-[#eedbe6] bg-[#faf7f9] text-center">
+                    <p className="text-xs text-[#716d77] m-0 mb-2">No collection header image selected</p>
+                    <button
+                      type="button"
+                      onClick={() => collectionFileInputRef.current?.click()}
+                      className="px-4 py-1.5 rounded-xl bg-[#D30915] text-white text-xs font-bold cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <UploadCloud className="w-3.5 h-3.5" />
+                      <span>Select Image File</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Hidden File Picker */}
                 <input
-                  type="text"
-                  value={formImage}
-                  onChange={(e) => setFormImage(e.target.value)}
-                  placeholder="/assets/ilovesurprises/categories/..."
-                  className="w-full h-10 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs text-[#141219] focus:outline-none focus:border-[#D30915]"
+                  ref={collectionFileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleCollectionFileSelected(file);
+                      e.target.value = '';
+                    }
+                  }}
+                  className="hidden"
                 />
+
+                {/* Drag & Drop File Picker Zone */}
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDraggingCollectionFile(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    setIsDraggingCollectionFile(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDraggingCollectionFile(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) handleCollectionFileSelected(file);
+                  }}
+                  onClick={() => collectionFileInputRef.current?.click()}
+                  className={`p-3.5 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${
+                    isDraggingCollectionFile
+                      ? 'border-[#D30915] bg-[#fff1f2]'
+                      : 'border-[#eedbe6] bg-[#faf7f9] hover:border-[#D30915]/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2 text-xs font-bold text-[#141219]">
+                    <UploadCloud className="w-4 h-4 text-[#D30915]" />
+                    <span>Upload direct image file</span>
+                    <span className="text-[#716d77] font-normal">— click or drag file here</span>
+                  </div>
+                  {uploadProgress !== null && (
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2 overflow-hidden">
+                      <div
+                        className="bg-[#D30915] h-1.5 rounded-full transition-all duration-200"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Manual URL Input Alternative */}
+                <div className="pt-1">
+                  <span className="text-[11px] text-[#716d77] block mb-1">Or specify image CDN / path directly:</span>
+                  <input
+                    type="text"
+                    value={formImage}
+                    onChange={(e) => setFormImage(e.target.value)}
+                    placeholder="/assets/ilovesurprises/categories/... or https://..."
+                    className="w-full h-9 px-3 rounded-xl bg-[#faf7f9] border border-[#eedbe6] text-xs font-mono text-[#141219] focus:outline-none focus:border-[#D30915]"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center gap-2 pt-2 border-t border-[#f4e2ed]">

@@ -1,5 +1,5 @@
 import { reviewService } from '../services/reviewService';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ArrowLeft,
   Star,
@@ -17,10 +17,7 @@ import {
   Check,
   Clock,
   ChevronDown,
-  Flame,
-  Ruler,
   Heart,
-  Sparkles,
 } from 'lucide-react';
 import { ProductGallery } from '../components/products/ProductGallery';
 import { ProductCard } from '../components/products/ProductCard';
@@ -31,6 +28,7 @@ import { useRelatedProducts } from '../hooks/useProducts';
 import { representativeService, type PublicRepresentative } from '../services/representativeService';
 import { FREE_SHIPPING_THRESHOLD, RETURN_POLICY_LABEL } from '../config/policyConstants';
 import { APPROVED_COLLECTIONS_MAP } from '../data/approvedCollectionsData';
+import { getProductDropdownStatus } from '../data/productDropdownAudit';
 
 interface ProductDetailsProps {
   product: Product;
@@ -56,8 +54,21 @@ interface ProductDetailsProps {
 }
 
 const LOCAL_REVIEWS_KEY = 'ilovesurprises_user_reviews_v1';
-const RING_SIZES = [5, 6, 7, 8, 9, 10];
-const JEWELRY_TYPES = ['Ring', 'Necklace', 'Earrings', 'Bracelet'];
+export const RING_SIZES = [5, 6, 7, 8, 9, 10, 11];
+export const JEWELRY_TYPES = ['Ring', 'Necklace', 'Earrings', 'Bracelet', 'Surprise Me'];
+export const SURPRISE_ME_OPTIONS = [
+  'Surprise me!',
+  'Bracelet',
+  'Earrings',
+  'Necklace',
+  'Ring Size 5',
+  'Ring Size 6',
+  'Ring Size 7',
+  'Ring Size 8',
+  'Ring Size 9',
+  'Ring Size 10',
+  'Ring Size 11',
+];
 
 /**
  * Detects whether an option is a Jewelry Type or Ring Size option.
@@ -68,7 +79,7 @@ export function isJewelryOrRingOption(opt: { name?: string; values?: string[] })
   if (!opt) return false;
   const name = (opt.name || '').toLowerCase().trim();
   if (/jewelry|reveal|ring|size/i.test(name)) return true;
-  if (opt.values?.some((v) => /ring|necklace|earring|bracelet/i.test(String(v).trim()))) {
+  if (opt.values?.some((v) => /ring|necklace|earring|bracelet|surprise/i.test(String(v).trim()))) {
     return true;
   }
   if (opt.values?.some((v) => /^(?:size\s*)?(?:[5-9]|1[0-2])(?:\s*us)?$/i.test(String(v).trim()))) {
@@ -291,9 +302,16 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   // Derive concise scannable summary and key benefits from product data
   const descriptionData = useMemo(() => getShortDescriptionData(product), [product]);
 
-  // Detect whether this is a jewelry surprise product
+  // Audit dropdown status from spreadsheet: 1 = dropdown, 0 = no dropdown, null = not covered
+  const auditDropdownStatus = useMemo(() => {
+    return getProductDropdownStatus(product);
+  }, [product]);
+
   // Detect whether this is a jewelry surprise product
   const isJewelrySurprise = useMemo(() => {
+    // If spreadsheet audit explicitly designates 0 (no dropdown), suppress jewelry selector
+    if (auditDropdownStatus === 0) return false;
+
     const cat = (product.category || '').toLowerCase();
     const name = (product.name || '').toLowerCase();
     const val = (product.surpriseValue || '').toLowerCase();
@@ -307,121 +325,18 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
       return false;
     }
 
+    if (auditDropdownStatus === 1 && (cat.includes('jewelry') || name.includes('jewelry') || product.surpriseType === 'jewelry')) {
+      return true;
+    }
+
     if (product.surpriseType === 'jewelry') return true;
     if (cat.includes('jewelry') || val.includes('jewelry')) return true;
     if (product.options?.some((o) => isJewelryOrRingOption(o))) return true;
     return /\b(ring|rings|necklace|necklaces|earring|earrings|bracelet|bracelets|jewelry)\b/i.test(name);
-  }, [product]);
+  }, [product, auditDropdownStatus]);
 
-  // Detect Halloween product
-  const isHalloween = useMemo(() => {
-    const combined = `${product.name} ${product.slug} ${product.category}`.toLowerCase();
-    return combined.includes('halloween');
-  }, [product.name, product.slug, product.category]);
 
-  // Detect whether this product belongs to Cash Money Candles or Jewellery Candles (scent selection excluded)
-  const isScentExcluded = useMemo(() => isScentSelectionExcluded(product), [product]);
 
-  // Detect whether product is scented (Candles, Wax Melts, Bath Bombs, Soaps, Slimes)
-  // Cash Money Candles and Jewellery Candles are strictly excluded so they focus only on cash or jewellery features
-  const isScentedProduct = useMemo(() => {
-    if (isScentExcluded) return false;
-    const cat = (product.category || '').toLowerCase();
-    const name = (product.name || '').toLowerCase();
-    if (product.options?.some((o) => /scent|fragrance/i.test(o.name))) return true;
-    if (/candle|wax melt|wax-melt|bath bomb|soap|slime/i.test(cat)) return true;
-    if (/candle|wax melt|wax-melt|bath bomb|soap|slime/i.test(name)) return true;
-    return false;
-  }, [product, isScentExcluded]);
-
-  // Detect whether product is already a dedicated fixed-scent item (e.g. Birthday Cake Cash Candle, Bahama Mama Cash Candle)
-  const isFixedScentProduct = useMemo(() => {
-    const nameLower = (product.name || '').toLowerCase();
-
-    // Customizable candles where customer explicitly chooses fragrance
-    if (/choose your scent|pick your scent|custom scent|custom fragrance/i.test(nameLower)) {
-      return false;
-    }
-
-    // If backend options explicitly has a "Scent" or "Fragrance" option with multiple distinct values
-    const backendScentOpt = product.options?.find((o) => /scent|fragrance/i.test(o.name));
-    if (backendScentOpt && backendScentOpt.values && backendScentOpt.values.length > 1) {
-      return false;
-    }
-
-    // Check if the product name mentions any founder scent
-    const hasFounderScent = FOUNDER_SCENTS.some((s) => {
-      const sLower = s.toLowerCase();
-      if (sLower === 'unscented') return nameLower.includes('unscented');
-      return nameLower.includes(sLower);
-    });
-    if (hasFounderScent) return true;
-
-    // Check common distinctive scent keywords in product title
-    const scentKeywords = [
-      'birthday cake', 'bahama mama', 'pumpkin spice', 'apple pie', 'sugar cookie',
-      'blueberry muffin', 'cinnamon apple', 'cinnamon bun', 'lavender vanilla', 'fresh linen',
-      'calming lavender', 'strawberry fields', 'jamaican me crazy', 'cafe mocha',
-      'fresh cut roses', 'honeysuckle jasmine', 'cozy cabin', 'french vanilla',
-      'black raspberry', 'vanilla', 'lavender', 'apple cider', 'peppermint', 'pine'
-    ];
-    if (scentKeywords.some((kw) => nameLower.includes(kw))) {
-      return true;
-    }
-
-    // Non-candle categories that do not have custom fragrance
-    if (/greeting card|card|candy|chocolate/i.test(nameLower)) {
-      return true;
-    }
-
-    return false;
-  }, [product.name, product.options]);
-
-  const showScentDropdown = isScentedProduct && !isFixedScentProduct;
-
-  // Order scents: Pumpkin Spice is ALWAYS #1 for Halloween products, then remaining scents in founder order
-  const orderedScents = useMemo(() => {
-    if (isHalloween) {
-      return ['Pumpkin Spice', ...FOUNDER_SCENTS.filter((s) => s !== 'Pumpkin Spice')];
-    }
-    return FOUNDER_SCENTS;
-  }, [isHalloween]);
-
-  // Intelligently select default scent corresponding to actual product (not blanket Birthday Cake)
-  const initialScent = useMemo(() => {
-    const nameLower = (product.name || '').toLowerCase();
-    // 1. Check if product name directly mentions any founder scent
-    for (const scent of FOUNDER_SCENTS) {
-      if (nameLower.includes(scent.toLowerCase())) {
-        return scent;
-      }
-    }
-    // 2. Check legitimate scent notes
-    if (product.scentNotes && product.scentNotes.length > 0) {
-      for (const note of product.scentNotes) {
-        const match = FOUNDER_SCENTS.find((s) => s.toLowerCase() === note.toLowerCase());
-        if (match && (match !== 'Birthday Cake' || nameLower.includes('birthday'))) {
-          return match;
-        }
-      }
-    }
-    // 3. Halloween items default to Pumpkin Spice
-    if (isHalloween) {
-      return 'Pumpkin Spice';
-    }
-    // 4. Products with 'birthday' in title default to Birthday Cake
-    if (nameLower.includes('birthday')) {
-      return 'Birthday Cake';
-    }
-    // 5. Neutral default: French Vanilla (clean, universally loved)
-    return 'French Vanilla';
-  }, [product, isHalloween]);
-
-  const [selectedScent, setSelectedScent] = useState<string>(() => initialScent);
-
-  useEffect(() => {
-    setSelectedScent(initialScent);
-  }, [initialScent]);
 
   // Real-time urgency countdown timer (JewelryCandles conversion style)
   const [productTimerSecs, setProductTimerSecs] = useState(() => {
@@ -447,39 +362,29 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   useEffect(() => {
     if (product.options && product.options.length > 0) {
       const initial: Record<string, string> = {};
-      let initialRingSize: number = 7;
-      let initialJewelryType: string = 'Ring';
 
       product.options.forEach((opt) => {
         if (opt.values && opt.values.length > 0) {
           initial[opt.name] = opt.values[0];
-          if (isJewelryOrRingOption(opt)) {
-            const numVal = parseInt(opt.values[0], 10);
-            if (!isNaN(numVal) && RING_SIZES.includes(numVal)) {
-              initialRingSize = numVal;
-            }
-            const foundJewelryType = opt.values.find((v) => JEWELRY_TYPES.includes(v));
-            if (foundJewelryType) {
-              initialJewelryType = foundJewelryType;
-            }
-          }
         }
       });
 
       if (isJewelrySurprise) {
-        initial['Jewelry Reveal Type'] = initialJewelryType;
-        if (initialJewelryType === 'Ring') {
-          initial['Ring Size'] = String(initialRingSize);
-        }
-        setSelectedJewelryType(initialJewelryType);
-        setSelectedRingSize(initialJewelryType === 'Ring' ? initialRingSize : undefined);
+        setSelectedJewelryType('');
+        setSelectedRingSize(undefined);
+        setRingSizeError(false);
+      } else {
+        setSelectedJewelryType('Ring');
+        setSelectedRingSize(undefined);
+        setRingSizeError(false);
       }
       setSelectedOptions(initial);
     } else {
       setSelectedOptions({});
       if (isJewelrySurprise) {
-        setSelectedJewelryType('Ring');
-        setSelectedRingSize(7);
+        setSelectedJewelryType('');
+        setSelectedRingSize(undefined);
+        setRingSizeError(false);
       }
     }
   }, [product.id, product.options, isJewelrySurprise]);
@@ -510,61 +415,146 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   const currentSku = matchedVariant?.sku ?? product.sku;
   const isVariantInStock = matchedVariant ? matchedVariant.inStock : product.inStock;
 
-  // Jewelry Variant States (Ring Size & Jewelry Type fallback)
-  const [selectedJewelryType, setSelectedJewelryType] = useState<string>('Ring');
-  const [selectedRingSize, setSelectedRingSize] = useState<number | undefined>(7);
+  // Jewelry Variant States (Unified Surprise Me Dropdown fallback)
+  const [selectedJewelryType, setSelectedJewelryType] = useState<string>('');
+  const [selectedRingSize, setSelectedRingSize] = useState<number | undefined>(undefined);
+  const [ringSizeError, setRingSizeError] = useState(false);
   const [isRingSizerOpen, setIsRingSizerOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Sync / clear ring size when switching jewelry type or when product changes
-  const handleJewelryTypeSelect = (type: string) => {
-    setSelectedJewelryType(type);
-    setSelectedOptions((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((k) => {
-        if (/jewelry|reveal/i.test(k) || (type !== 'Ring' && /ring/i.test(k))) {
-          delete next[k];
-        }
-      });
-      next['Jewelry Reveal Type'] = type;
-      if (product.options) {
-        product.options.forEach((opt) => {
-          if (opt.values?.some((v) => v.toLowerCase() === type.toLowerCase())) {
-            next[opt.name] = opt.values.find((v) => v.toLowerCase() === type.toLowerCase()) || type;
-          }
-        });
+  // Close custom dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
       }
-      if (type === 'Ring') {
-        const ringSize = selectedRingSize || 7;
-        setSelectedRingSize(ringSize);
-        next['Ring Size'] = String(ringSize);
+    };
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
+  // Available Ring Sizes for this product
+  const availableRingSizes = useMemo(() => {
+    if (product.ringSizes && product.ringSizes.length > 0) {
+      const parsed = product.ringSizes.map(Number).filter((n) => !isNaN(n));
+      if (parsed.length > 0) return parsed;
+    }
+    return RING_SIZES;
+  }, [product.ringSizes]);
+
+  // Unified Surprise Me options matching reference site (jewelrycandles.com)
+  const surpriseMeOptions = useMemo(() => {
+    const list: { value: string; label: string }[] = [
+      { value: 'Surprise me!', label: 'Surprise me!' },
+      { value: 'Bracelet', label: 'Bracelet' },
+      { value: 'Earrings', label: 'Earrings' },
+      { value: 'Necklace', label: 'Necklace' },
+    ];
+    availableRingSizes.forEach((size) => {
+      list.push({
+        value: `Ring Size ${size}`,
+        label: `Ring Size ${size}`,
+      });
+    });
+    return list;
+  }, [availableRingSizes]);
+
+  // Current value displayed inside the unified Surprise Me dropdown
+  const currentDropdownValue = useMemo(() => {
+    if (selectedJewelryType === 'Ring' && selectedRingSize) {
+      return `Ring Size ${selectedRingSize}`;
+    }
+    if (selectedJewelryType === 'Surprise Me' || selectedJewelryType === 'Surprise me!') {
+      return 'Surprise me!';
+    }
+    if (selectedJewelryType && selectedJewelryType !== 'Ring') {
+      return selectedJewelryType;
+    }
+    return '';
+  }, [selectedJewelryType, selectedRingSize]);
+
+  // Unified Surprise Me handler
+  const handleSurpriseMeSelect = (val: string) => {
+    if (!val) {
+      setSelectedJewelryType('');
+      setSelectedRingSize(undefined);
+      setRingSizeError(false);
+      return;
+    }
+    setRingSizeError(false);
+
+    const ringMatch = val.match(/ring\s*size\s*(\d+)/i) || (val.startsWith('Size ') ? val.match(/size\s*(\d+)/i) : null);
+    if (ringMatch) {
+      const sizeNum = parseInt(ringMatch[1], 10);
+      setSelectedJewelryType('Ring');
+      setSelectedRingSize(sizeNum);
+      setSelectedOptions((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((k) => {
+          if (/jewelry|reveal/i.test(k)) delete next[k];
+        });
+        next['Jewelry Reveal Type'] = 'Ring';
+        next['Ring Size'] = String(sizeNum);
+        next['Choose your jewelry surprise'] = val;
         if (product.options) {
           product.options.forEach((opt) => {
-            if (isJewelryOrRingOption(opt) && opt.values?.some((v) => String(v).trim() === String(ringSize))) {
-              next[opt.name] = String(ringSize);
+            if (isJewelryOrRingOption(opt)) {
+              const matchVal = opt.values?.find(
+                (v) => v.toLowerCase() === val.toLowerCase() || String(v).trim() === String(sizeNum)
+              );
+              if (matchVal) next[opt.name] = matchVal;
             }
           });
         }
-      } else {
-        setSelectedRingSize(undefined);
-      }
-      return next;
-    });
-  };
-
-  const handleRingSizeSelect = (size: number) => {
-    setSelectedRingSize(size);
-    setSelectedOptions((prev) => {
-      const next = { ...prev };
-      next['Ring Size'] = String(size);
-      if (product.options) {
-        product.options.forEach((opt) => {
-          if (isJewelryOrRingOption(opt) && opt.values?.some((v) => String(v).trim() === String(size))) {
-            next[opt.name] = String(size);
-          }
+        return next;
+      });
+    } else if (/surprise/i.test(val)) {
+      setSelectedJewelryType('Surprise Me');
+      setSelectedRingSize(undefined);
+      setSelectedOptions((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((k) => {
+          if (/jewelry|reveal|ring/i.test(k)) delete next[k];
         });
-      }
-      return next;
-    });
+        next['Jewelry Reveal Type'] = 'Surprise Me';
+        next['Choose your jewelry surprise'] = val;
+        if (product.options) {
+          product.options.forEach((opt) => {
+            if (isJewelryOrRingOption(opt)) {
+              const matchVal = opt.values?.find((v) => /surprise/i.test(v));
+              if (matchVal) next[opt.name] = matchVal;
+            }
+          });
+        }
+        return next;
+      });
+    } else {
+      const cleanType = val.trim();
+      setSelectedJewelryType(cleanType);
+      setSelectedRingSize(undefined);
+      setSelectedOptions((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((k) => {
+          if (/jewelry|reveal|ring/i.test(k)) delete next[k];
+        });
+        next['Jewelry Reveal Type'] = cleanType;
+        next['Choose your jewelry surprise'] = val;
+        if (product.options) {
+          product.options.forEach((opt) => {
+            if (isJewelryOrRingOption(opt)) {
+              const matchVal = opt.values?.find((v) => v.toLowerCase() === cleanType.toLowerCase());
+              if (matchVal) next[opt.name] = matchVal;
+            }
+          });
+        }
+        return next;
+      });
+    }
   };
 
   // Consultant Attribution
@@ -654,6 +644,21 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   }, [product.images]);
 
   const handleAddToCartClick = () => {
+    if (isJewelrySurprise && !currentDropdownValue) {
+      setRingSizeError(true);
+      setIsDropdownOpen(true);
+      onShowToast?.('Please select an option from Surprise Me before adding to cart.', {
+        type: 'info',
+        title: 'Surprise Me Selection Required',
+      });
+      const el = document.getElementById('surprise-me-dropdown-trigger') || document.getElementById('surprise-me-dropdown');
+      if (el) {
+        el.focus();
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
     const customizedProduct = {
       ...product,
       price: currentPrice,
@@ -673,19 +678,31 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             .map(([k, v]) => `${k}: ${v}`)
             .join(', ')
         : '';
-    const activeScent = isFixedScentProduct ? initialScent : selectedScent;
-    const formattedSize = [isScentedProduct && activeScent ? `Scent: ${activeScent}` : '', otherOpts || selectedSize]
-      .filter(Boolean)
-      .join(' | ');
+    const formattedSize = otherOpts || selectedSize || '';
 
     onAddToCart(customizedProduct, quantity, {
       selectedRingSize: isJewelrySurprise && selectedJewelryType === 'Ring' ? selectedRingSize : undefined,
-      selectedJewelryType: isJewelrySurprise ? selectedJewelryType : undefined,
+      selectedJewelryType: isJewelrySurprise && selectedJewelryType ? selectedJewelryType : undefined,
       selectedSize: formattedSize,
     });
   };
 
   const handleBuyNowClick = () => {
+    if (isJewelrySurprise && !currentDropdownValue) {
+      setRingSizeError(true);
+      setIsDropdownOpen(true);
+      onShowToast?.('Please select an option from Surprise Me before adding to cart.', {
+        type: 'info',
+        title: 'Surprise Me Selection Required',
+      });
+      const el = document.getElementById('surprise-me-dropdown-trigger') || document.getElementById('surprise-me-dropdown');
+      if (el) {
+        el.focus();
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
     const customizedProduct = {
       ...product,
       price: currentPrice,
@@ -705,14 +722,11 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             .map(([k, v]) => `${k}: ${v}`)
             .join(', ')
         : '';
-    const activeScent = isFixedScentProduct ? initialScent : selectedScent;
-    const formattedSize = [isScentedProduct && activeScent ? `Scent: ${activeScent}` : '', otherOpts || selectedSize]
-      .filter(Boolean)
-      .join(' | ');
+    const formattedSize = otherOpts || selectedSize || '';
 
     const options = {
       selectedRingSize: isJewelrySurprise && selectedJewelryType === 'Ring' ? selectedRingSize : undefined,
-      selectedJewelryType: isJewelrySurprise ? selectedJewelryType : undefined,
+      selectedJewelryType: isJewelrySurprise && selectedJewelryType ? selectedJewelryType : undefined,
       selectedSize: formattedSize,
     };
     if (onBuyNow) {
@@ -920,212 +934,229 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </div>
             )}
 
-            {/* Clean Dropdown Scent Selection (Exact 20 Scents in Founder Order) - Only for Customizable Scented Products */}
-            {isScentedProduct && showScentDropdown && (
-              <div className="mb-5 p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] shadow-2xs">
+
+
+            {isJewelrySurprise && (
+              <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">
-                  <label htmlFor="scent-dropdown" className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1.5 cursor-pointer">
-                    <span>Choose Scent / Fragrance (Required):</span>
-                  </label>
-                  <span className="text-xs font-bold text-[#D30915]">{selectedScent}</span>
-                </div>
-                <div className="relative">
-                  <select
-                    id="scent-dropdown"
-                    value={selectedScent}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSelectedScent(val);
-                      setSelectedOptions((prev) => ({ ...prev, Scent: val, Fragrance: val }));
-                    }}
-                    className="w-full h-[46px] px-3.5 pr-10 rounded-[14px] bg-white border border-[#eedbe6] hover:border-[#D30915] focus:border-[#D30915] focus:ring-2 focus:ring-[#D30915]/20 text-xs sm:text-sm font-bold text-[#141219] appearance-none cursor-pointer transition-all outline-none shadow-2xs"
+                  <label
+                    htmlFor="surprise-me-dropdown-trigger"
+                    className="text-xs sm:text-[13px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1 cursor-pointer"
                   >
-                    {orderedScents.map((scent, idx) => (
-                      <option key={scent} value={scent} className="text-sm font-medium text-[#141219]">
-                        {idx + 1}. {scent} {idx === 0 && isHalloween ? '🎃 (Halloween Priority Scent)' : ''}
+                    <span>Surprise Me:</span>
+                    <span className="text-[#D30915]">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsRingSizerOpen(true)}
+                    className="text-xs font-bold text-[#D30915] hover:text-[#B60711] hover:underline inline-flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <span>Size Guide</span>
+                  </button>
+                </div>
+
+                <div ref={dropdownRef} className="relative">
+                  {/* Synchronized accessible native select (strictly hidden so no corner artifacts leak) */}
+                  <select
+                    id="surprise-me-dropdown"
+                    value={currentDropdownValue}
+                    onChange={(e) => handleSurpriseMeSelect(e.target.value)}
+                    className="hidden"
+                    style={{ display: 'none' }}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  >
+                    <option value="" disabled>Select Surprise Me</option>
+                    {surpriseMeOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
                       </option>
                     ))}
                   </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-[#716d77]">
-                    <ChevronDown className="w-4 h-4" />
-                  </div>
-                </div>
-                <p className="text-[11px] text-[#716d77] m-0 mt-2 font-medium flex items-center gap-1">
-                  {isHalloween ? (
-                    <>
-                      <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                      <span>Pumpkin Spice is curated #1 holiday favorite for this item.</span>
-                    </>
-                  ) : (
-                    <span>20 signature scents hand-crafted with premium fragrance oils.</span>
-                  )}
-                </p>
-              </div>
-            )}
 
-            {/* Curated Signature Fragrance Display for Fixed-Scent Candles (e.g. Birthday Cake, Bahama Mama) */}
-            {isScentedProduct && isFixedScentProduct && (
-              <div className="mb-5 p-3.5 sm:p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] flex items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-full bg-[#fdeef3] border border-[#eedbe6] flex items-center justify-center text-[#D30915] shrink-0">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-black uppercase tracking-wider text-[#716d77] block">
-                      Curated Signature Fragrance:
-                    </span>
-                    <h5 className="text-xs sm:text-sm font-black text-[#141219] m-0">
-                      {initialScent}
-                    </h5>
-                  </div>
-                </div>
-                <span className="text-[11px] font-black uppercase tracking-wider text-[#D30915] bg-[#fff1f2] border border-[#fecdd3] px-2.5 py-1 rounded-full shrink-0">
-                  Pre-Poured
-                </span>
-              </div>
-            )}
-
-            {isJewelrySurprise && (
-              <div className="mb-5 p-4 rounded-[18px] bg-[#fffbfd] border border-[#eedbe6] space-y-4">
-                {/* Jewelry Type Selector */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1">
-                      <span>SELECT JEWELRY REVEAL TYPE:</span>
-                    </span>
-                    <span className="text-xs font-bold text-[#D30915]">{selectedJewelryType}</span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {JEWELRY_TYPES.map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => handleJewelryTypeSelect(type)}
-                        className={`py-2 px-2.5 rounded-[12px] text-center border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                          selectedJewelryType === type
-                            ? 'border-[#D30915] bg-[#fff1f2] text-[#D30915] font-black shadow-xs ring-2 ring-[#D30915]/15'
-                            : 'border-[#ebdce5] bg-white text-[#55505a] hover:border-[#f1b8cb]'
-                        }`}
-                      >
-                        <Gem className="w-3.5 h-3.5" />
-                        <span className="text-xs font-bold">{type}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Ring Size Selector (When Jewelry Type is Ring) */}
-                {selectedJewelryType === 'Ring' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[11px] font-black uppercase tracking-wider text-[#141219] flex items-center gap-1">
-                        <span>SELECT RING SIZE (US):</span>
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setIsRingSizerOpen(true)}
-                          className="text-[11px] font-bold text-[#D30915] hover:text-[#B60711] hover:underline inline-flex items-center gap-1 cursor-pointer bg-[#fff0f3] px-2 py-0.5 rounded-lg border border-[#fecdd3]"
-                          title="Open Interactive Ring Sizer & Measurement Ruler"
-                        >
-                          <Ruler className="w-3 h-3" />
-                          <span>Find My Size</span>
-                        </button>
-                        <span className="text-xs font-bold text-[#D30915]">{selectedRingSize ? `Size ${selectedRingSize}` : 'Select Size'}</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
-                      {RING_SIZES.map((size) => (
-                        <button
-                          key={size}
-                          type="button"
-                          onClick={() => handleRingSizeSelect(size)}
-                          className={`py-2 px-1 rounded-[12px] text-center border transition-all cursor-pointer flex flex-col items-center justify-center ${
-                            selectedRingSize === size
-                              ? 'border-[#D30915] bg-[#fff1f2] text-[#D30915] font-black shadow-xs ring-2 ring-[#D30915]/20 scale-105'
-                              : 'border-[#ebdce5] bg-white text-[#55505a] hover:border-[#f1b8cb] hover:bg-[#fffdfd]'
-                          }`}
-                        >
-                          <span className="text-xs sm:text-sm font-black">{size}</span>
-                          <span className="text-[9px] opacity-70">US</span>
-                        </button>
-                      ))}
-                    </div>
-                    <p className="text-[11px] text-[#716d77] m-0 mt-2 font-medium">
-                      ✨ Your ring surprise will be tailored in Size {selectedRingSize || 7} appraised $10 to $7,500.
-                    </p>
-                    {onNavigateToAppraisal && (
-                      <button
-                        type="button"
-                        onClick={onNavigateToAppraisal}
-                        className="mt-2 text-xs font-bold text-[#D30915] hover:text-[#B60711] hover:underline inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        <Gem className="w-3.5 h-3.5" />
-                        <span>Already revealed your jewelry? Check appraisal value & certificate →</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Product Details & Experience (Shortened, Scannable & Expandable) */}
-            <div className="mb-5">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="block text-[11px] font-black uppercase tracking-wider text-[#8a858f]">
-                  Product Details &amp; Experience
-                </span>
-                {descriptionData.hasMore && (
+                  {/* Dropdown Trigger Button */}
                   <button
                     type="button"
-                    onClick={() => setIsDescriptionExpanded((prev) => !prev)}
-                    className="text-[11px] font-bold text-[#D30915] hover:text-[#B60711] hover:underline inline-flex items-center gap-1 cursor-pointer transition-colors"
-                    aria-expanded={isDescriptionExpanded}
+                    id="surprise-me-dropdown-trigger"
+                    aria-haspopup="listbox"
+                    aria-expanded={isDropdownOpen}
+                    onClick={() => {
+                      setIsDropdownOpen((prev) => !prev);
+                      setRingSizeError(false);
+                    }}
+                    className={`w-full h-[50px] px-4 rounded-[14px] font-black text-xs sm:text-sm text-left flex items-center justify-between gap-3 transition-all cursor-pointer outline-none shadow-xs border-0 ${
+                      ringSizeError
+                        ? 'border-2 border-red-500 ring-2 ring-red-500/20 bg-red-50 text-red-900'
+                        : 'bg-[#ffe4e8] text-[#9f1239] hover:bg-[#ffdce2]'
+                    }`}
                   >
-                    <span>{isDescriptionExpanded ? 'Show Less Details' : 'Read Full Description'}</span>
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                        isDescriptionExpanded ? 'rotate-180' : ''
+                    <span className="truncate">
+                      {currentDropdownValue || 'Select Surprise Me'}
+                    </span>
+                    <div
+                      className={`w-7 h-7 rounded-full bg-[#D30915] text-white flex items-center justify-center shrink-0 shadow-xs transition-transform duration-200 ${
+                        isDropdownOpen ? 'rotate-180' : ''
                       }`}
-                    />
+                    >
+                      <ChevronDown className="w-4 h-4 stroke-[2.5]" />
+                    </div>
+                  </button>
+
+                  {/* Styled Dropdown Menu (Inside Ring Sizes and Others) */}
+                  {isDropdownOpen && (
+                    <div
+                      role="listbox"
+                      className="absolute z-50 left-0 right-0 mt-1.5 p-2.5 rounded-[14px] bg-white border border-[#fee2e8] shadow-[0_12px_32px_rgba(20,18,25,0.12)] max-h-[360px] overflow-y-auto divide-y divide-[#fee2e8] animate-in fade-in-0 zoom-in-95 duration-150"
+                    >
+                      {/* Section 1: Surprise Me / Mystery Reveal */}
+                      <div className="pb-2">
+                        <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#9f1239]/70 flex items-center justify-between">
+                          <span>Mystery Surprise</span>
+                          <span className="text-[#D30915] font-extrabold text-[10px]">Appraised $15–$7,500</span>
+                        </div>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={currentDropdownValue === 'Surprise me!'}
+                          onClick={() => {
+                            handleSurpriseMeSelect('Surprise me!');
+                            setIsDropdownOpen(false);
+                          }}
+                          className={`w-full px-3 py-2.5 rounded-[12px] flex items-center justify-between text-left transition-all cursor-pointer ${
+                            currentDropdownValue === 'Surprise me!'
+                              ? 'bg-[#ffe4e8] text-[#D30915] font-black'
+                              : 'text-[#141219] hover:bg-[#fff0f3] hover:text-[#D30915]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-base leading-none">✨</span>
+                            <div>
+                              <span className="text-xs sm:text-sm font-bold block">Surprise me!</span>
+                              <span className="text-[10px] text-[#716d77] block font-medium">Random fine jewelry reveal hidden inside</span>
+                            </div>
+                          </div>
+                          {currentDropdownValue === 'Surprise me!' && (
+                            <Check className="w-4 h-4 text-[#D30915] shrink-0 stroke-[2.5]" />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Section 2: Ring Sizes ("rogn") */}
+                      <div className="py-2">
+                        <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#9f1239]/70 flex items-center justify-between">
+                          <span>💍 Ring Sizes (US)</span>
+                          <span className="text-[#D30915] font-extrabold text-[10px]">Sizes 5 to 11</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 p-1">
+                          {availableRingSizes.map((size) => {
+                            const val = `Ring Size ${size}`;
+                            const isSelected = currentDropdownValue === val;
+                            return (
+                              <button
+                                key={size}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => {
+                                  handleSurpriseMeSelect(val);
+                                  setIsDropdownOpen(false);
+                                }}
+                                className={`px-3 py-2 rounded-[10px] flex items-center justify-between text-left transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#ffe4e8] text-[#D30915] font-black shadow-xs ring-1 ring-[#D30915]/20'
+                                    : 'bg-[#fffafc] text-[#141219] hover:bg-[#fff0f4] hover:text-[#D30915]'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm">💍</span>
+                                  <span className="text-xs sm:text-sm font-bold">Ring Size {size}</span>
+                                </div>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-[#D30915] shrink-0 stroke-[2.5]" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Section 3: Other Jewelry Pieces ("and others") */}
+                      <div className="pt-2">
+                        <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#9f1239]/70">
+                          <span>💎 Other Jewelry Reveal Types</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 p-1">
+                          {[
+                            { piece: 'Necklace', icon: '📿' },
+                            { piece: 'Earrings', icon: '✨' },
+                            { piece: 'Bracelet', icon: '💫' },
+                          ].map(({ piece, icon }) => {
+                            const isSelected = currentDropdownValue === piece;
+                            return (
+                              <button
+                                key={piece}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => {
+                                  handleSurpriseMeSelect(piece);
+                                  setIsDropdownOpen(false);
+                                }}
+                                className={`px-3 py-2 rounded-[10px] flex items-center justify-between text-left transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#ffe4e8] text-[#D30915] font-black shadow-xs ring-1 ring-[#D30915]/20'
+                                    : 'bg-[#fffafc] text-[#141219] hover:bg-[#fff0f4] hover:text-[#D30915]'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm">{icon}</span>
+                                  <span className="text-xs sm:text-sm font-bold">{piece}</span>
+                                </div>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-[#D30915] shrink-0 stroke-[2.5]" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {ringSizeError && (
+                  <p className="text-[11px] text-red-600 font-bold m-0 mt-1.5 flex items-center gap-1 animate-in fade-in">
+                    <span>Please select an option from Surprise Me before adding to cart.</span>
+                  </p>
+                )}
+
+                {currentDropdownValue ? (
+                  <p className="text-[11px] text-[#716d77] m-0 mt-2 font-medium flex items-center gap-1">
+                    <span>
+                      {selectedJewelryType === 'Ring' && selectedRingSize
+                        ? `✨ Your ring surprise will be tailored in Size ${selectedRingSize} appraised $15 to $7,500.`
+                        : selectedJewelryType === 'Surprise Me'
+                        ? '✨ Guaranteed random fine jewelry surprise hidden inside each candle appraised $15 to $7,500.'
+                        : `✨ Guaranteed authentic ${selectedJewelryType} surprise hidden inside each candle appraised $15 to $7,500.`}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-[#8a858f] m-0 mt-1.5 font-medium">
+                    Standard US ring sizes (5 to 11), Necklace, Earrings, Bracelet, or Surprise Me.
+                  </p>
+                )}
+
+                {onNavigateToAppraisal && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToAppraisal}
+                    className="mt-2 text-xs font-bold text-[#D30915] hover:text-[#B60711] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Gem className="w-3.5 h-3.5" />
+                    <span>Already revealed your jewelry? Check appraisal value & certificate →</span>
                   </button>
                 )}
               </div>
-
-              {/* Concise Primary Summary Paragraph */}
-              <p className="text-xs sm:text-sm text-[#55505a] leading-relaxed m-0 font-medium mb-2.5">
-                {descriptionData.shortSummary}
-              </p>
-
-              {/* Amazon-Style Key Benefits / Scannable Bullet Points */}
-              <ul className="text-xs sm:text-[13px] text-[#55505a] space-y-1.5 mb-2 pl-0 list-none font-medium">
-                {descriptionData.highlights.map((highlight, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
-                    <span className="text-[#D30915] font-black text-sm leading-none shrink-0 mt-0.5">•</span>
-                    <span className="leading-snug">{highlight}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* Expandable Full Authoritative Description (Preserves all HTML & rich details) */}
-              {descriptionData.hasMore && isDescriptionExpanded && (
-                <div className="mt-3 pt-3 border-t border-[#f2edf1] text-xs sm:text-sm text-[#55505a] leading-relaxed font-medium space-y-2 animate-in fade-in duration-200">
-                  {product.description && product.description.includes('<') ? (
-                    <div
-                      className="space-y-2 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_iframe]:w-full [&_iframe]:max-w-[560px] [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:my-3"
-                      dangerouslySetInnerHTML={{ __html: product.description }}
-                    />
-                  ) : (
-                    <p className="m-0 leading-relaxed font-medium">
-                      {product.description ||
-                        'Crafted with 100% natural organic soy wax, clean aromatic oils, and lead-free cotton wicks for a long-lasting, clean burn. Hand-poured in the USA.'}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
+            )}
 
             {/* Quantity Stepper, Add to Cart & Buy It Now Controls */}
+            {/* Placed immediately below Price for dropdown = 0, or immediately below Dropdown for dropdown = 1 */}
             <div className="space-y-2.5 sm:space-y-3 mb-5 pt-3 border-t border-[#f2edf1]">
               {/* Row 1: Quantity Stepper & ADD TO CART Button */}
               <div className="flex items-center gap-2 sm:gap-2.5 w-full">
@@ -1205,8 +1236,64 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </div>
             </div>
 
+            {/* Product Details & Experience (Shortened, Scannable & Expandable) - Placed below Add to Cart / Buy Now */}
+            <div className="mb-5 pt-3 border-t border-[#f2edf1]">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="block text-[11px] font-black uppercase tracking-wider text-[#8a858f]">
+                  Product Details &amp; Experience
+                </span>
+                {descriptionData.hasMore && (
+                  <button
+                    type="button"
+                    onClick={() => setIsDescriptionExpanded((prev) => !prev)}
+                    className="text-[11px] font-bold text-[#D30915] hover:text-[#B60711] hover:underline inline-flex items-center gap-1 cursor-pointer transition-colors"
+                    aria-expanded={isDescriptionExpanded}
+                  >
+                    <span>{isDescriptionExpanded ? 'Show Less Details' : 'Read Full Description'}</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                        isDescriptionExpanded ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                )}
+              </div>
+
+              {/* Concise Primary Summary Paragraph */}
+              <p className="text-xs sm:text-sm text-[#55505a] leading-relaxed m-0 font-medium mb-2.5">
+                {descriptionData.shortSummary}
+              </p>
+
+              {/* Amazon-Style Key Benefits / Scannable Bullet Points */}
+              <ul className="text-xs sm:text-[13px] text-[#55505a] space-y-1.5 mb-2 pl-0 list-none font-medium">
+                {descriptionData.highlights.map((highlight, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-[#D30915] font-black text-sm leading-none shrink-0 mt-0.5">•</span>
+                    <span className="leading-snug">{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Expandable Full Authoritative Description (Preserves all HTML & rich details) */}
+              {descriptionData.hasMore && isDescriptionExpanded && (
+                <div className="mt-3 pt-3 border-t border-[#f2edf1] text-xs sm:text-sm text-[#55505a] leading-relaxed font-medium space-y-2 animate-in fade-in duration-200">
+                  {product.description && product.description.includes('<') ? (
+                    <div
+                      className="space-y-2 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_iframe]:w-full [&_iframe]:max-w-[560px] [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:my-3"
+                      dangerouslySetInnerHTML={{ __html: product.description }}
+                    />
+                  ) : (
+                    <p className="m-0 leading-relaxed font-medium">
+                      {product.description ||
+                        'Crafted with 100% natural organic soy wax, clean aromatic oils, and lead-free cotton wicks for a long-lasting, clean burn. Hand-poured in the USA.'}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* 4 Guarantees Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-[16px] bg-[#fffafc] border border-[#f2e6ee] text-[11px] font-bold text-[#55505a] mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-2 p-3 rounded-[16px] bg-[#fffafc] border border-[#f2e6ee] text-[11px] font-bold text-[#55505a] mb-4">
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>100% Win Guarantee</span>
@@ -1283,24 +1370,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               </p>
             </div>
 
-            {/* Scent Notes & Aroma Profile */}
-            {!isScentExcluded && product.scentNotes && product.scentNotes.length > 0 && (
-              <div className="mb-4">
-                <span className="block text-[11px] font-black uppercase tracking-wider text-[#8a858f] mb-2">
-                  Aromatic Scent Notes
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {product.scentNotes.map((note, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1 rounded-[10px] bg-white border border-[#ebdce5] text-xs font-bold text-[#141219] shadow-2xs"
-                    >
-                      🌸 {note}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+
           </div>
         </div>
       </div>
@@ -1641,10 +1711,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                   product={relProduct}
                   cartQuantity={relCartItem?.quantity || 0}
                   onAddToCart={onAddToCart}
-                  onUpdateQuantity={(id, qty) => {
-                    const currentQty = relCartItem?.quantity || 0;
-                    onUpdateQuantity(id, qty - currentQty);
-                  }}
+                  onUpdateQuantity={onUpdateQuantity}
                   onToggleWishlist={() => onWishlistToggle(relProduct)}
                   onSelectProduct={onSelectProduct}
                   isWishlisted={relWishlisted}
@@ -1660,7 +1727,10 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
         isOpen={isRingSizerOpen}
         onClose={() => setIsRingSizerOpen(false)}
         currentSize={selectedRingSize || 7}
-        onSelectSize={(size) => handleRingSizeSelect(size)}
+        onSelectSize={(size) => {
+          handleSurpriseMeSelect(`Ring Size ${size}`);
+          setIsRingSizerOpen(false);
+        }}
       />
     </div>
   );

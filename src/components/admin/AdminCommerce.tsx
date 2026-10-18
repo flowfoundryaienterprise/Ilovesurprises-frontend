@@ -696,7 +696,7 @@ export const AdminCommerce: React.FC<AdminCommerceProps> = ({
 
           <div className="bg-white rounded-2xl border border-[#eedbe6] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-[#141219]">
+              <table className="w-full min-w-[780px] text-left text-xs text-[#141219]">
                 <thead className="bg-[#fdf9fb] border-b border-[#eedbe6] text-[11px] font-extrabold uppercase text-[#716d77] tracking-wider">
                   <tr>
                     <th className="py-3.5 px-4">Item</th>
@@ -955,7 +955,7 @@ export const AdminCommerce: React.FC<AdminCommerceProps> = ({
 
           <div className="bg-white rounded-2xl border border-[#eedbe6] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-[#141219]">
+              <table className="w-full min-w-[800px] text-left text-xs text-[#141219]">
                 <thead className="bg-[#fdf9fb] border-b border-[#eedbe6] text-[11px] font-extrabold uppercase text-[#716d77] tracking-wider">
                   <tr>
                     <th className="py-3.5 px-4">Order ID</th>
@@ -1039,7 +1039,7 @@ export const AdminCommerce: React.FC<AdminCommerceProps> = ({
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-[#eedbe6] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-[#141219]">
+              <table className="w-full min-w-[720px] text-left text-xs text-[#141219]">
                 <thead className="bg-[#fdf9fb] border-b border-[#eedbe6] text-[11px] font-extrabold uppercase text-[#716d77] tracking-wider">
                   <tr>
                     <th className="py-3.5 px-4">Customer</th>
@@ -1096,7 +1096,7 @@ export const AdminCommerce: React.FC<AdminCommerceProps> = ({
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-[#eedbe6] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-[#141219]">
+              <table className="w-full min-w-[780px] text-left text-xs text-[#141219]">
                 <thead className="bg-[#fdf9fb] border-b border-[#eedbe6] text-[11px] font-extrabold uppercase text-[#716d77] tracking-wider">
                   <tr>
                     <th className="py-3.5 px-4">Order ID</th>

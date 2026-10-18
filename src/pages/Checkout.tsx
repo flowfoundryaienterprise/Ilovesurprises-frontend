@@ -1949,7 +1949,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
                 )}
 
                 {/* Payment Method Selector Tabs */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 mb-4">
                   {/* Card Option */}
                   <button
                     type="button"

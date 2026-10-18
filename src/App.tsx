@@ -1276,7 +1276,9 @@ export function App() {
   };
 
   const handleUpdateQuantity = (itemIdentifier: string, delta: number) => {
-    cartService.updateQuantity(itemIdentifier, delta, cart).then((updatedCart) => {
+    const currentCart = cartService.getLocalCart();
+    const baseCart = currentCart && currentCart.length > 0 ? currentCart : cart;
+    cartService.updateQuantity(itemIdentifier, delta, baseCart).then((updatedCart) => {
       setCart(updatedCart);
     });
   };

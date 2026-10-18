@@ -145,6 +145,11 @@ export interface AdminProductItem {
   reviewCount: number;
   status: 'active' | 'draft' | 'archived';
   isBestSeller?: boolean;
+  slug?: string;
+  tags?: string[];
+  seoTitle?: string;
+  metaDescription?: string;
+  imageAltText?: string;
 }
 
 export interface AdminCollectionItem {

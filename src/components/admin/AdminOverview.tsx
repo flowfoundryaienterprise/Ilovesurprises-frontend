@@ -109,7 +109,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
           <span className="text-[11px] text-[#716d77]">Click any card to jump directly to management</span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-7 gap-2.5 sm:gap-3">
           {/* Card 1: Products */}
           <div
             onClick={() => onNavigateTab('products')}
@@ -247,7 +247,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
       </div>
 
       {/* 3. Primary Financial Metrics Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         {/* KPI 1: Gross Sales */}
         <div className="bg-white rounded-2xl border border-[#eedbe6] p-4 sm:p-5 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">

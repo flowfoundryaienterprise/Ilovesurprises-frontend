@@ -1133,7 +1133,7 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-3 text-[#141219] shrink-0 ml-2">
+          <div className="hidden md:flex items-center gap-2 lg:gap-3 text-[#141219] shrink-0 ml-2">
             <button
               type="button"
               onClick={() => onNavigate?.('rewards')}
@@ -1142,17 +1142,17 @@ export const Header: React.FC<HeaderProps> = ({
               <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
               <span>Surprise Club Rewards</span>
             </button>
-            <span className="text-[#e2d5de]">|</span>
+            <span className="text-[#e2d5de] hidden lg:inline">|</span>
             <button
               type="button"
               onClick={() => onNavigate?.('appraisal')}
-              className="flex items-center gap-1.5 hover:text-[#D30915] transition-colors cursor-pointer"
+              className="hidden lg:flex items-center gap-1.5 hover:text-[#D30915] transition-colors cursor-pointer"
             >
               <Gem className="w-3.5 h-3.5 text-rose-500 shrink-0" />
               <span>Appraise Jewelry</span>
             </button>
-            <span className="text-[#e2d5de]">|</span>
-            <div className="flex items-center gap-1.5">
+            <span className="text-[#e2d5de] hidden xl:inline">|</span>
+            <div className="hidden xl:flex items-center gap-1.5">
               <Gift className="w-3.5 h-3.5 text-[#D30915] shrink-0" />
               <span>Free Shipping ${FREE_SHIPPING_THRESHOLD}+</span>
             </div>
@@ -1720,7 +1720,7 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label="Main Category Navigation"
           >
             {/* Left: Product Categories Cluster */}
-            <div className="flex items-center gap-0.5 min-[1120px]:gap-0.5 min-[1220px]:gap-1 xl:gap-1.5 2xl:gap-2.5 flex-nowrap min-w-0 py-0.5">
+            <div className="flex items-center gap-0.5 min-[1120px]:gap-0.5 min-[1220px]:gap-1 xl:gap-1.5 2xl:gap-2.5 flex-nowrap min-w-0 py-0.5 overflow-x-auto scrollbar-none">
               {/* Home Pill */}
               <a
                 href="/"

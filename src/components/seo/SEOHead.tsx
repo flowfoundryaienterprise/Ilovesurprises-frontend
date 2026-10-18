@@ -42,9 +42,16 @@ interface SEOResult {
 
 function getProductSEO(product: Product): { title: string; description: string; ogImage: string } {
   const title = `${product.name} ${BRAND_SUFFIX}`;
-  const scents = product.scentNotes && product.scentNotes.length > 0
-    ? product.scentNotes.slice(0, 3).join(', ')
-    : '';
+  const disallowedScentKeywords = [
+    'holiday priority',
+    'halloween priority',
+    'spooky spiced apple cider',
+    'midnight marshmallow cauldron',
+  ];
+  const validScentNotes = (product.scentNotes || []).filter(
+    (note) => !disallowedScentKeywords.some((kw) => (note || '').toLowerCase().includes(kw))
+  );
+  const scents = validScentNotes.length > 0 ? validScentNotes.slice(0, 3).join(', ') : '';
 
   let description = '';
   if (product.surpriseType === 'cash') {
