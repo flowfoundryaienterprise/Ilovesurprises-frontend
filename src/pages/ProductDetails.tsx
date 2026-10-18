@@ -30,6 +30,7 @@ import type { Product, CartItem, Review } from '../types';
 import { useRelatedProducts } from '../hooks/useProducts';
 import { representativeService, type PublicRepresentative } from '../services/representativeService';
 import { FREE_SHIPPING_THRESHOLD, RETURN_POLICY_LABEL } from '../config/policyConstants';
+import { APPROVED_COLLECTIONS_MAP } from '../data/approvedCollectionsData';
 
 interface ProductDetailsProps {
   product: Product;
@@ -73,6 +74,78 @@ export function isJewelryOrRingOption(opt: { name?: string; values?: string[] })
   if (opt.values?.some((v) => /^(?:size\s*)?(?:[5-9]|1[0-2])(?:\s*us)?$/i.test(String(v).trim()))) {
     return true;
   }
+  return false;
+}
+
+/**
+ * Detects whether a product belongs to the Cash Money Candles or Jewellery Candles category.
+ * Scent selection is completely excluded for these two categories only.
+ * Other candle categories and scented items (wax melts, bath bombs, soaps, slimes, etc.) retain full scent options.
+ */
+export function isScentSelectionExcluded(product: {
+  id?: string;
+  name?: string;
+  slug?: string;
+  category?: string;
+}): boolean {
+  if (!product) return false;
+
+  const id = (product.id || '').toLowerCase().trim();
+  const slug = (product.slug || '').toLowerCase().trim();
+  const name = (product.name || '').toLowerCase().trim();
+  const cat = (product.category || '').toLowerCase().trim();
+
+  // Exclude non-candle product lines immediately if present
+  if (
+    /wax\s*melt|bath\s*bomb|bath\s*soak|soap|slime|candy|chocolate|greeting\s*card/i.test(cat) ||
+    /wax\s*melt|bath\s*bomb|bath\s*soak|soap|slime|candy|chocolate|greeting\s*card/i.test(name)
+  ) {
+    return false;
+  }
+
+  // Exclude distinct specialty candle categories (cereal, coffee mug, beer, wine, military, funny, anime, etc.)
+  if (
+    /cereal|coffee|mug|beer|wine|military|funny|anime/i.test(cat) ||
+    /cereal|coffee|mug|beer|wine|military|funny|anime/i.test(name) ||
+    /cereal|coffee|mug|beer|wine|military|funny|anime/i.test(slug)
+  ) {
+    return false;
+  }
+
+  // 1. Jewellery Candles / Jewelry Candles category
+  const isJewelryCandle =
+    cat === 'jewelry candles' ||
+    cat === 'jewellery candles' ||
+    cat === 'cat-jewelry-candles' ||
+    cat === 'jewelry-candles' ||
+    cat === 'jewellery-candles' ||
+    slug.includes('jewelry-candle') ||
+    slug.includes('jewellery-candle') ||
+    id.includes('jewelry-candle') ||
+    id.includes('jewellery-candle') ||
+    /\bjewel(?:l)?ry\s+candles?\b/i.test(name) ||
+    Boolean(APPROVED_COLLECTIONS_MAP['jewelry-candles']?.productHandles?.includes(slug)) ||
+    Boolean(APPROVED_COLLECTIONS_MAP['jewelry-candles']?.productHandles?.includes(id));
+
+  if (isJewelryCandle) return true;
+
+  // 2. Cash Money Candles category
+  const isCashMoneyCandle =
+    cat === 'cash money candles' ||
+    cat === 'cat-cash-money-candles' ||
+    cat === 'cash-money-candles' ||
+    slug.includes('cash-money-candle') ||
+    slug.includes('cash-money-candles') ||
+    id.includes('cash-money-candle') ||
+    id.includes('cash-money-candles') ||
+    /\bcash\s+money\s+candles?\b/i.test(name) ||
+    Boolean(APPROVED_COLLECTIONS_MAP['cash-money-candles']?.productHandles?.includes(slug)) ||
+    Boolean(APPROVED_COLLECTIONS_MAP['cash-money-candles']?.productHandles?.includes(id)) ||
+    Boolean(APPROVED_COLLECTIONS_MAP['zodiac-cash-money-candles']?.productHandles?.includes(slug)) ||
+    Boolean(APPROVED_COLLECTIONS_MAP['zodiac-cash-money-candles']?.productHandles?.includes(id));
+
+  if (isCashMoneyCandle) return true;
+
   return false;
 }
 
@@ -246,15 +319,20 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
     return combined.includes('halloween');
   }, [product.name, product.slug, product.category]);
 
+  // Detect whether this product belongs to Cash Money Candles or Jewellery Candles (scent selection excluded)
+  const isScentExcluded = useMemo(() => isScentSelectionExcluded(product), [product]);
+
   // Detect whether product is scented (Candles, Wax Melts, Bath Bombs, Soaps, Slimes)
+  // Cash Money Candles and Jewellery Candles are strictly excluded so they focus only on cash or jewellery features
   const isScentedProduct = useMemo(() => {
+    if (isScentExcluded) return false;
     const cat = (product.category || '').toLowerCase();
     const name = (product.name || '').toLowerCase();
     if (product.options?.some((o) => /scent|fragrance/i.test(o.name))) return true;
     if (/candle|wax melt|wax-melt|bath bomb|soap|slime/i.test(cat)) return true;
     if (/candle|wax melt|wax-melt|bath bomb|soap|slime/i.test(name)) return true;
     return false;
-  }, [product]);
+  }, [product, isScentExcluded]);
 
   // Detect whether product is already a dedicated fixed-scent item (e.g. Birthday Cake Cash Candle, Bahama Mama Cash Candle)
   const isFixedScentProduct = useMemo(() => {
@@ -1206,7 +1284,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             </div>
 
             {/* Scent Notes & Aroma Profile */}
-            {product.scentNotes && product.scentNotes.length > 0 && (
+            {!isScentExcluded && product.scentNotes && product.scentNotes.length > 0 && (
               <div className="mb-4">
                 <span className="block text-[11px] font-black uppercase tracking-wider text-[#8a858f] mb-2">
                   Aromatic Scent Notes
