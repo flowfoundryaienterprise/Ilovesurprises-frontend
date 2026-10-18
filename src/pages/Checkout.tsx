@@ -33,7 +33,7 @@ import { calculateEstimatedDelivery } from '../services/orderService';
 import { accountService } from '../services/accountService';
 import { isValidEmail, isValidMobile } from '../services/auth';
 import { MapLocationPickerModal, type MapAddressResult } from '../components/checkout/MapLocationPickerModal';
-import { COUNTRIES_DATA, getStatesByCountryName, getDistrictsByState } from '../data/geoData';
+import { COUNTRIES_DATA, getStatesByCountryName, getDistrictsByState, getDetailedCitiesByCountryAndState } from '../data/geoData';
 import { CustomSearchableSelect, type SelectOption } from '../components/ui/CustomSearchableSelect';
 import { representativeService, type PublicRepresentative } from '../services/representativeService';
 import { paymentService, ApiError } from '../services/paymentService';
@@ -206,6 +206,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
       value: c.name,
       label: c.name,
       badge: c.code,
+      subLabel: c.flag ? `${c.flag}  ${c.code}` : c.code,
     }));
   }, []);
 
@@ -214,7 +215,7 @@ export const Checkout: React.FC<CheckoutProps> = ({
       value: s.code,
       label: s.name,
       badge: s.code,
-      subLabel: `${s.districts.length} districts / regions`,
+      subLabel: s.districts.length > 0 ? `${s.districts.length} districts / counties` : undefined,
     }));
   }, [availableStates]);
 
@@ -222,19 +223,23 @@ export const Checkout: React.FC<CheckoutProps> = ({
     return availableDistricts.map((d) => ({
       value: d.name,
       label: d.name,
-      subLabel: d.majorCities?.slice(0, 2).join(', '),
+      subLabel: d.majorCities?.slice(0, 3).join(', '),
       badge: d.defaultZip ? `ZIP ${d.defaultZip}` : undefined,
     }));
   }, [availableDistricts]);
 
   const cityOptions: SelectOption[] = useMemo(() => {
-    const currentDistrict = availableDistricts.find((d) => d.name === selectedDistrictName) || availableDistricts[0];
-    const cities = currentDistrict?.majorCities || [];
-    return cities.map((city) => ({
-      value: city,
-      label: city,
+    const detailed = getDetailedCitiesByCountryAndState(
+      shippingForm.country || 'United States',
+      shippingForm.state
+    );
+    return detailed.map((city) => ({
+      value: city.name,
+      label: city.name,
+      badge: city.stateCode || undefined,
+      subLabel: !shippingForm.state && city.stateCode ? `State: ${city.stateCode}` : undefined,
     }));
-  }, [availableDistricts, selectedDistrictName]);
+  }, [shippingForm.country, shippingForm.state]);
 
   const [shippingErrors, setShippingErrors] = useState<Record<string, string>>({});
   const [saveAddressToAccount, setSaveAddressToAccount] = useState(true);
@@ -380,11 +385,11 @@ export const Checkout: React.FC<CheckoutProps> = ({
     if (!shippingForm.city.trim()) {
       errors.city = 'City is required';
     }
-    if (!shippingForm.state.trim()) {
+    if (stateOptions.length > 0 && !shippingForm.state.trim()) {
       errors.state = 'State / Province is required';
     }
-    if (!shippingForm.zipCode.trim() || shippingForm.zipCode.trim().length < 4) {
-      errors.zipCode = 'Valid ZIP code is required';
+    if (!shippingForm.zipCode.trim() || shippingForm.zipCode.trim().length < 2) {
+      errors.zipCode = 'Valid ZIP / postal code is required';
     }
 
     setShippingErrors(errors);
@@ -437,11 +442,12 @@ export const Checkout: React.FC<CheckoutProps> = ({
       phone: user?.mobile || user?.phone || '',
       addressLine1: '',
       addressLine2: '',
-      city: availableDistricts[0]?.majorCities?.[0] || '',
+      city: '',
       state: availableStates[0]?.code || '',
-      zipCode: availableDistricts[0]?.defaultZip || '',
+      zipCode: '',
       country: 'United States',
     });
+    setSelectedDistrictName('');
     setShippingErrors({});
   };
 
@@ -477,15 +483,23 @@ export const Checkout: React.FC<CheckoutProps> = ({
   const handleCountryChange = (newCountry: string) => {
     const states = getStatesByCountryName(newCountry);
     const firstState = states[0];
-    const firstDistrict = firstState?.districts[0];
     setShippingForm((prev) => ({
       ...prev,
       country: newCountry,
       state: firstState?.code || firstState?.name || '',
-      city: firstDistrict?.majorCities?.[0] || prev.city || '',
-      zipCode: firstDistrict?.defaultZip || prev.zipCode || '',
+      city: '',
+      zipCode: '',
     }));
-    setSelectedDistrictName(firstDistrict?.name || '');
+    setSelectedDistrictName('');
+    if (shippingErrors.country || shippingErrors.state || shippingErrors.city) {
+      setShippingErrors((prev) => {
+        const next = { ...prev };
+        delete next.country;
+        delete next.state;
+        delete next.city;
+        return next;
+      });
+    }
   };
 
   const handleStateChange = (newState: string) => {
@@ -494,14 +508,15 @@ export const Checkout: React.FC<CheckoutProps> = ({
     setShippingForm((prev) => ({
       ...prev,
       state: newState,
-      city: firstDistrict?.majorCities?.[0] || prev.city,
+      city: '',
       zipCode: firstDistrict?.defaultZip || prev.zipCode,
     }));
     setSelectedDistrictName(firstDistrict?.name || '');
-    if (shippingErrors.state) {
+    if (shippingErrors.state || shippingErrors.city) {
       setShippingErrors((prev) => {
         const next = { ...prev };
         delete next.state;
+        delete next.city;
         return next;
       });
     }
@@ -524,6 +539,31 @@ export const Checkout: React.FC<CheckoutProps> = ({
           return next;
         });
       }
+    }
+  };
+
+  const handleCityChange = (cityName: string) => {
+    let deducedState = shippingForm.state;
+    if (!deducedState) {
+      const detailed = getDetailedCitiesByCountryAndState(shippingForm.country);
+      const match = detailed.find((c) => c.name.toLowerCase() === cityName.toLowerCase());
+      if (match?.stateCode) {
+        deducedState = match.stateCode;
+      }
+    }
+
+    setShippingForm((prev) => ({
+      ...prev,
+      city: cityName,
+      state: deducedState || prev.state,
+    }));
+
+    if (shippingErrors.city) {
+      setShippingErrors((prev) => {
+        const next = { ...prev };
+        delete next.city;
+        return next;
+      });
     }
   };
 
@@ -1559,103 +1599,87 @@ export const Checkout: React.FC<CheckoutProps> = ({
                           value={shippingForm.country}
                           onChange={handleCountryChange}
                           placeholder="Select Country..."
-                          searchPlaceholder="Search country..."
+                          searchPlaceholder="Search all 250 countries..."
                         />
 
-                        <CustomSearchableSelect
-                          label="State / Province"
-                          required
-                          icon={<MapPin className="w-4 h-4" />}
-                          options={stateOptions}
-                          value={shippingForm.state}
-                          onChange={handleStateChange}
-                          placeholder="Select State..."
-                          searchPlaceholder="Search state / province..."
-                          error={shippingErrors.state}
-                        />
-                      </div>
-
-                      {/* District / County & City / Town Dropdowns */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        <CustomSearchableSelect
-                          label="District / County"
-                          required
-                          icon={<Compass className="w-4 h-4" />}
-                          options={districtOptions}
-                          value={selectedDistrictName}
-                          onChange={handleDistrictChange}
-                          placeholder="Select District..."
-                          searchPlaceholder="Search district..."
-                        />
-
-                        {cityOptions.length > 0 ? (
+                        {stateOptions.length > 0 ? (
                           <CustomSearchableSelect
-                            label="City / Town"
+                            label="State / Province"
                             required
-                            icon={<Building2 className="w-4 h-4" />}
-                            options={cityOptions}
-                            value={shippingForm.city}
-                            onChange={(c) => {
-                              setShippingForm({ ...shippingForm, city: c });
-                              if (shippingErrors.city) {
-                                setShippingErrors((prev) => {
-                                  const next = { ...prev };
-                                  delete next.city;
-                                  return next;
-                                });
-                              }
-                            }}
-                            placeholder="Select City..."
-                            searchPlaceholder="Search city..."
-                            error={shippingErrors.city}
+                            icon={<MapPin className="w-4 h-4" />}
+                            options={stateOptions}
+                            value={shippingForm.state}
+                            onChange={handleStateChange}
+                            placeholder="Select State / Province..."
+                            searchPlaceholder="Search state / province..."
+                            error={shippingErrors.state}
                           />
                         ) : (
                           <div>
-                            <label className="block text-xs font-bold text-[#141219] mb-1">
-                              City / Town <span className="text-[#D30915]">*</span>
+                            <label className="block text-xs font-bold text-[#141219] mb-1.5">
+                              State / Province <span className="text-[#8a858f] font-normal">(Optional for {shippingForm.country})</span>
                             </label>
                             <input
                               type="text"
-                              required
-                              autoComplete="address-level2"
-                              value={shippingForm.city}
-                              onChange={(e) => setShippingForm({ ...shippingForm, city: e.target.value })}
-                              placeholder="City name"
-                              className={`w-full min-h-[46px] px-3.5 rounded-[14px] bg-[#fffafb] border text-base sm:text-sm text-[#141219] outline-none transition-all ${shippingErrors.city ? 'border-red-500 bg-red-50/20' : 'border-[#e8dfe5] focus:border-[#D30915]'
-                                }`}
+                              value={shippingForm.state}
+                              onChange={(e) => setShippingForm({ ...shippingForm, state: e.target.value })}
+                              placeholder="State / Region (optional)"
+                              className="w-full min-h-[46px] px-3.5 rounded-[14px] bg-[#fffafb] border border-[#e8dfe5] focus:border-[#D30915] text-base sm:text-sm text-[#141219] outline-none"
                             />
-                            {shippingErrors.city && (
-                              <p className="text-[11px] text-red-600 mt-1 font-semibold">{shippingErrors.city}</p>
-                            )}
                           </div>
                         )}
                       </div>
 
-                      {/* ZIP Code & Apt / Suite */}
+                      {/* City / Town & ZIP / Postal Code */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <CustomSearchableSelect
+                          label="City / Town"
+                          required
+                          icon={<Building2 className="w-4 h-4" />}
+                          options={cityOptions}
+                          value={shippingForm.city}
+                          onChange={handleCityChange}
+                          placeholder={cityOptions.length > 0 ? "Select or search City..." : "Type city name..."}
+                          searchPlaceholder="Search all cities..."
+                          error={shippingErrors.city}
+                          allowCustom
+                        />
+
                         <div>
-                          <label className="block text-xs font-bold text-[#141219] mb-1">
+                          <label className="block text-xs font-bold text-[#141219] mb-1.5">
                             ZIP / Postal Code <span className="text-[#D30915]">*</span>
                           </label>
                           <input
                             type="text"
                             required
-                            inputMode="numeric"
                             autoComplete="postal-code"
-                            maxLength={10}
+                            maxLength={12}
                             value={shippingForm.zipCode}
-                            onChange={(e) => setShippingForm({ ...shippingForm, zipCode: e.target.value })}
+                            onChange={(e) => {
+                              setShippingForm({ ...shippingForm, zipCode: e.target.value });
+                              if (shippingErrors.zipCode) {
+                                setShippingErrors((prev) => {
+                                  const next = { ...prev };
+                                  delete next.zipCode;
+                                  return next;
+                                });
+                              }
+                            }}
                             placeholder="ZIP / Postal Code"
-                            className={`w-full min-h-[46px] px-3.5 rounded-[14px] bg-[#fffafb] border text-base sm:text-sm text-[#141219] outline-none transition-all ${shippingErrors.zipCode ? 'border-red-500 bg-red-50/20' : 'border-[#e8dfe5] focus:border-[#D30915]'
-                              }`}
+                            className={`w-full min-h-[46px] px-3.5 rounded-[14px] bg-[#fffafb] border text-base sm:text-sm text-[#141219] outline-none transition-all ${
+                              shippingErrors.zipCode ? 'border-red-500 bg-red-50/20' : 'border-[#e8dfe5] focus:border-[#D30915]'
+                            }`}
                           />
                           {shippingErrors.zipCode && (
                             <p className="text-[11px] text-red-600 mt-1 font-semibold">{shippingErrors.zipCode}</p>
                           )}
                         </div>
+                      </div>
 
+                      {/* Apt / Suite / Floor & (District / County if available) */}
+                      <div className={`grid ${districtOptions.length > 0 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'} gap-3 sm:gap-4`}>
                         <div>
-                          <label className="block text-xs font-bold text-[#141219] mb-1">
+                          <label className="block text-xs font-bold text-[#141219] mb-1.5">
                             Apt / Suite / Floor <span className="text-[#8a858f] font-normal">(Optional)</span>
                           </label>
                           <input
@@ -1663,10 +1687,23 @@ export const Checkout: React.FC<CheckoutProps> = ({
                             autoComplete="address-line2"
                             value={shippingForm.addressLine2 || ''}
                             onChange={(e) => setShippingForm({ ...shippingForm, addressLine2: e.target.value })}
-                            placeholder="Apt 4B, Suite 100"
+                            placeholder="Apt 4B, Suite 100, Building 2"
                             className="w-full min-h-[46px] px-3.5 rounded-[14px] bg-[#fffafb] border border-[#e8dfe5] focus:border-[#D30915] text-base sm:text-sm text-[#141219] outline-none"
                           />
                         </div>
+
+                        {districtOptions.length > 0 && (
+                          <CustomSearchableSelect
+                            label="District / County"
+                            icon={<Compass className="w-4 h-4" />}
+                            options={districtOptions}
+                            value={selectedDistrictName}
+                            onChange={handleDistrictChange}
+                            placeholder="Select District (Optional)..."
+                            searchPlaceholder="Search district..."
+                            allowCustom
+                          />
+                        )}
                       </div>
 
                       {/* Save address checkbox */}

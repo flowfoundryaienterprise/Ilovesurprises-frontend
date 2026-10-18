@@ -18,6 +18,7 @@ export default defineConfig({
             { name: 'vendor-motion', test: /node_modules[\\/](framer-motion|motion-dom|motion-utils)[\\/]/ },
             { name: 'vendor-query', test: /node_modules[\\/]@tanstack[\\/]/ },
             { name: 'vendor-icons', test: /node_modules[\\/]lucide-react[\\/]/ },
+            { name: 'geo-data-pkg', test: /node_modules[\\/]country-state-city[\\/]/ },
             { name: 'vendor', test: /node_modules[\\/]/ },
             // Large static catalog data changes independently of app code.
             { name: 'catalog-data', test: /src[\\/]data[\\/]/ },

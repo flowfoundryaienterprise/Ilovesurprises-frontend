@@ -22,6 +22,7 @@ interface CustomSearchableSelectProps {
   error?: string;
   disabled?: boolean;
   className?: string;
+  allowCustom?: boolean;
 }
 
 export const CustomSearchableSelect: React.FC<CustomSearchableSelectProps> = ({
@@ -36,6 +37,7 @@ export const CustomSearchableSelect: React.FC<CustomSearchableSelectProps> = ({
   error,
   disabled = false,
   className = '',
+  allowCustom = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,17 +106,42 @@ export const CustomSearchableSelect: React.FC<CustomSearchableSelectProps> = ({
 
   // Filtered options based on search query
   const filteredOptions = React.useMemo(() => {
+    if (!searchQuery.trim()) return options;
+    const q = searchQuery.toLowerCase().trim();
     return options.filter(
       (opt) =>
-        opt.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (opt.subLabel && opt.subLabel.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (opt.badge && opt.badge.toLowerCase().includes(searchQuery.toLowerCase()))
+        opt.label.toLowerCase().includes(q) ||
+        (opt.value && opt.value.toLowerCase().includes(q)) ||
+        (opt.subLabel && opt.subLabel.toLowerCase().includes(q)) ||
+        (opt.badge && opt.badge.toLowerCase().includes(q))
     );
+  }, [options, searchQuery]);
+
+  // Cap DOM rendering to top 100 items for fluid 60fps performance even with 20k+ entries
+  const displayedOptions = React.useMemo(() => {
+    return filteredOptions.slice(0, 100);
+  }, [filteredOptions]);
+
+  const hasExactMatch = React.useMemo(() => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return options.some((opt) => opt.label.toLowerCase() === q || opt.value.toLowerCase() === q);
   }, [options, searchQuery]);
 
   const handleSelect = (optionValue: string) => {
     onChange(optionValue);
     setIsOpen(false);
+  };
+
+  const handleKeyDownSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (displayedOptions.length > 0) {
+        handleSelect(displayedOptions[0].value);
+      } else if (allowCustom && searchQuery.trim()) {
+        handleSelect(searchQuery.trim());
+      }
+    }
   };
 
   return (
@@ -150,6 +177,10 @@ export const CustomSearchableSelect: React.FC<CustomSearchableSelectProps> = ({
               <span className="text-sm sm:text-xs md:text-sm font-bold text-[#141219] truncate block">
                 {selectedOption.label}
               </span>
+            ) : value ? (
+              <span className="text-sm sm:text-xs md:text-sm font-bold text-[#141219] truncate block">
+                {value}
+              </span>
             ) : (
               <span className="text-sm sm:text-xs md:text-sm text-[#9c95a0] font-medium truncate block">
                 {placeholder}
@@ -181,8 +212,8 @@ export const CustomSearchableSelect: React.FC<CustomSearchableSelectProps> = ({
           role="listbox"
           className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white rounded-[18px] border border-[#f3dbe8] shadow-[0_18px_45px_rgba(20,18,25,0.18)] p-2 backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 min-w-full"
         >
-          {/* Search bar if options count is large */}
-          {options.length > 5 && (
+          {/* Search bar */}
+          {(options.length > 5 || allowCustom) && (
             <div className="relative mb-2 px-1 pt-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8a858f] pointer-events-none" />
               <input
@@ -190,6 +221,7 @@ export const CustomSearchableSelect: React.FC<CustomSearchableSelectProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDownSearch}
                 placeholder={searchPlaceholder}
                 className="w-full h-[36px] pl-8 pr-7 rounded-[10px] bg-[#fffafc] border border-[#ecdbe6] focus:border-[#D30915] text-xs text-[#141219] placeholder:text-[#9c95a0] outline-none font-medium"
               />
@@ -206,13 +238,29 @@ export const CustomSearchableSelect: React.FC<CustomSearchableSelectProps> = ({
           )}
 
           {/* Options List */}
-          <div className="max-h-[220px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((option) => {
+          <div className="max-h-[240px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+            {allowCustom && searchQuery.trim() && !hasExactMatch && (
+              <button
+                type="button"
+                onClick={() => handleSelect(searchQuery.trim())}
+                className="w-full p-2.5 rounded-[12px] text-left transition-all flex items-center justify-between gap-2 cursor-pointer bg-[#fff1f2] hover:bg-[#ffe4e6] text-[#D30915] border border-dashed border-[#fecdd3]"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Check className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-xs font-bold truncate">Use "{searchQuery.trim()}"</span>
+                </div>
+                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#D30915] text-white shrink-0">
+                  Custom
+                </span>
+              </button>
+            )}
+
+            {displayedOptions.length > 0 ? (
+              displayedOptions.map((option, index) => {
                 const isSelected = option.value === value || option.label === value;
                 return (
                   <button
-                    key={option.value}
+                    key={`${option.value}-${option.badge || ''}-${index}`}
                     type="button"
                     role="option"
                     aria-selected={isSelected}
@@ -258,9 +306,15 @@ export const CustomSearchableSelect: React.FC<CustomSearchableSelectProps> = ({
                   </button>
                 );
               })
-            ) : (
+            ) : !allowCustom || !searchQuery.trim() ? (
               <div className="p-4 text-center text-xs text-[#8a858f]">
                 No matching results found
+              </div>
+            ) : null}
+
+            {filteredOptions.length > 100 && (
+              <div className="p-1.5 text-center text-[10px] text-[#8a858f] font-semibold bg-[#faf8fa] rounded-lg mt-1">
+                Showing top 100 of {filteredOptions.length.toLocaleString()} results. Type to narrow search.
               </div>
             )}
           </div>
@@ -311,6 +365,7 @@ export const CustomSearchableSelect: React.FC<CustomSearchableSelectProps> = ({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleKeyDownSearch}
                   placeholder={searchPlaceholder}
                   className="w-full h-[44px] pl-10 pr-9 rounded-[14px] bg-white border border-[#e8dfe5] focus:border-[#D30915] text-sm text-[#141219] placeholder:text-[#9c95a0] outline-none font-medium shadow-2xs"
                 />
@@ -328,12 +383,28 @@ export const CustomSearchableSelect: React.FC<CustomSearchableSelectProps> = ({
 
             {/* Options List with Touch-Friendly Hit Targets */}
             <div className="flex-1 overflow-y-auto p-3 space-y-1.5 max-h-[50vh]">
-              {filteredOptions.length > 0 ? (
-                filteredOptions.map((option) => {
+              {allowCustom && searchQuery.trim() && !hasExactMatch && (
+                <button
+                  type="button"
+                  onClick={() => handleSelect(searchQuery.trim())}
+                  className="w-full min-h-[50px] px-4 py-3 rounded-[16px] text-left transition-all flex items-center justify-between gap-3 active:scale-[0.98] cursor-pointer bg-[#fff1f2] border-2 border-dashed border-[#fecdd3] text-[#D30915]"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <Check className="w-4 h-4 shrink-0" />
+                    <span className="text-sm font-bold truncate">Use "{searchQuery.trim()}"</span>
+                  </div>
+                  <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-[#D30915] text-white">
+                    Custom
+                  </span>
+                </button>
+              )}
+
+              {displayedOptions.length > 0 ? (
+                displayedOptions.map((option, index) => {
                   const isSelected = option.value === value || option.label === value;
                   return (
                     <button
-                      key={option.value}
+                      key={`${option.value}-${option.badge || ''}-${index}`}
                       type="button"
                       onClick={() => handleSelect(option.value)}
                       className={`w-full min-h-[50px] px-4 py-3 rounded-[16px] text-left transition-all flex items-center justify-between gap-3 active:scale-[0.98] cursor-pointer ${
@@ -381,9 +452,15 @@ export const CustomSearchableSelect: React.FC<CustomSearchableSelectProps> = ({
                     </button>
                   );
                 })
-              ) : (
+              ) : !allowCustom || !searchQuery.trim() ? (
                 <div className="py-8 text-center text-sm text-[#8a858f]">
                   No matching options found
+                </div>
+              ) : null}
+
+              {filteredOptions.length > 100 && (
+                <div className="p-2 text-center text-[11px] text-[#8a858f] font-semibold bg-[#faf8fa] rounded-xl mt-1">
+                  Showing top 100 of {filteredOptions.length.toLocaleString()} results. Type to narrow search.
                 </div>
               )}
             </div>

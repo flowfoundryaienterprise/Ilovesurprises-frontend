@@ -11,7 +11,7 @@ import type { SavedAddress } from '../../types';
 import { isValidMobile } from '../../services/auth';
 import { CustomSearchableSelect, type SelectOption } from '../ui/CustomSearchableSelect';
 import { MapLocationPickerModal, type MapAddressResult } from '../checkout/MapLocationPickerModal';
-import { COUNTRIES_DATA, getStatesByCountryName, getDistrictsByState } from '../../data/geoData';
+import { COUNTRIES_DATA, getStatesByCountryName, getDistrictsByState, getDetailedCitiesByCountryAndState } from '../../data/geoData';
 
 interface AddressModalProps {
   isOpen: boolean;
@@ -94,6 +94,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
       value: c.name,
       label: c.name,
       badge: c.code,
+      subLabel: c.flag ? `${c.flag}  ${c.code}` : c.code,
     }));
   }, []);
 
@@ -102,7 +103,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
       value: s.code,
       label: s.name,
       badge: s.code,
-      subLabel: `${s.districts.length} districts`,
+      subLabel: s.districts.length > 0 ? `${s.districts.length} districts / counties` : undefined,
     }));
   }, [availableStates]);
 
@@ -110,32 +111,35 @@ export const AddressModal: React.FC<AddressModalProps> = ({
     return availableDistricts.map((d) => ({
       value: d.name,
       label: d.name,
-      subLabel: d.majorCities?.slice(0, 2).join(', '),
+      subLabel: d.majorCities?.slice(0, 3).join(', '),
       badge: d.defaultZip ? `ZIP ${d.defaultZip}` : undefined,
     }));
   }, [availableDistricts]);
 
   const cityOptions: SelectOption[] = useMemo(() => {
-    const currentDist = availableDistricts.find((d) => d.name === selectedDistrict) || availableDistricts[0];
-    const cities = currentDist?.majorCities || [];
-    return cities.map((c) => ({
-      value: c,
-      label: c,
+    const detailed = getDetailedCitiesByCountryAndState(
+      form.country || 'United States',
+      form.state
+    );
+    return detailed.map((c) => ({
+      value: c.name,
+      label: c.name,
+      badge: c.stateCode || undefined,
+      subLabel: !form.state && c.stateCode ? `State: ${c.stateCode}` : undefined,
     }));
-  }, [availableDistricts, selectedDistrict]);
+  }, [form.country, form.state]);
 
   const handleCountryChange = (newCountry: string) => {
     const states = getStatesByCountryName(newCountry);
     const firstState = states[0];
-    const firstDistrict = firstState?.districts[0];
     setForm((prev) => ({
       ...prev,
       country: newCountry,
       state: firstState?.code || firstState?.name || '',
-      city: firstDistrict?.majorCities?.[0] || prev.city,
-      zipCode: firstDistrict?.defaultZip || prev.zipCode,
+      city: '',
+      zipCode: '',
     }));
-    setSelectedDistrict(firstDistrict?.name || '');
+    setSelectedDistrict('');
   };
 
   const handleStateChange = (newState: string) => {
@@ -144,7 +148,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
     setForm((prev) => ({
       ...prev,
       state: newState,
-      city: firstDistrict?.majorCities?.[0] || prev.city,
+      city: '',
       zipCode: firstDistrict?.defaultZip || prev.zipCode,
     }));
     setSelectedDistrict(firstDistrict?.name || '');
@@ -160,6 +164,24 @@ export const AddressModal: React.FC<AddressModalProps> = ({
         zipCode: district.defaultZip || prev.zipCode,
       }));
     }
+  };
+
+  const handleCityChange = (cityName: string) => {
+    let deducedState = form.state;
+    if (!deducedState) {
+      const detailed = getDetailedCitiesByCountryAndState(form.country);
+      const match = detailed.find((c) => c.name.toLowerCase() === cityName.toLowerCase());
+      if (match?.stateCode) {
+        deducedState = match.stateCode;
+      }
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      city: cityName,
+      state: deducedState || prev.state,
+    }));
+    if (errors.city) setErrors((prev) => ({ ...prev, city: '' }));
   };
 
   const handleMapSelect = (result: MapAddressResult) => {
@@ -343,35 +365,18 @@ export const AddressModal: React.FC<AddressModalProps> = ({
               searchPlaceholder="Search district..."
             />
 
-            {cityOptions.length > 0 ? (
-              <CustomSearchableSelect
-                label="City / Town"
-                required
-                icon={<Building2 className="w-3.5 h-3.5" />}
-                options={cityOptions}
-                value={form.city}
-                onChange={(c) => {
-                  setForm({ ...form, city: c });
-                  if (errors.city) setErrors((prev) => ({ ...prev, city: '' }));
-                }}
-                placeholder="City..."
-                searchPlaceholder="Search city..."
-                error={errors.city}
-              />
-            ) : (
-              <div>
-                <label className="block text-xs font-bold text-[#141219] mb-1">
-                  City / Town <span className="text-[#D30915]">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  className="w-full h-[40px] px-3 rounded-[11px] bg-[#fffafb] border border-[#e8dfe5] text-xs text-[#141219] outline-none"
-                />
-              </div>
-            )}
+            <CustomSearchableSelect
+              label="City / Town"
+              required
+              icon={<Building2 className="w-3.5 h-3.5" />}
+              options={cityOptions}
+              value={form.city}
+              onChange={handleCityChange}
+              placeholder={cityOptions.length > 0 ? "Select or search City..." : "Type city..."}
+              searchPlaceholder="Search all cities..."
+              error={errors.city}
+              allowCustom
+            />
           </div>
 
           {/* ZIP & Apt */}
