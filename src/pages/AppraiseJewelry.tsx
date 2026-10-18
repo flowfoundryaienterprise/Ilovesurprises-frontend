@@ -141,7 +141,7 @@ export const AppraiseJewelry: React.FC<AppraiseJewelryProps> = ({
 
     try {
       // 1. Save to authoritative customer appraisal submissions registry
-      const savedSubmission = appraisalService.submitAppraisal({
+      const savedSubmission = await appraisalService.submitAppraisal({
         customerName: customerName.trim(),
         customerEmail: email.trim(),
         orderNumber: orderNumber.trim() || undefined,

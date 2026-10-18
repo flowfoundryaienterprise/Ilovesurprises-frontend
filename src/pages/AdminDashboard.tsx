@@ -72,7 +72,8 @@ type AdminSectionKey =
   | 'representatives'
   | 'commissions'
   | 'reports'
-  | 'orders';
+  | 'orders'
+  | 'memberships';
 
 type AdminSectionStatus = Record<AdminSectionKey, 'loading' | 'ready' | 'error'>;
 type AdminSectionError = Partial<Record<AdminSectionKey, string | undefined>>;
@@ -155,6 +156,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     commissions: 'loading',
     reports: 'loading',
     orders: 'loading',
+    memberships: 'loading',
   });
   const [sectionError, setSectionError] = useState<AdminSectionError>({});
 
@@ -216,6 +218,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         run('orders', async () => {
           const live = await adminService.fetchCommerceOrders({ signal });
           if (!signal?.aborted) setOrders(live);
+        }),
+        run('memberships', async () => {
+          const live = await adminService.fetchMemberships(undefined, { signal });
+          if (!signal?.aborted && live?.memberships) setMemberships(live.memberships);
         }),
       ]);
     },
@@ -333,8 +339,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     );
   };
 
-  const handleUpdateMembershipStatus = (id: string, status: any) => {
-    adminService.updateMembershipStatus(id, status);
+  const handleUpdateMembershipStatus = async (id: string, status: any) => {
+    await runMutation(
+      () => adminService.updateMembershipStatus(id, status),
+      'Membership status updated',
+      { type: 'info' }
+    );
+    try {
+      const res = await adminService.fetchMemberships();
+      if (res?.memberships) setMemberships(res.memberships);
+    } catch {
+      setMemberships(adminService.getMemberships());
+    }
   };
 
   const handleProcessRefund = (refund: Omit<AdminRefundRecord, 'id' | 'requestedAt' | 'status'>) => {
@@ -721,20 +737,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   />
                 )}
 
-              {activeTab === 'memberships' && (
-                <div className="space-y-4">
-                  <AdminFeatureUnavailable
-                    feature="Memberships"
-                    requirement="The backend has no membership endpoint yet (the membership_plans and user_memberships tables exist, but no API route reads or writes them)."
-                    localOnly
-                  />
+              {activeTab === 'memberships' &&
+                withSectionState(
+                  'memberships',
                   <AdminMemberships
                     memberships={memberships}
                     onUpdateStatus={handleUpdateMembershipStatus}
                     onShowToast={onShowToast}
                   />
-                </div>
-              )}
+                )}
 
               {activeTab === 'commerce' &&
                 withSectionState(
@@ -765,14 +776,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
 
               {activeTab === 'appraisals' && (
-                <div className="space-y-4">
-                  <AdminFeatureUnavailable
-                    feature="Jewelry appraisals"
-                    requirement="The backend has no appraisal endpoint yet (the appraisal_records table exists, but no API route reads or writes it)."
-                    localOnly
-                  />
-                  <AdminAppraisals onShowToast={onShowToast} />
-                </div>
+                <AdminAppraisals onShowToast={onShowToast} />
               )}
 
               {activeTab === 'commissions' &&

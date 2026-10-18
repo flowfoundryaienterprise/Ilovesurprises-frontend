@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   CreditCard,
   Search,
@@ -10,6 +10,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import type { MembershipAdminRecord, MembershipPlanType } from '../../types/admin';
+import { adminService } from '../../services/adminService';
 
 interface AdminMembershipsProps {
   memberships: MembershipAdminRecord[];
@@ -51,6 +52,21 @@ export const AdminMemberships: React.FC<AdminMembershipsProps> = ({
     }
     return DEFAULT_MEMBERSHIP_PRICING;
   });
+
+  useEffect(() => {
+    let active = true;
+    adminService
+      .fetchMembershipPricing()
+      .then((p) => {
+        if (active && p) {
+          setPricing(p);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [isEditingPricing, setIsEditingPricing] = useState(false);
   const [tempPricing, setTempPricing] = useState<MembershipPricingConfig>(pricing);
@@ -95,6 +111,9 @@ export const AdminMemberships: React.FC<AdminMembershipsProps> = ({
 
     setPricing(updated);
     localStorage.setItem(MEMBERSHIP_PRICING_KEY, JSON.stringify(updated));
+    adminService.updateMembershipPricing(updated).catch((err) => {
+      console.warn('Failed to update membership pricing on server:', err);
+    });
     setIsEditingPricing(false);
     onShowToast(`Membership pricing updated: $${updated.monthlyPrice.toFixed(2)}/mo (${updated.sixMonthDiscount}% & ${updated.twelveMonthDiscount}% prepaid discounts).`, {
       title: 'Pricing Updated',

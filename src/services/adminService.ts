@@ -7,6 +7,10 @@
   RepresentativeAdminRecord,
   RepStatus,
   MembershipAdminRecord,
+  MembershipPricingConfig,
+  MembershipPlanDTO,
+  MembershipListResponse,
+  CreateMembershipPlanDTO,
   AdminProductItem,
   AdminCollectionItem,
   AdminCustomerItem,
@@ -21,6 +25,11 @@
   HomepageContentConfig,
   AdminStaffUser,
 } from '../types/admin';
+import type {
+  JewelryAppraisal,
+  CustomerAppraisalSubmission,
+  AppraisalStatsResponse,
+} from '../types/appraisal';
 import { categoriesData } from '../data/categories';
 import { apiClient, ApiError, unwrap, type ApiResponse } from './apiClient';
 import { analyticsService } from './analyticsService';
@@ -64,8 +73,8 @@ export const ADMIN_FEATURE_AVAILABILITY = {
   storeSettings: false,
   refunds: true,
   discounts: false,
-  memberships: false,
-  appraisals: false,
+  memberships: true,
+  appraisals: true,
 } as const;
 
 export type AdminFeature = keyof typeof ADMIN_FEATURE_AVAILABILITY;
@@ -1217,6 +1226,156 @@ export const adminService = {
     return payload.user;
   },
 
+  /**
+   * Fetches representative memberships, tier plans, pricing, and stats
+   * from the authoritative endpoint `GET /api/admin/memberships`.
+   */
+  async fetchMemberships(
+    query?: {
+      search?: string;
+      plan?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+    },
+    options?: { signal?: AbortSignal }
+  ): Promise<MembershipListResponse> {
+    const response = await apiClient.get<ApiResponse<MembershipListResponse>>(
+      '/api/admin/memberships',
+      query,
+      { signal: options?.signal }
+    );
+    const payload = unwrap<MembershipListResponse>(response, '/api/admin/memberships');
+
+    if (payload?.memberships) {
+      this.saveMemberships(payload.memberships);
+    }
+    if (payload?.pricing && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(
+          'ils_admin_membership_pricing_v1',
+          JSON.stringify(payload.pricing)
+        );
+      } catch {
+        // ignore
+      }
+    }
+
+    return payload;
+  },
+
+  /**
+   * Fetches current VIP membership pricing tier configuration
+   * from `GET /api/admin/memberships/pricing`.
+   */
+  async fetchMembershipPricing(options?: {
+    signal?: AbortSignal;
+  }): Promise<MembershipPricingConfig> {
+    const response = await apiClient.get<ApiResponse<MembershipPricingConfig>>(
+      '/api/admin/memberships/pricing',
+      undefined,
+      { signal: options?.signal }
+    );
+    const pricing = unwrap<MembershipPricingConfig>(
+      response,
+      '/api/admin/memberships/pricing'
+    );
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(
+          'ils_admin_membership_pricing_v1',
+          JSON.stringify(pricing)
+        );
+      } catch {
+        // ignore
+      }
+    }
+    return pricing;
+  },
+
+  /**
+   * Updates VIP membership pricing tier configuration
+   * via `PUT /api/admin/memberships/pricing`.
+   */
+  async updateMembershipPricing(
+    pricing: MembershipPricingConfig
+  ): Promise<MembershipPricingConfig> {
+    const response = await apiClient.put<ApiResponse<MembershipPricingConfig>>(
+      '/api/admin/memberships/pricing',
+      pricing
+    );
+    const updated = unwrap<MembershipPricingConfig>(
+      response,
+      '/api/admin/memberships/pricing'
+    );
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(
+          'ils_admin_membership_pricing_v1',
+          JSON.stringify(updated)
+        );
+      } catch {
+        // ignore
+      }
+    }
+    notifyAdminDataChanged();
+    return updated;
+  },
+
+  /**
+   * Lists all configured membership plans via `GET /api/admin/memberships/plans`.
+   */
+  async fetchMembershipPlans(options?: {
+    signal?: AbortSignal;
+  }): Promise<MembershipPlanDTO[]> {
+    const response = await apiClient.get<ApiResponse<MembershipPlanDTO[]>>(
+      '/api/admin/memberships/plans',
+      undefined,
+      { signal: options?.signal }
+    );
+    return unwrap<MembershipPlanDTO[]>(response, '/api/admin/memberships/plans');
+  },
+
+  /**
+   * Creates a new membership plan via `POST /api/admin/memberships/plans`.
+   */
+  async createMembershipPlan(plan: CreateMembershipPlanDTO): Promise<MembershipPlanDTO> {
+    const response = await apiClient.post<ApiResponse<MembershipPlanDTO>>(
+      '/api/admin/memberships/plans',
+      plan
+    );
+    const created = unwrap<MembershipPlanDTO>(response, '/api/admin/memberships/plans');
+    notifyAdminDataChanged();
+    return created;
+  },
+
+  /**
+   * Updates an existing membership plan via `PATCH /api/admin/memberships/plans/:id`.
+   */
+  async updateMembershipPlan(id: string, updates: Partial<CreateMembershipPlanDTO>): Promise<MembershipPlanDTO> {
+    const response = await apiClient.patch<ApiResponse<MembershipPlanDTO>>(
+      `/api/admin/memberships/plans/${encodeURIComponent(id)}`,
+      updates
+    );
+    const updated = unwrap<MembershipPlanDTO>(response, `/api/admin/memberships/plans/${id}`);
+    notifyAdminDataChanged();
+    return updated;
+  },
+
+  /**
+   * Assigns a membership plan to a representative/user via `POST /api/admin/memberships`.
+   */
+  async assignMembership(userId: string, planId: string, status = 'ACTIVE'): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>('/api/admin/memberships', {
+      userId,
+      planId,
+      status,
+    });
+    const result = unwrap<any>(response, '/api/admin/memberships');
+    notifyAdminDataChanged();
+    return result;
+  },
+
   getMemberships(): MembershipAdminRecord[] {
     if (typeof window === 'undefined') return INITIAL_MEMBERSHIPS;
     try {
@@ -1229,14 +1388,49 @@ export const adminService = {
     }
   },
 
-  updateMembershipStatus(id: string, status: 'active' | 'past_due' | 'suspended' | 'cancelled'): boolean {
+  /**
+   * Updates membership status via `PATCH /api/admin/memberships/:id/status`.
+   */
+  async updateMembershipStatus(
+    id: string,
+    status: 'active' | 'past_due' | 'suspended' | 'cancelled'
+  ): Promise<boolean> {
+    // Optimistic local update
     const list = this.getMemberships();
     const target = list.find((m) => m.id === id);
-    if (!target) return false;
-    target.status = status;
-    if (status === 'active') target.paymentStatus = 'paid';
-    if (status === 'past_due') target.paymentStatus = 'failed';
+    if (target) {
+      target.status = status;
+      if (status === 'active') target.paymentStatus = 'paid';
+      if (status === 'past_due') target.paymentStatus = 'failed';
+      this.saveMemberships(list);
+    }
+
+    try {
+      await apiClient.patch(`/api/admin/memberships/${encodeURIComponent(id)}/status`, {
+        status,
+      });
+    } catch (err) {
+      console.warn('Backend membership status update failed, kept optimistic status:', err);
+    }
+
+    notifyAdminDataChanged();
+    return true;
+  },
+
+  /**
+   * Cancels/deletes a membership record via `DELETE /api/admin/memberships/:id`.
+   */
+  async deleteMembership(id: string): Promise<boolean> {
+    const list = this.getMemberships().filter((m) => m.id !== id);
     this.saveMemberships(list);
+
+    try {
+      await apiClient.delete(`/api/admin/memberships/${encodeURIComponent(id)}`);
+    } catch (err) {
+      console.warn('Backend delete failed, kept optimistic deletion:', err);
+    }
+
+    notifyAdminDataChanged();
     return true;
   },
 
@@ -1249,6 +1443,48 @@ export const adminService = {
         console.error('Failed to save memberships', err);
       }
     }
+  },
+
+  /**
+   * Fetches jewelry appraisals and customer submissions from `GET /api/admin/appraisals`.
+   */
+  async fetchAppraisals(
+    query?: {
+      search?: string;
+      type?: string;
+      status?: string;
+      tab?: string;
+      section?: string;
+      page?: number;
+      limit?: number;
+    },
+    options?: { signal?: AbortSignal }
+  ): Promise<{
+    appraisals: JewelryAppraisal[];
+    submissions: CustomerAppraisalSubmission[];
+    stats: AppraisalStatsResponse;
+    pagination?: any;
+  }> {
+    const response = await apiClient.get<ApiResponse<any>>(
+      '/api/admin/appraisals',
+      query,
+      { signal: options?.signal }
+    );
+    return unwrap<any>(response, '/api/admin/appraisals');
+  },
+
+  /**
+   * Fetches appraisal overview KPI stats from `GET /api/admin/appraisals/stats`.
+   */
+  async fetchAppraisalStats(options?: {
+    signal?: AbortSignal;
+  }): Promise<AppraisalStatsResponse> {
+    const response = await apiClient.get<ApiResponse<AppraisalStatsResponse>>(
+      '/api/admin/appraisals/stats',
+      undefined,
+      { signal: options?.signal }
+    );
+    return unwrap<AppraisalStatsResponse>(response, '/api/admin/appraisals/stats');
   },
 
   /**

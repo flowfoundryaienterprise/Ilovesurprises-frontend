@@ -103,6 +103,10 @@ export const AdminAppraisals: React.FC<AdminAppraisalsProps> = ({ onShowToast })
 
     window.addEventListener(APPRAISALS_UPDATED_EVENT, handleUpdate);
     window.addEventListener(APPRAISAL_SUBMISSIONS_UPDATED_EVENT, handleSubmissionsUpdate);
+
+    // Fetch latest appraisals & customer submissions from backend on mount
+    appraisalService.fetchAdminAppraisals().catch(() => {});
+
     return () => {
       window.removeEventListener(APPRAISALS_UPDATED_EVENT, handleUpdate);
       window.removeEventListener(APPRAISAL_SUBMISSIONS_UPDATED_EVENT, handleSubmissionsUpdate);

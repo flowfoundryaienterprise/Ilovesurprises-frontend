@@ -69,13 +69,14 @@ describe('adminService', () => {
       expect(ADMIN_FEATURE_AVAILABILITY.commissionLedger).toBe(true);
       expect(ADMIN_FEATURE_AVAILABILITY.storefrontContent).toBe(true);
       expect(ADMIN_FEATURE_AVAILABILITY.orders).toBe(true);
+      expect(ADMIN_FEATURE_AVAILABILITY.memberships).toBe(true);
+      expect(ADMIN_FEATURE_AVAILABILITY.appraisals).toBe(true);
     });
 
     it('marks features with no backend endpoint as unavailable', () => {
       expect(ADMIN_FEATURE_AVAILABILITY.collectionsCrud).toBe(false);
       expect(ADMIN_FEATURE_AVAILABILITY.inventoryLog).toBe(false);
       expect(ADMIN_FEATURE_AVAILABILITY.storeSettings).toBe(false);
-      expect(ADMIN_FEATURE_AVAILABILITY.memberships).toBe(false);
     });
   });
 
@@ -973,3 +974,141 @@ describe('mergeStorefrontIntoHomepageContent', () => {
     ).toBe(false);
   });
 });
+
+describe('adminService VIP memberships & jewelry appraisals', () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock);
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function jsonResponse(data: any, status = 200): Response {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      json: async () => data,
+      text: async () => JSON.stringify(data),
+    } as unknown as Response;
+  }
+
+  it('fetchMemberships retrieves subscriptions and pricing config from /api/admin/memberships', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: {
+          memberships: [
+            {
+              id: 'mem-1',
+              representativeId: 'rep-1',
+              repName: 'Sarah Jenkins',
+              repUsername: 'sarahj',
+              repAvatar: '',
+              plan: 'monthly',
+              planName: 'Monthly Active Plan',
+              price: 19.99,
+              billingFrequency: 'monthly',
+              paymentStatus: 'paid',
+              status: 'active',
+              nextBillingDate: '2026-03-01',
+              renewalStatus: 'auto_renew',
+              cancellationStatus: 'none',
+              startedAt: '2026-01-01',
+              paymentMethodSnippet: 'Visa ending in •••• 4242',
+            },
+          ],
+          plans: [],
+          pricing: { monthlyPrice: 19.99, sixMonthDiscount: 10, twelveMonthDiscount: 15 },
+          stats: { totalSubscriptions: 1, activeSubscriptions: 1, totalMrr: 19.99, plansBreakdown: [] },
+          pagination: { total: 1, page: 1, limit: 50, totalPages: 1 },
+        },
+      })
+    );
+
+    const result = await adminService.fetchMemberships();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/memberships');
+    expect(result.memberships.length).toBe(1);
+    expect(result.memberships[0].repName).toBe('Sarah Jenkins');
+    expect(result.pricing.monthlyPrice).toBe(19.99);
+  });
+
+  it('fetchMembershipPricing & updateMembershipPricing read and write to /api/admin/memberships/pricing', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: { monthlyPrice: 29.99, sixMonthDiscount: 15, twelveMonthDiscount: 20 },
+      })
+    );
+
+    const pricing = await adminService.fetchMembershipPricing();
+    expect(pricing.monthlyPrice).toBe(29.99);
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: { monthlyPrice: 34.99, sixMonthDiscount: 20, twelveMonthDiscount: 25 },
+      })
+    );
+
+    const updated = await adminService.updateMembershipPricing({
+      monthlyPrice: 34.99,
+      sixMonthDiscount: 20,
+      twelveMonthDiscount: 25,
+    });
+    expect(updated.monthlyPrice).toBe(34.99);
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/api/admin/memberships/pricing');
+  });
+
+  it('updateMembershipStatus issues PATCH /api/admin/memberships/:id/status', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ status: 'success', data: { id: 'mem-1', status: 'suspended' } })
+    );
+
+    const success = await adminService.updateMembershipStatus('mem-1', 'suspended');
+    expect(success).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/memberships/mem-1/status');
+  });
+
+  it('fetchAppraisals & fetchAppraisalStats retrieve registered codes and overview statistics', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: {
+          appraisals: [],
+          submissions: [],
+          stats: {
+            submissions: { totalSubmissions: 5, pendingReview: 2, reviewedSubmissions: 1, approvedAppraisals: 2 },
+            certificates: { registeredCodes: 15, totalAppraisedValuePool: 8500, averageItemValue: 566.67, customerPortalRoute: '/appraise-your-jewelry', valueRange: '$35 to $7,500' },
+          },
+        },
+      })
+    );
+
+    const res = await adminService.fetchAppraisals();
+    expect(res.stats.submissions.totalSubmissions).toBe(5);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/admin/appraisals');
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'success',
+        data: {
+          submissions: { totalSubmissions: 5, pendingReview: 2, reviewedSubmissions: 1, approvedAppraisals: 2 },
+          certificates: { registeredCodes: 15, totalAppraisedValuePool: 8500, averageItemValue: 566.67, customerPortalRoute: '/appraise-your-jewelry', valueRange: '$35 to $7,500' },
+        },
+      })
+    );
+
+    const stats = await adminService.fetchAppraisalStats();
+    expect(stats.certificates.registeredCodes).toBe(15);
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/api/admin/appraisals/stats');
+  });
+});
+
